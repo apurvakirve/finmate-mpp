@@ -11,13 +11,11 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { Feather as Icon } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import TransactionAnalysis from './TransactionAnalysis';
 
 export default function MoneyTransferApp() {
   const [email, setEmail] = useState('');
@@ -29,7 +27,6 @@ export default function MoneyTransferApp() {
   const [selectedUser, setSelectedUser] = useState('');
   const [transactionType, setTransactionType] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transfer' | 'analysis'>('transfer');
 
   // QR Code States
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -393,7 +390,6 @@ export default function MoneyTransferApp() {
     setCurrentUser(null);
     setUsers([]);
     setTransactions([]);
-    setActiveTab('transfer');
   };
 
   const refreshCurrentUser = async () => {
@@ -475,7 +471,7 @@ export default function MoneyTransferApp() {
     );
   }
 
-  // Main app screen with tabs
+  // Main app screen
   return (
     <SafeAreaView style={styles.mainContainer}>
       {/* Header */}
@@ -494,213 +490,156 @@ export default function MoneyTransferApp() {
         </View>
       </View>
 
-      {/* Main Tabs */}
-      <View style={styles.mainTabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            activeTab === 'transfer' && styles.activeMainTab
-          ]}
-          onPress={() => setActiveTab('transfer')}
+      {/* Balance Card */}
+      <View style={styles.balanceCard}>
+        <Text style={styles.balanceLabel}>Current Balance</Text>
+        <Text style={styles.balance}>${parseFloat(currentUser.balance).toFixed(2)}</Text>
+      </View>
+
+      {/* Quick Actions - QR Code Buttons */}
+      <View style={styles.quickActions}>
+        <TouchableOpacity 
+          style={styles.qrButton}
+          onPress={() => {
+            requestCameraPermission();
+            setShowQRScanner(true);
+          }}
         >
-          <Icon 
-            name="send" 
-            size={20} 
-            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
-          />
-          <Text style={[
-            styles.mainTabText,
-            activeTab === 'transfer' && styles.activeMainTabText
-          ]}>
-            Transfer
-          </Text>
+          <Icon name="camera" size={24} color="#007AFF" />
+          <Text style={styles.qrButtonText}>Scan QR</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            activeTab === 'analysis' && styles.activeMainTab
-          ]}
-          onPress={() => setActiveTab('analysis')}
+        <TouchableOpacity 
+          style={styles.qrButton}
+          onPress={() => setShowMyQR(true)}
         >
-          <Icon 
-            name="bar-chart-2" 
-            size={20} 
-            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
-          />
-          <Text style={[
-            styles.mainTabText,
-            activeTab === 'analysis' && styles.activeMainTabText
-          ]}>
-            Analysis
-          </Text>
+          <Icon name="maximize" size={24} color="#007AFF" />
+          <Text style={styles.qrButtonText}>My QR</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Transfer Tab Content */}
-      {activeTab === 'transfer' && (
-        <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-          {/* Balance Card */}
-          <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Current Balance</Text>
-            <Text style={styles.balance}>${parseFloat(currentUser.balance).toFixed(2)}</Text>
-          </View>
-
-          {/* Quick Actions - QR Code Buttons */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => {
-                requestCameraPermission();
-                setShowQRScanner(true);
-              }}
-            >
-              <Icon name="camera" size={24} color="#007AFF" />
-              <Text style={styles.qrButtonText}>Scan QR</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => setShowMyQR(true)}
-            >
-              <Icon name="maximize" size={24} color="#007AFF" />
-              <Text style={styles.qrButtonText}>My QR</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Transaction Form */}
-          <View style={styles.form}>
-            {currentUser.role === 'bank' ? (
-              <>
-                <Text style={styles.sectionTitle}>Manage User Balance</Text>
-                <FlatList
-                  data={users.filter(u => u.role === 'user')}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.userItem,
-                        selectedUser === item.id && styles.selectedItem
-                      ]}
-                      onPress={() => setSelectedUser(item.id)}
-                    >
-                      <Text style={styles.userItemText}>
-                        {item.name} - ${parseFloat(item.balance).toFixed(2)}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  style={styles.flatList}
-                  scrollEnabled={false}
-                />
-
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      transactionType === 'add' && styles.activeAdd
-                    ]}
-                    onPress={() => setTransactionType('add')}
-                  >
-                    <Text style={styles.actionButtonText}>Add Money</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionButton,
-                      transactionType === 'deduct' && styles.activeDeduct
-                    ]}
-                    onPress={() => setTransactionType('deduct')}
-                  >
-                    <Text style={styles.actionButtonText}>Deduct Money</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>Send Money To</Text>
-                <FlatList
-                  data={users.filter(u => u.id !== currentUser.id && u.role === 'user')}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.userItem,
-                        selectedUser === item.id && styles.selectedItem
-                      ]}
-                      onPress={() => setSelectedUser(item.id)}
-                    >
-                      <Text style={styles.userItemText}>
-                        {item.name} - ${parseFloat(item.balance).toFixed(2)}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  style={styles.flatList}
-                  scrollEnabled={false}
-                />
-              </>
-            )}
-
-            <TextInput
-              placeholder="Enter amount"
-              value={amount}
-              onChangeText={setAmount}
-              style={styles.input}
-              keyboardType="numeric"
-              placeholderTextColor="#666"
+      {/* Transaction Form */}
+      <View style={styles.form}>
+        {currentUser.role === 'bank' ? (
+          <>
+            <Text style={styles.sectionTitle}>Manage User Balance</Text>
+            <FlatList
+              data={users.filter(u => u.role === 'user')}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.userItem,
+                    selectedUser === item.id && styles.selectedItem
+                  ]}
+                  onPress={() => setSelectedUser(item.id)}
+                >
+                  <Text style={styles.userItemText}>
+                    {item.name} - ${parseFloat(item.balance).toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              style={styles.flatList}
             />
 
-            <TouchableOpacity 
-              style={[styles.sendButton, loading && styles.disabledButton]}
-              onPress={handleTransaction}
-              disabled={loading || !amount || !selectedUser}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.sendButtonText}>
-                  {currentUser.role === 'bank' ? 'Execute' : 'Send Money'}
-                </Text>
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  transactionType === 'add' && styles.activeAdd
+                ]}
+                onPress={() => setTransactionType('add')}
+              >
+                <Text style={styles.actionButtonText}>Add Money</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionButton,
+                  transactionType === 'deduct' && styles.activeDeduct
+                ]}
+                onPress={() => setTransactionType('deduct')}
+              >
+                <Text style={styles.actionButtonText}>Deduct Money</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Send Money To</Text>
+            <FlatList
+              data={users.filter(u => u.id !== currentUser.id && u.role === 'user')}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.userItem,
+                    selectedUser === item.id && styles.selectedItem
+                  ]}
+                  onPress={() => setSelectedUser(item.id)}
+                >
+                  <Text style={styles.userItemText}>
+                    {item.name} - ${parseFloat(item.balance).toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+              style={styles.flatList}
+            />
+          </>
+        )}
+
+        <TextInput
+          placeholder="Enter amount"
+          value={amount}
+          onChangeText={setAmount}
+          style={styles.input}
+          keyboardType="numeric"
+          placeholderTextColor="#666"
+        />
+
+        <TouchableOpacity 
+          style={[styles.sendButton, loading && styles.disabledButton]}
+          onPress={handleTransaction}
+          disabled={loading || !amount || !selectedUser}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.sendButtonText}>
+              {currentUser.role === 'bank' ? 'Execute' : 'Send Money'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* Transaction History */}
+      <Text style={styles.sectionTitle}>Transaction History</Text>
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <View style={styles.transactionItem}>
+            <View style={styles.transactionInfo}>
+              <Text style={styles.transactionNames}>
+                {item.from_name} → {item.to_name}
+              </Text>
+              <Text style={styles.transactionType}>
+                {item.type} • {new Date(item.timestamp).toLocaleDateString()}
+                {item.method === 'qr_code' && ' • QR Code'}
+              </Text>
+            </View>
+            <Text style={[
+              styles.transactionAmount,
+              { 
+                color: item.type === 'add' ? 'green' : 
+                       item.type === 'deduct' ? 'red' : 'blue' 
+              }
+            ]}>
+              ${parseFloat(item.amount).toFixed(2)}
+            </Text>
           </View>
-
-          {/* Recent Transactions */}
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          <FlatList
-            data={transactions.slice(0, 10)}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.transactionItem}>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionNames}>
-                    {item.from_name} → {item.to_name}
-                  </Text>
-                  <Text style={styles.transactionType}>
-                    {item.type} • {new Date(item.created_at).toLocaleDateString()}
-                    {item.method === 'qr_code' && ' • QR Code'}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.transactionAmount,
-                  { 
-                    color: item.type === 'add' ? 'green' : 
-                           item.type === 'deduct' ? 'red' : 
-                           item.from_user_id === currentUser.id ? 'red' : 'green'
-                  }
-                ]}>
-                  {item.from_user_id === currentUser.id ? '-' : '+'}${parseFloat(item.amount).toFixed(2)}
-                </Text>
-              </View>
-            )}
-            style={styles.transactionList}
-            scrollEnabled={false}
-          />
-        </ScrollView>
-      )}
-
-      {/* Analysis Tab Content */}
-      {activeTab === 'analysis' && (
-        <TransactionAnalysis currentUser={currentUser} />
-      )}
+        )}
+        style={styles.transactionList}
+      />
 
       {/* QR Scanner Modal */}
       <Modal
@@ -867,6 +806,7 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
+    padding: 20,
     backgroundColor: '#f5f5f5',
   },
   loginBox: {
@@ -927,10 +867,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    marginBottom: 20,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -951,39 +888,6 @@ const styles = StyleSheet.create({
   userRole: {
     color: 'gray',
     fontSize: 14,
-  },
-  // Main Tabs
-  mainTabContainer: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  mainTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  activeMainTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
-  },
-  mainTabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-  },
-  activeMainTabText: {
-    color: '#007AFF',
-    fontWeight: 'bold',
-  },
-  tabContent: {
-    flex: 1,
-    padding: 20,
   },
   balanceCard: {
     backgroundColor: '#007AFF',
@@ -1121,7 +1025,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   transactionList: {
-    marginBottom: 20,
+    flex: 1,
   },
   // Modal Styles
   modalContainer: {
