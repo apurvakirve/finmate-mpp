@@ -24,6 +24,7 @@ interface Transaction {
   method?: string;
   timestamp: string;
   created_at: string;
+  transaction_type: string;
 }
 
 interface SpendingAnalysis {
@@ -58,11 +59,30 @@ interface SpendingAnalysis {
     amount: number;
   }>;
   spendingInsights: string[];
+  categoryBreakdown: Array<{
+    category: string;
+    spent: number;
+    received: number;
+    count: number;
+    percentage: number;
+  }>;
 }
 
 interface TransactionAnalysisProps {
   currentUser: any;
 }
+
+// Category colors and icons
+const CATEGORY_CONFIG = {
+  food: { color: '#FF6384', icon: 'coffee', label: 'Food & Dining' },
+  transportation: { color: '#36A2EB', icon: 'car', label: 'Transportation' },
+  shopping: { color: '#FFCE56', icon: 'shopping-bag', label: 'Shopping' },
+  utilities: { color: '#4BC0C0', icon: 'home', label: 'Utilities' },
+  entertainment: { color: '#9966FF', icon: 'film', label: 'Entertainment' },
+  healthcare: { color: '#FF9F40', icon: 'heart', label: 'Healthcare' },
+  transfer: { color: '#C9CBCF', icon: 'send', label: 'Money Transfer' },
+  other: { color: '#8AC926', icon: 'box', label: 'Other' },
+};
 
 export default function TransactionAnalysis({ currentUser }: TransactionAnalysisProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -130,7 +150,8 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
         spendingPattern: 'low',
         topSpendingCategories: [],
         dailySpending: [],
-        spendingInsights: ['No transaction data available for analysis.']
+        spendingInsights: ['No transaction data available for analysis.'],
+        categoryBreakdown: []
       };
     }
 
@@ -149,45 +170,36 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
     const averageTransaction = transactionCount > 0 ? (totalSpent + totalReceived) / transactionCount : 0;
     const largestTransaction = Math.max(...userTransactions.map(t => t.amount));
 
-    // Categorize spending
+    // Categorize spending using transaction_type
     const spendingByCategory: { [key: string]: number } = {};
+    const categoryBreakdownMap: { [key: string]: { spent: number; received: number; count: number } } = {};
     const contactMap: { [key: string]: { name: string; sent: number; received: number; count: number } } = {};
     const dailySpendingMap: { [key: string]: number } = {};
+
+    // Initialize category breakdown
+    Object.keys(CATEGORY_CONFIG).forEach(category => {
+      categoryBreakdownMap[category] = { spent: 0, received: 0, count: 0 };
+    });
 
     sentTransactions.forEach(transaction => {
       const amount = transaction.amount;
       const recipient = transaction.to_name;
       const date = new Date(transaction.created_at);
       const dayKey = date.toISOString().split('T')[0];
+      const category = transaction.transaction_type || 'other';
       
       // Track daily spending
       dailySpendingMap[dayKey] = (dailySpendingMap[dayKey] || 0) + amount;
 
-      // Categorize transactions
-      let category = 'Other';
-      
-      // Amount-based categorization
-      if (amount < 50) category = 'Small Payments';
-      else if (amount >= 50 && amount < 200) category = 'Medium Payments';
-      else if (amount >= 200) category = 'Large Payments';
-      
-      // Recipient-based categorization
-      const recipientLower = recipient.toLowerCase();
-      if (recipientLower.includes('food') || recipientLower.includes('restaurant') || recipientLower.includes('cafe') || recipientLower.includes('meal')) {
-        category = 'Food & Dining';
-      } else if (recipientLower.includes('uber') || recipientLower.includes('taxi') || recipientLower.includes('transport') || recipientLower.includes('ride')) {
-        category = 'Transportation';
-      } else if (recipientLower.includes('shopping') || recipientLower.includes('store') || recipientLower.includes('mart') || recipientLower.includes('market')) {
-        category = 'Shopping';
-      } else if (recipientLower.includes('electric') || recipientLower.includes('water') || recipientLower.includes('bill') || recipientLower.includes('utility')) {
-        category = 'Utilities';
-      } else if (recipientLower.includes('movie') || recipientLower.includes('entertain') || recipientLower.includes('game')) {
-        category = 'Entertainment';
-      } else if (recipientLower.includes('medical') || recipientLower.includes('hospital') || recipientLower.includes('doctor')) {
-        category = 'Healthcare';
-      }
-
+      // Categorize transactions using transaction_type
       spendingByCategory[category] = (spendingByCategory[category] || 0) + amount;
+
+      // Update category breakdown
+      if (!categoryBreakdownMap[category]) {
+        categoryBreakdownMap[category] = { spent: 0, received: 0, count: 0 };
+      }
+      categoryBreakdownMap[category].spent += amount;
+      categoryBreakdownMap[category].count += 1;
 
       // Track frequent contacts
       if (!contactMap[recipient]) {
@@ -200,6 +212,14 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
     receivedTransactions.forEach(transaction => {
       const sender = transaction.from_name;
       const amount = transaction.amount;
+      const category = transaction.transaction_type || 'other';
+
+      // Update category breakdown for received transactions
+      if (!categoryBreakdownMap[category]) {
+        categoryBreakdownMap[category] = { spent: 0, received: 0, count: 0 };
+      }
+      categoryBreakdownMap[category].received += amount;
+      categoryBreakdownMap[category].count += 1;
 
       if (!contactMap[sender]) {
         contactMap[sender] = { name: sender, sent: 0, received: 0, count: 0 };
@@ -207,6 +227,17 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
       contactMap[sender].received += amount;
       contactMap[sender].count += 1;
     });
+
+    // Convert category breakdown to array
+    const categoryBreakdown = Object.entries(categoryBreakdownMap)
+      .map(([category, data]) => ({
+        category,
+        spent: data.spent,
+        received: data.received,
+        count: data.count,
+        percentage: totalSpent > 0 ? (data.spent / totalSpent) * 100 : 0
+      }))
+      .sort((a, b) => b.spent - a.spent);
 
     // Convert contact map to array and sort
     const frequentContacts = Object.values(contactMap)
@@ -245,7 +276,7 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
       .sort((a, b) => a.month.localeCompare(b.month))
       .slice(-6);
 
-    // Daily spending data
+    // Daily spending data - FIXED: Only include sent transactions
     const dailySpending = Object.entries(dailySpendingMap)
       .map(([day, amount]) => ({
         day: new Date(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -254,9 +285,12 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
       .sort((a, b) => new Date(a.day).getTime() - new Date(b.day).getTime())
       .slice(-7);
 
-    // Determine spending pattern
+    // Determine spending pattern - FIXED: Better calculation
     let spendingPattern: 'high' | 'moderate' | 'low' = 'low';
-    const dailyAverageSpending = totalSpent / (timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : timeRange === 'year' ? 365 : transactionCount / 30);
+    const daysInRange = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : timeRange === 'year' ? 365 : 
+                       Math.max(1, Math.ceil((new Date().getTime() - new Date(Math.min(...userTransactions.map(t => new Date(t.created_at).getTime()))).getTime()) / (1000 * 60 * 60 * 24)));
+    
+    const dailyAverageSpending = totalSpent / daysInRange;
     
     if (dailyAverageSpending > 100) spendingPattern = 'high';
     else if (dailyAverageSpending > 30) spendingPattern = 'moderate';
@@ -265,7 +299,7 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
     // Calculate top spending categories
     const topSpendingCategories = Object.entries(spendingByCategory)
       .map(([category, amount]) => ({
-        category,
+        category: CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG]?.label || category,
         amount,
         percentage: totalSpent > 0 ? (amount / totalSpent) * 100 : 0
       }))
@@ -285,6 +319,12 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
         spendingInsights.push(`Your largest spending category is ${largestCategory.category} (${largestCategory.percentage.toFixed(1)}% of total spending).`);
       }
 
+      // Category diversity insight
+      const activeCategories = categoryBreakdown.filter(cat => cat.spent > 0).length;
+      if (activeCategories > 3) {
+        spendingInsights.push(`You spend across ${activeCategories} different categories.`);
+      }
+
       // Net flow insight
       if (netFlow > 0) {
         spendingInsights.push(`Great! You've received $${netFlow.toFixed(2)} more than you've spent.`);
@@ -293,8 +333,9 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
       }
 
       // Frequency insight
-      if (transactionCount > 20) {
-        spendingInsights.push(`You're an active user with ${transactionCount} transactions.`);
+      const avgTransactionsPerDay = transactionCount / daysInRange;
+      if (avgTransactionsPerDay > 1) {
+        spendingInsights.push(`You make an average of ${avgTransactionsPerDay.toFixed(1)} transactions per day.`);
       }
 
       // Large transaction insight
@@ -316,7 +357,8 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
       spendingPattern,
       topSpendingCategories,
       dailySpending,
-      spendingInsights
+      spendingInsights,
+      categoryBreakdown
     };
   }, [transactions, currentUser.id, timeRange]);
 
@@ -480,26 +522,42 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
         {activeTab === 'categories' && (
           <View>
             <Text style={styles.sectionTitle}>Spending by Category</Text>
-            {spendingAnalysis.topSpendingCategories.map((category, index) => (
-              <View key={category.category} style={styles.categoryItem}>
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryName}>{category.category}</Text>
-                  <Text style={styles.categoryAmount}>${category.amount.toFixed(2)}</Text>
-                </View>
-                <View style={styles.progressBar}>
-                  <View 
-                    style={[
-                      styles.progressFill,
-                      { 
-                        width: `${Math.min(category.percentage, 100)}%`,
-                        backgroundColor: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6', '#AF52DE'][index]
-                      }
-                    ]} 
-                  />
-                </View>
-                <Text style={styles.categoryPercentage}>{category.percentage.toFixed(1)}% of total</Text>
-              </View>
-            ))}
+            {spendingAnalysis.categoryBreakdown
+              .filter(category => category.spent > 0)
+              .map((category, index) => {
+                const config = CATEGORY_CONFIG[category.category as keyof typeof CATEGORY_CONFIG] || CATEGORY_CONFIG.other;
+                return (
+                  <View key={category.category} style={styles.categoryItem}>
+                    <View style={styles.categoryHeader}>
+                      <View style={styles.categoryTitle}>
+                        <Icon name={config.icon as any} size={20} color={config.color} />
+                        <Text style={styles.categoryName}>{config.label}</Text>
+                      </View>
+                      <Text style={styles.categoryAmount}>${category.spent.toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill,
+                          { 
+                            width: `${Math.min(category.percentage, 100)}%`,
+                            backgroundColor: config.color
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <View style={styles.categoryDetails}>
+                      <Text style={styles.categoryPercentage}>{category.percentage.toFixed(1)}% of total</Text>
+                      <Text style={styles.categoryCount}>{category.count} transactions</Text>
+                    </View>
+                    {category.received > 0 && (
+                      <Text style={styles.categoryReceived}>
+                        Received: ${category.received.toFixed(2)}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
           </View>
         )}
 
@@ -533,39 +591,39 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
             {spendingAnalysis.monthlySpending.length > 0 && (
               <BarChart
                 data={{
-                    labels: spendingAnalysis.monthlySpending.map(m => m.month),
-                    datasets: [
+                  labels: spendingAnalysis.monthlySpending.map(m => m.month),
+                  datasets: [
                     {
-                        data: spendingAnalysis.monthlySpending.map(m => m.spent),
+                      data: spendingAnalysis.monthlySpending.map(m => m.spent),
                     },
-                    ],
+                  ],
                 }}
                 width={screenWidth}
                 height={220}
                 yAxisLabel="$"
                 yAxisSuffix=""
                 chartConfig={{
-                    backgroundColor: '#ffffff',
-                    backgroundGradientFrom: '#ffffff',
-                    backgroundGradientTo: '#ffffff',
-                    decimalPlaces: 0,
-                    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                    style: {
+                  backgroundColor: '#ffffff',
+                  backgroundGradientFrom: '#ffffff',
+                  backgroundGradientTo: '#ffffff',
+                  decimalPlaces: 0,
+                  color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                  style: {
                     borderRadius: 16,
-                    },
-                    propsForDots: {
+                  },
+                  propsForDots: {
                     r: '6',
                     strokeWidth: '2',
                     stroke: '#ffa726'
-                    }
+                  }
                 }}
                 style={{
-                    marginVertical: 8,
-                    borderRadius: 16,
+                  marginVertical: 8,
+                  borderRadius: 16,
                 }}
                 verticalLabelRotation={30}
-                />
+              />
             )}
 
             <Text style={[styles.sectionTitle, { marginTop: 30 }]}>Daily Spending</Text>
@@ -758,10 +816,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  categoryTitle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   categoryName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
+    marginLeft: 8,
   },
   categoryAmount: {
     fontSize: 16,
@@ -779,9 +842,23 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 4,
   },
+  categoryDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   categoryPercentage: {
     fontSize: 12,
     color: '#666',
+  },
+  categoryCount: {
+    fontSize: 12,
+    color: '#666',
+  },
+  categoryReceived: {
+    fontSize: 12,
+    color: '#34C759',
+    marginTop: 4,
   },
   contactItem: {
     flexDirection: 'row',

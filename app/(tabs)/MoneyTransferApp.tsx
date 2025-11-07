@@ -11,11 +11,25 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { Feather as Icon } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import TransactionAnalysis from './TransactionAnalysis';
+
+// Add transaction types constant
+const TRANSACTION_TYPES = [
+  { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
+  { value: 'transportation', label: '🚗 Transportation', icon: 'car' },
+  { value: 'shopping', label: '🛍️ Shopping', icon: 'shopping-bag' },
+  { value: 'utilities', label: '💡 Utilities', icon: 'home' },
+  { value: 'entertainment', label: '🎬 Entertainment', icon: 'film' },
+  { value: 'healthcare', label: '🏥 Healthcare', icon: 'heart' },
+  { value: 'transfer', label: '💸 Money Transfer', icon: 'send' },
+  { value: 'other', label: '📦 Other', icon: 'box' },
+];
 
 export default function MoneyTransferApp() {
   const [email, setEmail] = useState('');
@@ -26,7 +40,9 @@ export default function MoneyTransferApp() {
   const [amount, setAmount] = useState('');
   const [selectedUser, setSelectedUser] = useState('');
   const [transactionType, setTransactionType] = useState('');
+  const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'transfer' | 'analysis'>('transfer');
 
   // QR Code States
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -34,6 +50,7 @@ export default function MoneyTransferApp() {
   const [showAmountModal, setShowAmountModal] = useState(false);
   const [qrRecipient, setQrRecipient] = useState<any>(null);
   const [qrAmount, setQrAmount] = useState('');
+  const [qrCategory, setQrCategory] = useState('other');
   const [permission, requestPermission] = useCameraPermissions();
 
   // Use refs to prevent infinite loops
@@ -208,7 +225,7 @@ export default function MoneyTransferApp() {
 
       if (receiverError) throw receiverError;
 
-      // Create transaction
+      // Create transaction with category
       await supabase.from('transactions').insert({
         from_user_id: sender.id,
         to_user_id: receiver.id,
@@ -217,6 +234,7 @@ export default function MoneyTransferApp() {
         amount: amt,
         type: 'transfer',
         method: 'qr_code',
+        transaction_type: qrCategory,
       });
 
       // Update current user immediately
@@ -227,6 +245,7 @@ export default function MoneyTransferApp() {
       Alert.alert('Success', `$${amt} sent to ${receiver.name} via QR code!`);
       setQrAmount('');
       setQrRecipient(null);
+      setQrCategory('other');
 
     } catch (error) {
       console.log('QR Transaction error:', error);
@@ -320,6 +339,7 @@ export default function MoneyTransferApp() {
           to_name: targetUser.name,
           amount: amt,
           type: transactionType,
+          transaction_type: categoryType,
         });
 
         Alert.alert('Success', `$${amt} ${transactionType}ed to ${targetUser.name}`);
@@ -365,6 +385,7 @@ export default function MoneyTransferApp() {
           to_name: receiver.name,
           amount: amt,
           type: 'transfer',
+          transaction_type: categoryType,
         });
 
         if (currentUser.id === sender.id) {
@@ -377,6 +398,7 @@ export default function MoneyTransferApp() {
       setAmount('');
       setSelectedUser('');
       setTransactionType('');
+      setCategoryType('other');
 
     } catch (error) {
       console.log('Transaction error:', error);
@@ -390,6 +412,7 @@ export default function MoneyTransferApp() {
     setCurrentUser(null);
     setUsers([]);
     setTransactions([]);
+    setActiveTab('transfer');
   };
 
   const refreshCurrentUser = async () => {
@@ -412,6 +435,191 @@ export default function MoneyTransferApp() {
       await requestPermission();
     }
   };
+
+  // Render category selector for QR payment
+  const renderQRCategorySelector = () => (
+    <View style={styles.qrCategorySection}>
+      <Text style={styles.qrCategoryTitle}>Select Category</Text>
+      <View style={styles.qrCategoryGrid}>
+        {TRANSACTION_TYPES.map((type) => (
+          <TouchableOpacity
+            key={type.value}
+            style={[
+              styles.qrCategoryButton,
+              qrCategory === type.value && styles.qrCategoryButtonActive
+            ]}
+            onPress={() => setQrCategory(type.value)}
+          >
+            <View style={[
+              styles.radioCircle,
+              qrCategory === type.value && styles.radioCircleActive
+            ]}>
+              {qrCategory === type.value && <View style={styles.radioInnerCircle} />}
+            </View>
+            <Icon 
+              name={type.icon as any} 
+              size={20} 
+              color={qrCategory === type.value ? '#007AFF' : '#666'} 
+            />
+            <Text style={[
+              styles.qrCategoryButtonText,
+              qrCategory === type.value && styles.qrCategoryButtonTextActive
+            ]}>
+              {type.label.split(' ')[0]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  // Render category selector for regular transfer
+  const renderCategorySelector = () => (
+    <View style={styles.categorySection}>
+      <Text style={styles.sectionTitle}>Category</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        {TRANSACTION_TYPES.map((type) => (
+          <TouchableOpacity
+            key={type.value}
+            style={[
+              styles.categoryButton,
+              categoryType === type.value && styles.categoryButtonActive
+            ]}
+            onPress={() => setCategoryType(type.value)}
+          >
+            <Icon 
+              name={type.icon as any} 
+              size={20} 
+              color={categoryType === type.value ? '#007AFF' : '#666'} 
+            />
+            <Text style={[
+              styles.categoryButtonText,
+              categoryType === type.value && styles.categoryButtonTextActive
+            ]}>
+              {type.label.split(' ')[0]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
+  // Render transfer form for regular users
+  const renderUserTransferForm = () => (
+    <View style={styles.form}>
+      <Text style={styles.sectionTitle}>Send Money</Text>
+      
+      <Text style={styles.label}>Select Recipient</Text>
+      <FlatList
+        data={users.filter(user => user.id !== currentUser.id)}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.userItem,
+              selectedUser === item.id.toString() && styles.selectedItem
+            ]}
+            onPress={() => setSelectedUser(item.id.toString())}
+          >
+            <Text style={styles.userItemText}>{item.name}</Text>
+            <Text style={styles.userBalance}>${parseFloat(item.balance).toFixed(2)}</Text>
+          </TouchableOpacity>
+        )}
+        style={styles.flatList}
+        scrollEnabled={true}
+      />
+
+      {renderCategorySelector()}
+
+      <Text style={styles.label}>Amount</Text>
+      <TextInput
+        placeholder="Enter amount"
+        value={amount}
+        onChangeText={setAmount}
+        style={styles.input}
+        keyboardType="numeric"
+      />
+
+      <TouchableOpacity 
+        style={[styles.sendButton, (!amount || !selectedUser) && styles.disabledButton]}
+        onPress={handleTransaction}
+        disabled={!amount || !selectedUser}
+      >
+        <Text style={styles.sendButtonText}>
+          Send ${amount || '0.00'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render bank management form
+  const renderBankForm = () => (
+    <View style={styles.form}>
+      <Text style={styles.sectionTitle}>Manage User Balance</Text>
+      
+      <Text style={styles.label}>Select User</Text>
+      <FlatList
+        data={users}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={[
+              styles.userItem,
+              selectedUser === item.id.toString() && styles.selectedItem
+            ]}
+            onPress={() => setSelectedUser(item.id.toString())}
+          >
+            <Text style={styles.userItemText}>{item.name}</Text>
+            <Text style={styles.userBalance}>${parseFloat(item.balance).toFixed(2)}</Text>
+          </TouchableOpacity>
+        )}
+        style={styles.flatList}
+        scrollEnabled={true}
+      />
+
+      {renderCategorySelector()}
+
+      <Text style={styles.label}>Amount</Text>
+      <TextInput
+        placeholder="Enter amount"
+        value={amount}
+        onChangeText={setAmount}
+        style={styles.input}
+        keyboardType="numeric"
+      />
+
+      <View style={styles.actionRow}>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            transactionType === 'add' && styles.activeAdd
+          ]}
+          onPress={() => setTransactionType('add')}
+        >
+          <Text style={styles.actionButtonText}>Add Money</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.actionButton,
+            transactionType === 'deduct' && styles.activeDeduct
+          ]}
+          onPress={() => setTransactionType('deduct')}
+        >
+          <Text style={styles.actionButtonText}>Deduct Money</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity 
+        style={[styles.sendButton, (!amount || !selectedUser || !transactionType) && styles.disabledButton]}
+        onPress={handleTransaction}
+        disabled={!amount || !selectedUser || !transactionType}
+      >
+        <Text style={styles.sendButtonText}>
+          {transactionType === 'add' ? 'Add' : 'Deduct'} ${amount || '0.00'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // Loading screen
   if (loading && !currentUser) {
@@ -471,7 +679,7 @@ export default function MoneyTransferApp() {
     );
   }
 
-  // Main app screen
+  // Main app screen with tabs
   return (
     <SafeAreaView style={styles.mainContainer}>
       {/* Header */}
@@ -490,156 +698,121 @@ export default function MoneyTransferApp() {
         </View>
       </View>
 
-      {/* Balance Card */}
-      <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>Current Balance</Text>
-        <Text style={styles.balance}>${parseFloat(currentUser.balance).toFixed(2)}</Text>
-      </View>
-
-      {/* Quick Actions - QR Code Buttons */}
-      <View style={styles.quickActions}>
-        <TouchableOpacity 
-          style={styles.qrButton}
-          onPress={() => {
-            requestCameraPermission();
-            setShowQRScanner(true);
-          }}
+      {/* Main Tabs */}
+      <View style={styles.mainTabContainer}>
+        <TouchableOpacity
+          style={[
+            styles.mainTab,
+            activeTab === 'transfer' && styles.activeMainTab
+          ]}
+          onPress={() => setActiveTab('transfer')}
         >
-          <Icon name="camera" size={24} color="#007AFF" />
-          <Text style={styles.qrButtonText}>Scan QR</Text>
+          <Icon 
+            name="send" 
+            size={20} 
+            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[
+            styles.mainTabText,
+            activeTab === 'transfer' && styles.activeMainTabText
+          ]}>
+            Transfer
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.qrButton}
-          onPress={() => setShowMyQR(true)}
+        <TouchableOpacity
+          style={[
+            styles.mainTab,
+            activeTab === 'analysis' && styles.activeMainTab
+          ]}
+          onPress={() => setActiveTab('analysis')}
         >
-          <Icon name="maximize" size={24} color="#007AFF" />
-          <Text style={styles.qrButtonText}>My QR</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Transaction Form */}
-      <View style={styles.form}>
-        {currentUser.role === 'bank' ? (
-          <>
-            <Text style={styles.sectionTitle}>Manage User Balance</Text>
-            <FlatList
-              data={users.filter(u => u.role === 'user')}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.userItem,
-                    selectedUser === item.id && styles.selectedItem
-                  ]}
-                  onPress={() => setSelectedUser(item.id)}
-                >
-                  <Text style={styles.userItemText}>
-                    {item.name} - ${parseFloat(item.balance).toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              style={styles.flatList}
-            />
-
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  transactionType === 'add' && styles.activeAdd
-                ]}
-                onPress={() => setTransactionType('add')}
-              >
-                <Text style={styles.actionButtonText}>Add Money</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  transactionType === 'deduct' && styles.activeDeduct
-                ]}
-                onPress={() => setTransactionType('deduct')}
-              >
-                <Text style={styles.actionButtonText}>Deduct Money</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={styles.sectionTitle}>Send Money To</Text>
-            <FlatList
-              data={users.filter(u => u.id !== currentUser.id && u.role === 'user')}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.userItem,
-                    selectedUser === item.id && styles.selectedItem
-                  ]}
-                  onPress={() => setSelectedUser(item.id)}
-                >
-                  <Text style={styles.userItemText}>
-                    {item.name} - ${parseFloat(item.balance).toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              style={styles.flatList}
-            />
-          </>
-        )}
-
-        <TextInput
-          placeholder="Enter amount"
-          value={amount}
-          onChangeText={setAmount}
-          style={styles.input}
-          keyboardType="numeric"
-          placeholderTextColor="#666"
-        />
-
-        <TouchableOpacity 
-          style={[styles.sendButton, loading && styles.disabledButton]}
-          onPress={handleTransaction}
-          disabled={loading || !amount || !selectedUser}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.sendButtonText}>
-              {currentUser.role === 'bank' ? 'Execute' : 'Send Money'}
-            </Text>
-          )}
+          <Icon 
+            name="bar-chart-2" 
+            size={20} 
+            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[
+            styles.mainTabText,
+            activeTab === 'analysis' && styles.activeMainTabText
+          ]}>
+            Analysis
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Transaction History */}
-      <Text style={styles.sectionTitle}>Transaction History</Text>
-      <FlatList
-        data={transactions}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.transactionItem}>
-            <View style={styles.transactionInfo}>
-              <Text style={styles.transactionNames}>
-                {item.from_name} → {item.to_name}
-              </Text>
-              <Text style={styles.transactionType}>
-                {item.type} • {new Date(item.timestamp).toLocaleDateString()}
-                {item.method === 'qr_code' && ' • QR Code'}
-              </Text>
-            </View>
-            <Text style={[
-              styles.transactionAmount,
-              { 
-                color: item.type === 'add' ? 'green' : 
-                       item.type === 'deduct' ? 'red' : 'blue' 
-              }
-            ]}>
-              ${parseFloat(item.amount).toFixed(2)}
-            </Text>
+      {/* Transfer Tab Content */}
+      {activeTab === 'transfer' && (
+        <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+          {/* Balance Card */}
+          <View style={styles.balanceCard}>
+            <Text style={styles.balanceLabel}>Current Balance</Text>
+            <Text style={styles.balance}>${parseFloat(currentUser.balance).toFixed(2)}</Text>
           </View>
-        )}
-        style={styles.transactionList}
-      />
+
+          {/* Quick Actions - QR Code Buttons */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.qrButton}
+              onPress={() => {
+                requestCameraPermission();
+                setShowQRScanner(true);
+              }}
+            >
+              <Icon name="camera" size={24} color="#007AFF" />
+              <Text style={styles.qrButtonText}>Scan QR</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.qrButton}
+              onPress={() => setShowMyQR(true)}
+            >
+              <Icon name="maximize" size={24} color="#007AFF" />
+              <Text style={styles.qrButtonText}>My QR</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Transfer Form */}
+          {currentUser.role === 'bank' ? renderBankForm() : renderUserTransferForm()}
+
+          {/* Recent Transactions */}
+          <Text style={styles.sectionTitle}>Recent Transactions</Text>
+          <FlatList
+            data={transactions.slice(0, 10)}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.transactionItem}>
+                <View style={styles.transactionInfo}>
+                  <Text style={styles.transactionNames}>
+                    {item.from_name} → {item.to_name}
+                  </Text>
+                  <Text style={styles.transactionType}>
+                    {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
+                    {item.method === 'qr_code' && ' • QR Code'}
+                  </Text>
+                </View>
+                <Text style={[
+                  styles.transactionAmount,
+                  { 
+                    color: item.type === 'add' ? 'green' : 
+                           item.type === 'deduct' ? 'red' : 
+                           item.from_user_id === currentUser.id ? 'red' : 'green'
+                  }
+                ]}>
+                  {item.from_user_id === currentUser.id ? '-' : '+'}${parseFloat(item.amount).toFixed(2)}
+                </Text>
+              </View>
+            )}
+            style={styles.transactionList}
+            scrollEnabled={false}
+          />
+        </ScrollView>
+      )}
+
+      {/* Analysis Tab Content */}
+      {activeTab === 'analysis' && (
+        <TransactionAnalysis currentUser={currentUser} />
+      )}
 
       {/* QR Scanner Modal */}
       <Modal
@@ -733,13 +906,16 @@ export default function MoneyTransferApp() {
             </TouchableOpacity>
           </View>
           
-          <View style={styles.amountModalContent}>
+          <ScrollView style={styles.amountModalContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.amountModalRecipient}>
               Send to: {qrRecipient?.userName}
             </Text>
             <Text style={styles.amountModalEmail}>
               {qrRecipient?.email}
             </Text>
+            
+            {/* Category Selection */}
+            {renderQRCategorySelector()}
             
             <View style={styles.amountInputContainer}>
               <Text style={styles.amountLabel}>Amount</Text>
@@ -783,7 +959,7 @@ export default function MoneyTransferApp() {
                 Send ${qrAmount || '0.00'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </SafeAreaView>
@@ -806,7 +982,6 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#f5f5f5',
   },
   loginBox: {
@@ -867,7 +1042,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    padding: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -888,6 +1066,39 @@ const styles = StyleSheet.create({
   userRole: {
     color: 'gray',
     fontSize: 14,
+  },
+  // Main Tabs
+  mainTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+  },
+  mainTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  activeMainTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#007AFF',
+  },
+  mainTabText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#666',
+  },
+  activeMainTabText: {
+    color: '#007AFF',
+    fontWeight: 'bold',
+  },
+  tabContent: {
+    flex: 1,
+    padding: 20,
   },
   balanceCard: {
     backgroundColor: '#007AFF',
@@ -940,10 +1151,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#333',
   },
+  label: {
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
+  },
   flatList: {
     maxHeight: 150,
   },
   userItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 12,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -958,6 +1177,10 @@ const styles = StyleSheet.create({
   userItemText: {
     fontSize: 16,
     color: '#333',
+  },
+  userBalance: {
+    fontSize: 14,
+    color: '#666',
   },
   actionRow: {
     flexDirection: 'row',
@@ -998,6 +1221,97 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+  // Category Styles
+  categorySection: {
+    marginVertical: 15,
+  },
+  categoryScroll: {
+    marginVertical: 10,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 10,
+    minWidth: 100,
+    justifyContent: 'center',
+  },
+  categoryButtonActive: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#007AFF',
+    borderWidth: 2,
+  },
+  categoryButtonText: {
+    marginLeft: 5,
+    fontWeight: '600',
+    color: '#666',
+  },
+  categoryButtonTextActive: {
+    color: '#007AFF',
+  },
+  // QR Category Styles
+  qrCategorySection: {
+    marginVertical: 20,
+  },
+  qrCategoryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  qrCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  qrCategoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+    width: '48%',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  qrCategoryButtonActive: {
+    backgroundColor: '#e3f2fd',
+    borderColor: '#007AFF',
+  },
+  qrCategoryButtonText: {
+    marginLeft: 8,
+    fontWeight: '600',
+    color: '#666',
+    fontSize: 14,
+  },
+  qrCategoryButtonTextActive: {
+    color: '#007AFF',
+  },
+  // Radio Button Styles
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#ddd',
+    marginRight: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioCircleActive: {
+    borderColor: '#007AFF',
+  },
+  radioInnerCircle: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#007AFF',
+  },
   transactionItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1025,7 +1339,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   transactionList: {
-    flex: 1,
+    marginBottom: 20,
   },
   // Modal Styles
   modalContainer: {
@@ -1143,7 +1457,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   amountInputContainer: {
     marginBottom: 30,
@@ -1202,4 +1516,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-});
+}); 
