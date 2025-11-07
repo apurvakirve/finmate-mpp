@@ -1,17 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Dimensions,
-  ActivityIndicator,
-} from 'react-native';
-import { PieChart, BarChart, LineChart } from 'react-native-chart-kit';
 import { Feather as Icon } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { supabase } from '../../lib/supabase';
+import RiskProfile, { RiskLevel } from './RiskProfile';
 
 interface Transaction {
   id: string;
@@ -70,6 +72,7 @@ interface SpendingAnalysis {
 
 interface TransactionAnalysisProps {
   currentUser: any;
+  initialTab?: 'overview' | 'categories' | 'contacts' | 'trends' | 'coach';
 }
 
 // Category colors and icons
@@ -84,15 +87,26 @@ const CATEGORY_CONFIG = {
   other: { color: '#8AC926', icon: 'box', label: 'Other' },
 };
 
-export default function TransactionAnalysis({ currentUser }: TransactionAnalysisProps) {
+export default function TransactionAnalysis({ currentUser, initialTab = 'overview' }: TransactionAnalysisProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year' | 'all'>('month');
-  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'contacts' | 'trends'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'contacts' | 'trends' | 'coach'>(initialTab);
+  const [budgets, setBudgets] = useState<Record<string, number>>({});
+  const [budgetLoading, setBudgetLoading] = useState(false);
+  const [riskLevel, setRiskLevel] = useState<RiskLevel>('moderate');
 
   useEffect(() => {
     fetchTransactions();
   }, [currentUser, timeRange]);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    loadBudgets();
+  }, [currentUser?.id]);
 
   const fetchTransactions = async () => {
     try {
@@ -132,6 +146,30 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
     } finally {
       setLoading(false);
     }
+  };
+
+  const budgetsKey = (userId: string) => `mt_budgets_${userId}`;
+
+  const loadBudgets = async () => {
+    try {
+      setBudgetLoading(true);
+      const raw = await AsyncStorage.getItem(budgetsKey(String(currentUser.id)));
+      if (raw) {
+        setBudgets(JSON.parse(raw));
+      } else {
+        setBudgets({});
+      }
+    } catch (e) {
+      setBudgets({});
+    } finally {
+      setBudgetLoading(false);
+    }
+  };
+
+  const saveBudget = async (category: string, amount: number) => {
+    const next = { ...budgets, [category]: Math.max(0, Math.round(amount)) };
+    setBudgets(next);
+    await AsyncStorage.setItem(budgetsKey(String(currentUser.id)), JSON.stringify(next));
   };
 
   // Analyze spending patterns
@@ -362,6 +400,70 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
     };
   }, [transactions, currentUser.id, timeRange]);
 
+  // Compute current-month spending per category for budget tracking and coaching
+  const currentMonthKey = (() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+  })();
+
+  const monthSentByCategory: Record<string, number> = useMemo(() => {
+    const result: Record<string, number> = {};
+    transactions.forEach(t => {
+      if (t.from_user_id !== currentUser.id) return;
+      const d = new Date(t.created_at);
+      const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      if (key !== currentMonthKey) return;
+      const cat = t.transaction_type || 'other';
+      result[cat] = (result[cat] || 0) + t.amount;
+    });
+    return result;
+  }, [transactions, currentUser.id, currentMonthKey]);
+
+  // Recommend budgets from historical average (last 3 months) if user hasn't set
+  const recommendedBudgets: Record<string, number> = useMemo(() => {
+    const sums: Record<string, { total: number; months: Set<string> }> = {};
+    transactions.forEach(t => {
+      if (t.from_user_id !== currentUser.id) return;
+      const d = new Date(t.created_at);
+      const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+      const cat = t.transaction_type || 'other';
+      if (!sums[cat]) sums[cat] = { total: 0, months: new Set<string>() };
+      sums[cat].total += t.amount;
+      sums[cat].months.add(key);
+    });
+    const now = new Date();
+    const last3 = new Set<string>();
+    for (let i = 0; i < 3; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last3.add(`${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`);
+    }
+    const result: Record<string, number> = {};
+    Object.keys(CATEGORY_CONFIG).forEach(cat => {
+      let total = 0;
+      let monthsCount = 0;
+      transactions.forEach(t => {
+        if (t.from_user_id !== currentUser.id) return;
+        const d = new Date(t.created_at);
+        const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+        if (t.transaction_type === cat && last3.has(key)) {
+          total += t.amount;
+        }
+      });
+      monthsCount = Math.max(1, last3.size);
+      const avg = total / monthsCount;
+      // set recommended a bit conservative: 90% of average
+      result[cat] = Math.round(avg * 0.9);
+    });
+    return result;
+  }, [transactions, currentUser.id]);
+
+  const daysInMonth = (() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  })();
+  const dayOfMonth = new Date().getDate();
+  const daysLeft = Math.max(0, daysInMonth - dayOfMonth);
+
   const chartConfig = {
     backgroundColor: '#ffffff',
     backgroundGradientFrom: '#ffffff',
@@ -380,6 +482,19 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
   };
 
   const screenWidth = Dimensions.get('window').width - 40;
+
+  // Today's income: sum of amounts received today by current user
+  const todayIncome = useMemo(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = today.getMonth();
+    const dd = today.getDate();
+    const start = new Date(yyyy, mm, dd, 0, 0, 0).toISOString();
+    const end = new Date(yyyy, mm, dd, 23, 59, 59).toISOString();
+    return transactions
+      .filter(t => t.to_user_id === currentUser.id && t.created_at >= start && t.created_at <= end)
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }, [transactions, currentUser.id]);
 
   if (loading) {
     return (
@@ -418,7 +533,7 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
 
       {/* Navigation Tabs */}
       <View style={styles.tabContainer}>
-        {(['overview', 'categories', 'contacts', 'trends'] as const).map(tab => (
+        {(['overview', 'categories', 'contacts', 'trends', 'coach'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -647,6 +762,133 @@ export default function TransactionAnalysis({ currentUser }: TransactionAnalysis
                 style={styles.chart}
               />
             )}
+          </View>
+        )}
+
+        {/* Coach Tab */}
+        {activeTab === 'coach' && (
+          <View>
+            <Text style={styles.sectionTitle}>Coach</Text>
+
+            {/* Risk Profile */}
+            <View style={styles.insightsContainer}>
+              <RiskProfile userId={currentUser.id} onRiskLevelChange={setRiskLevel} />
+            </View>
+
+            {/* Budget Overview */}
+            <View style={styles.insightsContainer}>
+              <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Budgets (Monthly)</Text>
+              {Object.keys(CATEGORY_CONFIG).map((cat) => {
+                const config = CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG];
+                const spent = monthSentByCategory[cat] || 0;
+                const budget = budgets[cat] ?? recommendedBudgets[cat] ?? 0;
+                const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+                const remaining = Math.max(0, budget - spent);
+                const pace = daysLeft > 0 ? remaining / daysLeft : 0;
+                return (
+                  <View key={cat} style={styles.categoryItem}>
+                    <View style={styles.categoryHeader}>
+                      <View style={styles.categoryTitle}>
+                        <Icon name={config.icon as any} size={20} color={config.color} />
+                        <Text style={styles.categoryName}>{config.label}</Text>
+                      </View>
+                      <Text style={styles.categoryAmount}>${spent.toFixed(2)} / {budget > 0 ? `$${budget.toFixed(0)}` : '—'}</Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill,
+                          { width: `${pct}%`, backgroundColor: pct >= 90 ? '#FF3B30' : pct >= 75 ? '#FF9500' : config.color }
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.categoryDetails}>
+                      <Text style={styles.categoryPercentage}>{budget > 0 ? `${pct.toFixed(0)}% used` : 'No budget set'}</Text>
+                      {budget > 0 && <Text style={styles.categoryCount}>${remaining.toFixed(0)} left • ${pace.toFixed(0)}/day</Text>}
+                    </View>
+
+                    {/* Budget Quick Set Buttons */}
+                    <View style={{ flexDirection: 'row', marginTop: 8, justifyContent: 'space-between' }}>
+                      {[0.8, 1.0, 1.2].map(mult => (
+                        <TouchableOpacity
+                          key={mult}
+                          onPress={() => saveBudget(cat, Math.max(0, (recommendedBudgets[cat] || 0) * mult))}
+                          style={{ backgroundColor: '#f0f0f0', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}
+                        >
+                          <Text style={{ color: '#333', fontWeight: '600' }}>
+                            {recommendedBudgets[cat] ? `Set ${Math.round((mult) * 100)}% of rec.` : 'Set 0'}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                      <TouchableOpacity
+                        onPress={() => saveBudget(cat, 0)}
+                        style={{ backgroundColor: '#ffeaea', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 }}
+                      >
+                        <Text style={{ color: '#FF3B30', fontWeight: '600' }}>Clear</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Proactive Nudges */}
+            <View style={styles.insightsContainer}>
+              <Text style={styles.sectionTitle}>Proactive Nudges</Text>
+              <View style={styles.insightItem}>
+                <Icon name="target" size={16} color="#5856D6" />
+                <Text style={styles.insightText}>
+                  You currently fall into the <Text style={{ fontWeight: '600' }}>{riskLevel.toUpperCase()}</Text> investor bucket. Align your SIPs and reserve buffers accordingly.
+                </Text>
+              </View>
+              {Object.keys(CATEGORY_CONFIG).map(cat => {
+                const spent = monthSentByCategory[cat] || 0;
+                const budget = budgets[cat] ?? recommendedBudgets[cat] ?? 0;
+                if (!budget) return null;
+                const pct = (spent / budget) * 100;
+                if (pct < 75) return null;
+                const cfg = CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG];
+                const color = pct >= 100 ? '#FF3B30' : pct >= 90 ? '#FF9500' : '#FFCC00';
+                const msg = pct >= 100
+                  ? `You've exceeded your ${cfg.label} budget. Consider pausing discretionary spend here.`
+                  : pct >= 90
+                    ? `You're at ${pct.toFixed(0)}% of ${cfg.label} budget. Aim to limit to essentials for the rest of the month.`
+                    : `You're at ${pct.toFixed(0)}% of ${cfg.label} budget. You have room but track closely.`;
+                return (
+                  <View key={cat} style={styles.insightItem}>
+                    <Icon name="alert-triangle" size={16} color={color} />
+                    <Text style={styles.insightText}>{msg}</Text>
+                  </View>
+                );
+              })}
+              {/* Income variability insight */}
+              {(() => {
+                const received = transactions.filter(t => t.to_user_id === currentUser.id);
+                const byMonth: Record<string, number> = {};
+                received.forEach(t => {
+                  const d = new Date(t.created_at);
+                  const key = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+                  byMonth[key] = (byMonth[key] || 0) + t.amount;
+                });
+                const values = Object.values(byMonth);
+                if (values.length >= 2) {
+                  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                  const variance = values.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / (values.length - 1);
+                  const std = Math.sqrt(variance);
+                  const cv = avg > 0 ? std / avg : 0;
+                  const buffer = Math.round((avg * (0.5 + Math.min(1, cv))) / 100) * 100; // rounded to nearest 100
+                  return (
+                    <View style={styles.insightItem}>
+                      <Icon name="shield" size={16} color="#34C759" />
+                      <Text style={styles.insightText}>
+                        Your income varies month to month. Keep a buffer of about ${buffer.toLocaleString()} to handle slow periods.
+                      </Text>
+                    </View>
+                  );
+                }
+                return null;
+              })()}
+            </View>
           </View>
         )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,12 +12,17 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Feather as Icon } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import TransactionAnalysis from './TransactionAnalysis';
+import PiggyBanks from './PiggyBanks';
+import RiskProfile, { RiskLevel } from './RiskProfile';
+import InvestmentsTab from './InvestmentsTab';
 
 // Add transaction types constant
 const TRANSACTION_TYPES = [
@@ -34,6 +39,8 @@ const TRANSACTION_TYPES = [
 export default function MoneyTransferApp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -42,7 +49,14 @@ export default function MoneyTransferApp() {
   const [transactionType, setTransactionType] = useState('');
   const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transfer' | 'analysis'>('transfer');
+  const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'coach' | 'investments'>('transfer');
+  const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
+  const [showTotalBalance, setShowTotalBalance] = useState(false);
+  const [cashBalance, setCashBalance] = useState<number>(0);
+  const [showCashModal, setShowCashModal] = useState(false);
+  const [cashAmount, setCashAmount] = useState('');
+  const [cashCategory, setCashCategory] = useState('other');
+  const [cashAction, setCashAction] = useState<'add' | 'spend'>('spend');
 
   // QR Code States
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -68,6 +82,7 @@ export default function MoneyTransferApp() {
     if (currentUser) {
       fetchUsers();
       fetchTransactions();
+      loadCashBalance();
       const cleanup = setupRealtime();
       return cleanup;
     }
@@ -134,6 +149,7 @@ export default function MoneyTransferApp() {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
+        .or(`from_user_id.eq.${currentUserRef.current?.id},to_user_id.eq.${currentUserRef.current?.id}`)
         .order('created_at', { ascending: false })
         .limit(50);
       
@@ -141,6 +157,212 @@ export default function MoneyTransferApp() {
       setTransactions(data || []);
     } catch (error) {
       console.log('Error fetching transactions:', error);
+    }
+  };
+
+  // Helper to insert rows and fallback if 'method' column doesn't exist
+  const insertRowsSafe = async (rows: any[]) => {
+    try {
+      const { error } = await supabase.from('transactions').insert(rows);
+      if (error) throw error;
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('method') || msg.toLowerCase().includes('column')) {
+        const stripped = rows.map((r) => {
+          const { method, ...rest } = r;
+          return rest;
+        });
+        const { error: retryError } = await supabase.from('transactions').insert(stripped);
+        if (retryError) throw retryError;
+      } else {
+        throw err;
+      }
+    }
+  };
+
+  const insertOneSafe = async (row: any) => insertRowsSafe([row]);
+
+  const todayIncome = useMemo(() => {
+    if (!currentUserRef.current) return 0;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = today.getMonth();
+    const dd = today.getDate();
+    const start = new Date(yyyy, mm, dd, 0, 0, 0).getTime();
+    const end = new Date(yyyy, mm, dd, 23, 59, 59).getTime();
+
+    return transactions
+      .filter((t) => {
+        if (t.to_user_id !== currentUserRef.current?.id) return false;
+        const created = new Date(t.created_at).getTime();
+        return created >= start && created <= end;
+      })
+      .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  }, [transactions]);
+
+  const todayNetIncome = useMemo(() => {
+    if (!currentUserRef.current) return 0;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = today.getMonth();
+    const dd = today.getDate();
+    const start = new Date(yyyy, mm, dd, 0, 0, 0).getTime();
+    const end = new Date(yyyy, mm, dd, 23, 59, 59).getTime();
+
+    let received = 0;
+    let sent = 0;
+    transactions.forEach((t) => {
+      const created = new Date(t.created_at).getTime();
+      if (created < start || created > end) return;
+      if (t.to_user_id === currentUserRef.current?.id) {
+        received += Number(t.amount || 0);
+      }
+      if (t.from_user_id === currentUserRef.current?.id) {
+        sent += Number(t.amount || 0);
+      }
+    });
+    return received - sent;
+  }, [transactions]);
+
+  // DEV-ONLY: Seed ~60 days of demo data for current user
+  const seedDemoData = async () => {
+    try {
+      if (!currentUserRef.current) return;
+      setLoading(true);
+      const me = currentUserRef.current;
+      const others = (usersRef.current || []).filter((u: any) => u.id !== me.id).slice(0, 3);
+      if (!others.length) {
+        Alert.alert('Seed', 'Need at least one other user in database.');
+        return;
+      }
+      const categories = ['food','transportation','shopping','utilities','entertainment','healthcare','other'];
+      const rows: any[] = [];
+      const today = new Date();
+      for (let d = 0; d < 60; d++) {
+        const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - d);
+
+        // Income: 0-2 receipts/day
+        const incomeCount = Math.floor(Math.random() * 3);
+        for (let i = 0; i < incomeCount; i++) {
+          const from = others[Math.floor(Math.random() * others.length)];
+          const amount = Math.floor(200 + Math.random() * 800);
+          rows.push({
+            from_user_id: from.id,
+            to_user_id: me.id,
+            from_name: from.name,
+            to_name: me.name,
+            amount,
+            type: 'transfer',
+            method: 'qr_code',
+            transaction_type: categories[Math.floor(Math.random()*categories.length)],
+            created_at: new Date(day.getTime() + i * 3600_000).toISOString(),
+          });
+        }
+
+        // Spending: 1-3 sends/day
+        const spendCount = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < spendCount; i++) {
+          const to = others[Math.floor(Math.random() * others.length)];
+          const amount = Math.floor(50 + Math.random() * 600);
+          rows.push({
+            from_user_id: me.id,
+            to_user_id: to.id,
+            from_name: me.name,
+            to_name: to.name,
+            amount,
+            type: 'transfer',
+            method: 'qr_code',
+            transaction_type: categories[Math.floor(Math.random()*categories.length)],
+            created_at: new Date(day.getTime() + (i+4) * 3600_000).toISOString(),
+          });
+        }
+
+        // Cash spend ~50% days
+        if (Math.random() < 0.5) {
+          const amount = Math.floor(20 + Math.random() * 200);
+          rows.push({
+            from_user_id: me.id,
+            to_user_id: me.id,
+            from_name: me.name,
+            to_name: 'Cash',
+            amount,
+            type: 'deduct',
+            method: 'cash',
+            transaction_type: categories[Math.floor(Math.random()*categories.length)],
+            created_at: new Date(day.getTime() + 22 * 3600_000).toISOString(),
+          });
+        }
+      }
+
+      const chunkSize = 200;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        await insertRowsSafe(chunk);
+      }
+      await fetchTransactions();
+      Alert.alert('Seed', `Inserted ~${rows.length} demo transactions`);
+    } catch (e) {
+      console.log('Seed error', e);
+      Alert.alert('Seed', `Failed to insert demo data: ${e?.message || e}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Cash wallet persistence
+  const cashKey = (userId: string | number) => `mt_cash_${userId}`;
+  const loadCashBalance = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(cashKey(currentUserRef.current?.id));
+      if (raw) setCashBalance(parseFloat(raw) || 0);
+      else setCashBalance(0);
+    } catch (e) {
+      setCashBalance(0);
+    }
+  };
+  const saveCashBalance = async (next: number) => {
+    setCashBalance(next);
+    await AsyncStorage.setItem(cashKey(currentUserRef.current?.id), String(next));
+  };
+
+  const handleCashSubmit = async () => {
+    const amt = parseFloat(cashAmount);
+    if (!amt || amt <= 0) {
+      Alert.alert('Error', 'Enter a valid amount');
+      return;
+    }
+    try {
+      setLoading(true);
+      if (cashAction === 'add') {
+        // Increase local cash only
+        await saveCashBalance(cashBalance + amt);
+      } else {
+        // Spend from cash: decrease cash and record a transaction (method: cash)
+        const nextCash = cashBalance - amt;
+        if (nextCash < 0) {
+          Alert.alert('Error', 'Insufficient cash');
+          return;
+        }
+        await saveCashBalance(nextCash);
+        await insertOneSafe({
+          from_user_id: currentUserRef.current.id,
+          to_user_id: currentUserRef.current.id,
+          from_name: currentUserRef.current.name,
+          to_name: 'Cash',
+          amount: amt,
+          type: 'deduct',
+          method: 'cash',
+          transaction_type: cashCategory,
+        });
+      }
+      setShowCashModal(false);
+      setCashAmount('');
+      setCashCategory('other');
+      setCashAction('spend');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update cash');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -226,7 +448,7 @@ export default function MoneyTransferApp() {
       if (receiverError) throw receiverError;
 
       // Create transaction with category
-      await supabase.from('transactions').insert({
+      await insertOneSafe({
         from_user_id: sender.id,
         to_user_id: receiver.id,
         from_name: sender.name,
@@ -282,6 +504,54 @@ export default function MoneyTransferApp() {
       Alert.alert('Success', `Welcome ${data.name}!`);
     } catch (error) {
       Alert.alert('Error', 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!name || !email || !password) {
+      Alert.alert('Error', 'Please enter name, email and password');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const existing = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email.trim())
+        .maybeSingle();
+
+      if (existing.data) {
+        Alert.alert('Error', 'Email already registered');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          name: name.trim(),
+          email: email.trim(),
+          password: password.trim(),
+          role: 'user',
+          balance: 0,
+        })
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        Alert.alert('Error', 'Sign up failed');
+        return;
+      }
+
+      setCurrentUser(data);
+      setName('');
+      setEmail('');
+      setPassword('');
+      Alert.alert('Success', `Welcome ${data.name}!`);
+    } catch (error) {
+      Alert.alert('Error', 'Sign up failed');
     } finally {
       setLoading(false);
     }
@@ -631,13 +901,23 @@ export default function MoneyTransferApp() {
     );
   }
 
-  // Login screen
+  // Login/Signup screen
   if (!currentUser) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loginBox}>
           <Icon name="dollar-sign" size={50} color="#007AFF" />
           <Text style={styles.title}>Money Transfer App</Text>
+
+          {isSignup && (
+            <TextInput
+              placeholder="Full Name"
+              value={name}
+              onChangeText={setName}
+              style={styles.input}
+              autoCapitalize="words"
+            />
+          )}
 
           <TextInput
             placeholder="Email"
@@ -658,14 +938,20 @@ export default function MoneyTransferApp() {
 
           <TouchableOpacity 
             style={[styles.loginButton, loading && styles.disabledButton]} 
-            onPress={handleLogin}
+            onPress={isSignup ? handleSignup : handleLogin}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.loginText}>Login</Text>
+              <Text style={styles.loginText}>{isSignup ? 'Sign Up' : 'Login'}</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setIsSignup(!isSignup)} style={{ marginTop: 12 }}>
+            <Text style={styles.toggleAuthText}>
+              {isSignup ? 'Have an account? Login' : "New here? Create an account"}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.demoBox}>
@@ -685,11 +971,12 @@ export default function MoneyTransferApp() {
       {/* Header */}
       <View style={styles.header}>
         <View>
+          <Text style={styles.appName}>FinMate</Text>
           <Text style={styles.userName}>{currentUser.name}</Text>
           <Text style={styles.userRole}>{currentUser.role.toUpperCase()}</Text>
         </View>
         <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={refreshCurrentUser} style={styles.refreshButton}>
+          <TouchableOpacity onPress={refreshCurrentUser} onLongPress={seedDemoData} style={styles.refreshButton}>
             <Icon name="refresh-cw" size={20} color="#007AFF" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
@@ -698,57 +985,21 @@ export default function MoneyTransferApp() {
         </View>
       </View>
 
-      {/* Main Tabs */}
-      <View style={styles.mainTabContainer}>
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            activeTab === 'transfer' && styles.activeMainTab
-          ]}
-          onPress={() => setActiveTab('transfer')}
-        >
-          <Icon 
-            name="send" 
-            size={20} 
-            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
-          />
-          <Text style={[
-            styles.mainTabText,
-            activeTab === 'transfer' && styles.activeMainTabText
-          ]}>
-            Transfer
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.mainTab,
-            activeTab === 'analysis' && styles.activeMainTab
-          ]}
-          onPress={() => setActiveTab('analysis')}
-        >
-          <Icon 
-            name="bar-chart-2" 
-            size={20} 
-            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
-          />
-          <Text style={[
-            styles.mainTabText,
-            activeTab === 'analysis' && styles.activeMainTabText
-          ]}>
-            Analysis
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Transfer Tab Content */}
+      {/* Content */}
       {activeTab === 'transfer' && (
         <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
           {/* Balance Card */}
-          <View style={styles.balanceCard}>
-            <Text style={styles.balanceLabel}>Current Balance</Text>
-            <Text style={styles.balance}>${parseFloat(currentUser.balance).toFixed(2)}</Text>
-          </View>
+          <TouchableOpacity style={styles.balanceCard} onPress={() => setShowTotalBalance(!showTotalBalance)}>
+            <Text style={styles.balanceLabel}>{showTotalBalance ? 'Total Balance (Wallet + Cash)' : 'Current Balance'}</Text>
+            <Text style={styles.balance}>
+              ${(
+                showTotalBalance 
+                  ? parseFloat(currentUser.balance) + (cashBalance || 0)
+                  : parseFloat(currentUser.balance)
+              ).toFixed(2)}
+            </Text>
+            <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
+          </TouchableOpacity>
 
           {/* Quick Actions - QR Code Buttons */}
           <View style={styles.quickActions}>
@@ -772,13 +1023,32 @@ export default function MoneyTransferApp() {
             </TouchableOpacity>
           </View>
 
-          {/* Transfer Form */}
-          {currentUser.role === 'bank' ? renderBankForm() : renderUserTransferForm()}
+          {/* Cash Wallet Quick Actions */}
+          <View style={styles.quickActions}>
+            <TouchableOpacity 
+              style={styles.qrButton}
+              onPress={() => { setCashAction('add'); setShowCashModal(true); }}
+            >
+              <Icon name="plus-circle" size={24} color="#34C759" />
+              <Text style={styles.qrButtonText}>Cash +</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.qrButton}
+              onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
+            >
+              <Icon name="minus-circle" size={24} color="#FF3B30" />
+              <Text style={styles.qrButtonText}>Cash -</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* QR-only transfers: regular form removed */}
 
           {/* Recent Transactions */}
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
           <FlatList
-            data={transactions.slice(0, 10)}
+            data={transactions
+              .filter((t: any) => t.from_user_id === currentUser.id || t.to_user_id === currentUser.id)
+              .slice(0, 10)}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => (
               <View style={styles.transactionItem}>
@@ -788,7 +1058,8 @@ export default function MoneyTransferApp() {
                   </Text>
                   <Text style={styles.transactionType}>
                     {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
-                    {item.method === 'qr_code' && ' • QR Code'}
+                    {item.method === 'qr_code' && ' • QR'}
+                    {item.method === 'cash' && ' • Cash'}
                   </Text>
                 </View>
                 <Text style={[
@@ -809,10 +1080,98 @@ export default function MoneyTransferApp() {
         </ScrollView>
       )}
 
+      {activeTab === 'piggy' && (
+        <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.infoBanner}>
+            <Icon name="sun" size={18} color="#007AFF" />
+            <Text style={styles.infoBannerText}>
+              Today’s recorded income: ₹{todayIncome.toFixed(0)} • Risk profile: {piggyRiskLevel.toUpperCase()}.
+              Adjust jars or edit your profile below.
+            </Text>
+          </View>
+          <RiskProfile userId={currentUser.id} onRiskLevelChange={setPiggyRiskLevel} />
+          <PiggyBanks
+            userId={currentUser.id}
+            todayIncome={todayIncome}
+            todayNetIncome={todayNetIncome}
+            riskLevel={piggyRiskLevel}
+          />
+        </ScrollView>
+      )}
+
       {/* Analysis Tab Content */}
       {activeTab === 'analysis' && (
         <TransactionAnalysis currentUser={currentUser} />
       )}
+
+      {/* Coach Tab Content (shows Coach directly) */}
+      {activeTab === 'coach' && (
+        <TransactionAnalysis currentUser={currentUser} initialTab="coach" />
+      )}
+
+      {/* Investments Tab */}
+      {activeTab === 'investments' && (
+        <InvestmentsTab userId={currentUser.id} />
+      )}
+
+      {/* Bottom Tabs */}
+      <View style={styles.bottomTabContainer}>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('transfer')}
+        >
+          <Icon 
+            name="send" 
+            size={22} 
+            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'transfer' && styles.bottomTabTextActive]}>Transfer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('piggy')}
+        >
+          <Icon 
+            name="grid" 
+            size={22} 
+            color={activeTab === 'piggy' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'piggy' && styles.bottomTabTextActive]}>Piggy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('analysis')}
+        >
+          <Icon 
+            name="bar-chart-2" 
+            size={22} 
+            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'analysis' && styles.bottomTabTextActive]}>Analysis</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('coach')}
+        >
+          <Icon 
+            name="briefcase" 
+            size={22} 
+            color={activeTab === 'coach' ? '#007AFF' : '#666'} 
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'coach' && styles.bottomTabTextActive]}>Coach</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('investments')}
+        >
+          <Icon
+            name="pie-chart"
+            size={22}
+            color={activeTab === 'investments' ? '#007AFF' : '#666'}
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'investments' && styles.bottomTabTextActive]}>Invest</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* QR Scanner Modal */}
       <Modal
@@ -962,6 +1321,50 @@ export default function MoneyTransferApp() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Cash Modal */}
+      <Modal
+        visible={showCashModal}
+        animationType="slide"
+        onRequestClose={() => setShowCashModal(false)}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{cashAction === 'add' ? 'Add Cash' : 'Cash Spend'}</Text>
+            <TouchableOpacity onPress={() => setShowCashModal(false)}>
+              <Icon name="x" size={24} color="#000" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.amountModalContent}>
+            {cashAction === 'spend' && (
+              <View style={{ marginBottom: 10 }}>
+                {renderQRCategorySelector()}
+              </View>
+            )}
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.amountLabel}>Amount</Text>
+              <View style={styles.amountInputWrapper}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={cashAmount}
+                  onChangeText={setCashAmount}
+                  keyboardType="numeric"
+                  placeholder="0.00"
+                  autoFocus
+                />
+              </View>
+            </View>
+            <TouchableOpacity 
+              style={[styles.sendButton, (!cashAmount || isNaN(parseFloat(cashAmount)) || parseFloat(cashAmount) <= 0) && styles.disabledButton]}
+              onPress={handleCashSubmit}
+              disabled={!cashAmount || isNaN(parseFloat(cashAmount)) || parseFloat(cashAmount) <= 0}
+            >
+              <Text style={styles.sendButtonText}>{cashAction === 'add' ? 'Add Cash' : 'Record Spend'}</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -983,6 +1386,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   loginBox: {
     width: '100%',
@@ -1021,6 +1425,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  toggleAuthText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   demoBox: {
     marginTop: 20,
@@ -1067,34 +1476,33 @@ const styles = StyleSheet.create({
     color: 'gray',
     fontSize: 14,
   },
-  // Main Tabs
-  mainTabContainer: {
+  appName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#007AFF',
+    textTransform: 'uppercase',
+  },
+  // Bottom Tabs
+  bottomTabContainer: {
     flexDirection: 'row',
     backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5e5',
   },
-  mainTab: {
+  bottomTab: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    gap: 8,
+    paddingVertical: 12,
   },
-  activeMainTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#007AFF',
-  },
-  mainTabText: {
-    fontSize: 16,
-    fontWeight: '500',
+  bottomTabText: {
+    fontSize: 12,
     color: '#666',
+    marginTop: 2,
   },
-  activeMainTabText: {
+  bottomTabTextActive: {
     color: '#007AFF',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   tabContent: {
     flex: 1,
@@ -1515,5 +1923,19 @@ const styles = StyleSheet.create({
   quickAmountText: {
     fontWeight: 'bold',
     color: '#333',
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eaf4ff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoBannerText: {
+    marginLeft: 10,
+    color: '#0a66c2',
+    flex: 1,
+    fontWeight: '600',
   },
 }); 
