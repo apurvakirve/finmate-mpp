@@ -349,7 +349,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     
     if (totalSpent > 0) {
       // Spending pattern insight
-      spendingInsights.push(`Your spending pattern is ${spendingPattern}. You spend an average of $${dailyAverageSpending.toFixed(2)} per day.`);
+      spendingInsights.push(`Your spending pattern is ${spendingPattern}. You spend an average of ₹${dailyAverageSpending.toFixed(2)} per day.`);
 
       // Largest category insight
       if (topSpendingCategories.length > 0) {
@@ -365,9 +365,9 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       // Net flow insight
       if (netFlow > 0) {
-        spendingInsights.push(`Great! You've received $${netFlow.toFixed(2)} more than you've spent.`);
+        spendingInsights.push(`Great! You've received ₹${netFlow.toFixed(2)} more than you've spent.`);
       } else if (netFlow < 0) {
-        spendingInsights.push(`You've spent $${Math.abs(netFlow).toFixed(2)} more than you've received.`);
+        spendingInsights.push(`You've spent ₹${Math.abs(netFlow).toFixed(2)} more than you've received.`);
       }
 
       // Frequency insight
@@ -378,7 +378,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       // Large transaction insight
       if (largestTransaction > 500) {
-        spendingInsights.push(`Your largest transaction was $${largestTransaction.toFixed(2)}.`);
+        spendingInsights.push(`Your largest transaction was ₹${largestTransaction.toFixed(2)}.`);
       }
     }
 
@@ -560,14 +560,14 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
             <View style={styles.metricsGrid}>
               <View style={styles.metricCard}>
                 <Text style={styles.metricValue}>
-                  ${spendingAnalysis.totalSpent.toFixed(2)}
+                  ₹{spendingAnalysis.totalSpent.toFixed(2)}
                 </Text>
                 <Text style={styles.metricLabel}>Total Spent</Text>
                 <Icon name="trending-down" size={16} color="#FF3B30" />
               </View>
               <View style={styles.metricCard}>
                 <Text style={styles.metricValue}>
-                  ${spendingAnalysis.totalReceived.toFixed(2)}
+                  ₹{spendingAnalysis.totalReceived.toFixed(2)}
                 </Text>
                 <Text style={styles.metricLabel}>Total Received</Text>
                 <Icon name="trending-up" size={16} color="#34C759" />
@@ -577,7 +577,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                   styles.metricValue,
                   { color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }
                 ]}>
-                  ${Math.abs(spendingAnalysis.netFlow).toFixed(2)}
+                  ₹{Math.abs(spendingAnalysis.netFlow).toFixed(2)}
                 </Text>
                 <Text style={styles.metricLabel}>
                   {spendingAnalysis.netFlow >= 0 ? 'Net Gain' : 'Net Loss'}
@@ -648,7 +648,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                         <Icon name={config.icon as any} size={20} color={config.color} />
                         <Text style={styles.categoryName}>{config.label}</Text>
                       </View>
-                      <Text style={styles.categoryAmount}>${category.spent.toFixed(2)}</Text>
+                      <Text style={styles.categoryAmount}>₹{category.spent.toFixed(2)}</Text>
                     </View>
                     <View style={styles.progressBar}>
                       <View 
@@ -667,7 +667,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                     </View>
                     {category.received > 0 && (
                       <Text style={styles.categoryReceived}>
-                        Received: ${category.received.toFixed(2)}
+                            Received: ₹{category.received.toFixed(2)}
                       </Text>
                     )}
                   </View>
@@ -692,7 +692,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                   styles.contactAmount,
                   { color: contact.type === 'sent' ? '#FF3B30' : '#34C759' }
                 ]}>
-                  {contact.type === 'sent' ? '-' : '+'}${contact.amount.toFixed(2)}
+                  {contact.type === 'sent' ? '-' : '+'}₹{contact.amount.toFixed(2)}
                 </Text>
               </View>
             ))}
@@ -715,7 +715,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                 }}
                 width={screenWidth}
                 height={220}
-                yAxisLabel="$"
+                yAxisLabel="₹"
                 yAxisSuffix=""
                 chartConfig={{
                   backgroundColor: '#ffffff',
@@ -792,7 +792,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                         <Icon name={config.icon as any} size={20} color={config.color} />
                         <Text style={styles.categoryName}>{config.label}</Text>
                       </View>
-                      <Text style={styles.categoryAmount}>${spent.toFixed(2)} / {budget > 0 ? `$${budget.toFixed(0)}` : '—'}</Text>
+                      <Text style={styles.categoryAmount}>₹{spent.toFixed(2)} / {budget > 0 ? `₹${budget.toFixed(0)}` : '—'}</Text>
                     </View>
                     <View style={styles.progressBar}>
                       <View 
@@ -804,7 +804,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                     </View>
                     <View style={styles.categoryDetails}>
                       <Text style={styles.categoryPercentage}>{budget > 0 ? `${pct.toFixed(0)}% used` : 'No budget set'}</Text>
-                      {budget > 0 && <Text style={styles.categoryCount}>${remaining.toFixed(0)} left • ${pace.toFixed(0)}/day</Text>}
+                      {budget > 0 && <Text style={styles.categoryCount}>₹{remaining.toFixed(0)} left • ₹{pace.toFixed(0)}/day</Text>}
                     </View>
 
                     {/* Budget Quick Set Buttons */}
@@ -881,7 +881,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                     <View style={styles.insightItem}>
                       <Icon name="shield" size={16} color="#34C759" />
                       <Text style={styles.insightText}>
-                        Your income varies month to month. Keep a buffer of about ${buffer.toLocaleString()} to handle slow periods.
+                        Your income varies month to month. Keep a buffer of about ₹{buffer.toLocaleString()} to handle slow periods.
                       </Text>
                     </View>
                   );

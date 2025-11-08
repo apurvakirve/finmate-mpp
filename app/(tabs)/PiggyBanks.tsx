@@ -7,6 +7,8 @@ import {
   TextInput,
   ScrollView,
   Modal,
+  Alert,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather as Icon } from '@expo/vector-icons';
@@ -162,15 +164,27 @@ export default function PiggyBanks({
 
   const handleMove = async () => {
     const amt = parseFloat(transferAmount);
-    if (!amt || amt <= 0) return;
-    if (fromEnv === toEnv) return;
-    if ((state.balances[fromEnv] || 0) < amt) return;
+    if (!amt || amt <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (fromEnv === toEnv) {
+      Alert.alert('Error', 'Please select different jars');
+      return;
+    }
+    const fromBalance = state.balances[fromEnv] || 0;
+    if (fromBalance < amt) {
+      Alert.alert('Error', `Insufficient balance in ${ENVELOPES.find(e => e.key === fromEnv)?.label}. Available: ₹${fromBalance.toFixed(0)}`);
+      return;
+    }
 
     const next = { ...state };
-    next.balances[fromEnv] -= amt;
-    next.balances[toEnv] += amt;
-    await persist(next);
+    next.balances[fromEnv] = fromBalance - amt;
+    next.balances[toEnv] = (next.balances[toEnv] || 0) + amt;
+    setState(next); // Update immediately for instant UI feedback
+    await AsyncStorage.setItem(key, JSON.stringify(next));
     setTransferAmount('');
+    Alert.alert('Success', `₹${amt.toFixed(0)} moved from ${ENVELOPES.find(e => e.key === fromEnv)?.label} to ${ENVELOPES.find(e => e.key === toEnv)?.label}`);
   };
 
   const openCalendar = (mode: 'investment' | 'emi') => {
@@ -300,38 +314,89 @@ export default function PiggyBanks({
 
       <View style={styles.transferCard}>
         <Text style={styles.sectionTitle}>Move between jars</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {ENVELOPES.map(({ key, label }) => (
-            <TouchableOpacity
-              key={`from-${key}`}
-              style={[styles.pillButton, fromEnv === key && styles.pillButtonActive]}
-              onPress={() => setFromEnv(key)}
-            >
-              <Text style={[styles.pillButtonText, fromEnv === key && styles.pillButtonTextActive]}>From {label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-          {ENVELOPES.map(({ key, label }) => (
-            <TouchableOpacity
-              key={`to-${key}`}
-              style={[styles.pillButton, toEnv === key && styles.pillButtonActive]}
-              onPress={() => setToEnv(key)}
-            >
-              <Text style={[styles.pillButtonText, toEnv === key && styles.pillButtonTextActive]}>To {label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        <View style={styles.transferRow}>
-          <TextInput
-            value={transferAmount}
-            onChangeText={setTransferAmount}
-            placeholder="Amount"
-            keyboardType="numeric"
-            style={styles.transferInput}
-          />
-          <TouchableOpacity style={[styles.primaryButton, { flex: 1, marginLeft: 10 }]} onPress={handleMove}>
-            <Text style={styles.primaryButtonText}>Move Now</Text>
+        
+        <View style={styles.transferContainer}>
+          <View style={styles.transferFrom}>
+            <Text style={styles.transferLabel}>From</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
+              {ENVELOPES.map(({ key, label, color, icon }) => {
+                const isSelected = fromEnv === key;
+                const balance = state.balances[key] || 0;
+                return (
+                  <TouchableOpacity
+                    key={`from-${key}`}
+                    style={[
+                      styles.jarOption,
+                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
+                    ]}
+                    onPress={() => setFromEnv(key)}
+                  >
+                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
+                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
+                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.transferArrow}>
+            <Icon name="arrow-down" size={24} color="#007AFF" />
+          </View>
+
+          <View style={styles.transferTo}>
+            <Text style={styles.transferLabel}>To</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
+              {ENVELOPES.map(({ key, label, color, icon }) => {
+                const isSelected = toEnv === key;
+                const balance = state.balances[key] || 0;
+                return (
+                  <TouchableOpacity
+                    key={`to-${key}`}
+                    style={[
+                      styles.jarOption,
+                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
+                    ]}
+                    onPress={() => setToEnv(key)}
+                  >
+                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
+                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
+                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.amountRow}>
+            <View style={styles.amountInputContainer}>
+              <Text style={styles.currencySymbol}>₹</Text>
+              <TextInput
+                value={transferAmount}
+                onChangeText={setTransferAmount}
+                placeholder="Enter amount"
+                keyboardType="numeric"
+                style={styles.amountInput}
+                placeholderTextColor="#8e8e93"
+              />
+            </View>
+            {fromEnv && (
+              <Text style={styles.availableText}>
+                Available: ₹{(state.balances[fromEnv] || 0).toFixed(0)}
+              </Text>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[
+              styles.moveButton,
+              (!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv) && styles.moveButtonDisabled,
+            ]}
+            onPress={handleMove}
+            disabled={!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv}
+          >
+            <Icon name="arrow-right" size={18} color="white" />
+            <Text style={styles.moveButtonText}>Transfer Now</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -598,39 +663,99 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  pillButton: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    marginRight: 8,
-    backgroundColor: '#f7f7f7',
+  transferContainer: {
+    marginTop: 16,
   },
-  pillButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#e6f0ff',
+  transferFrom: {
+    marginBottom: 16,
   },
-  pillButtonText: {
-    color: '#6c6c70',
+  transferTo: {
+    marginBottom: 16,
   },
-  pillButtonTextActive: {
-    color: '#007AFF',
+  transferLabel: {
+    fontSize: 13,
     fontWeight: '600',
+    color: '#6c6c70',
+    marginBottom: 8,
   },
-  transferRow: {
+  jarSelector: {
+    marginTop: 8,
+  },
+  jarOption: {
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    borderRadius: 14,
+    padding: 12,
+    marginRight: 10,
+    minWidth: 100,
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+  },
+  jarOptionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
+    color: '#1c1c1e',
+  },
+  jarOptionBalance: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+    color: '#1c1c1e',
+  },
+  transferArrow: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  amountRow: {
+    marginTop: 16,
+  },
+  amountInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 14,
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fafafa',
   },
-  transferInput: {
+  currencySymbol: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginRight: 8,
+  },
+  amountInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'white',
+    fontSize: 18,
+    fontWeight: '600',
+    paddingVertical: 14,
+    color: '#1c1c1e',
+  },
+  availableText: {
+    fontSize: 12,
+    color: '#6c6c70',
+    marginTop: 8,
+    textAlign: 'right',
+  },
+  moveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#007AFF',
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  moveButtonDisabled: {
+    backgroundColor: '#c7c7cc',
+    opacity: 0.6,
+  },
+  moveButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
   },
   calendarOverlay: {
     flex: 1,
