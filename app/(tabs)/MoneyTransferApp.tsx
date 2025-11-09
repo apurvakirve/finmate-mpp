@@ -566,12 +566,18 @@ export default function MoneyTransferApp() {
   const handleSignup = async (formData: any) => {
     setLoading(true);
     try {
+<<<<<<< HEAD
       const existing = await supabase
+=======
+      // Check if email already exists
+      const { data: existingUser, error: checkError } = await supabase
+>>>>>>> 3d3e538 (fixed signup)
         .from('users')
         .select('id')
         .eq('email', formData.email.trim())
         .maybeSingle();
 
+<<<<<<< HEAD
       if (existing.data) {
         Alert.alert('Error', 'Email already registered');
         return;
@@ -597,20 +603,94 @@ export default function MoneyTransferApp() {
             primaryGoal: formData.primaryGoal,
             investmentExperience: formData.investmentExperience,
           }),
+=======
+      if (checkError) {
+        console.error('Error checking email:', checkError);
+        Alert.alert('Error', `Failed to check email: ${checkError.message}`);
+        return;
+      }
+
+      if (existingUser) {
+        Alert.alert('Error', 'Email already registered');
+        setLoading(false);
+        return;
+      }
+
+      // Prepare user data
+      const userData: any = {
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        password: formData.password.trim(),
+        role: 'user',
+        balance: 0,
+      };
+
+      // Try to add metadata if the column exists
+      const metadata = {
+        age: formData.age,
+        phone: formData.phone,
+        city: formData.city,
+        occupation: formData.occupation,
+        monthlyIncome: formData.monthlyIncome,
+        maritalStatus: formData.maritalStatus,
+        dependents: formData.dependents,
+        primaryGoal: formData.primaryGoal,
+        investmentExperience: formData.investmentExperience,
+      };
+
+      // First, try to insert with metadata
+      let { data, error } = await supabase
+        .from('users')
+        .insert({
+          ...userData,
+          metadata: JSON.stringify(metadata),
+>>>>>>> 3d3e538 (fixed signup)
         })
         .select('*')
         .single();
 
+<<<<<<< HEAD
       if (error || !data) {
         Alert.alert('Error', 'Sign up failed');
+=======
+      // If that fails (metadata column might not exist), try without it
+      if (error && (error.message?.includes('metadata') || error.message?.includes('column'))) {
+        console.log('Metadata column not found, inserting without metadata');
+        const result = await supabase
+          .from('users')
+          .insert(userData)
+          .select('*')
+          .single();
+        
+        data = result.data;
+        error = result.error;
+      }
+
+      if (error) {
+        console.error('Signup error:', error);
+        Alert.alert('Error', `Sign up failed: ${error.message || 'Unknown error'}`);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        Alert.alert('Error', 'Sign up failed: No data returned');
+        setLoading(false);
+>>>>>>> 3d3e538 (fixed signup)
         return;
       }
 
       setCurrentUser(data);
       setShowSignupForm(false);
       Alert.alert('Success', `Welcome ${data.name}!`);
+<<<<<<< HEAD
     } catch (error) {
       Alert.alert('Error', 'Sign up failed');
+=======
+    } catch (error: any) {
+      console.error('Signup exception:', error);
+      Alert.alert('Error', `Sign up failed: ${error?.message || 'Unknown error'}`);
+>>>>>>> 3d3e538 (fixed signup)
     } finally {
       setLoading(false);
     }
