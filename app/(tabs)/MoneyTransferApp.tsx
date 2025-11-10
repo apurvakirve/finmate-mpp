@@ -1,32 +1,31 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Feather as Icon } from '@expo/vector-icons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
-  Alert,
-  SafeAreaView,
-  StyleSheet,
-  ActivityIndicator,
-  Modal,
-  ScrollView,
-  Dimensions,
-  Platform,
+  View
 } from 'react-native';
-import { Feather as Icon } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../lib/supabase';
 import QRCode from 'react-native-qrcode-svg';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import TransactionAnalysis from './TransactionAnalysis';
+import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
+import { supabase } from '../../lib/supabase';
+import InvestmentsTab from './InvestmentsTab';
 import PiggyBanks from './PiggyBanks';
 import RiskProfile, { RiskLevel } from './RiskProfile';
-import InvestmentsTab from './InvestmentsTab';
 import SignupForm from './SignupForm';
-import { t, getLanguage, setLanguage, Language } from '../../lib/i18n';
-import { Animated } from 'react-native';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import TransactionAnalysis from './TransactionAnalysis';
 // Add transaction types constant
 const TRANSACTION_TYPES = [
   { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
@@ -355,7 +354,7 @@ export default function MoneyTransferApp() {
 
     await fetchTransactions();
     Alert.alert("Seed", `Inserted ${rows.length} Swiggy-partner demo transactions ✅`);
-  } catch (e) {
+  } catch (e: any) {
     console.log("Seed Error:", e);
     Alert.alert("Seed", `Failed: ${e?.message || e}`);
   } finally {
@@ -566,47 +565,17 @@ export default function MoneyTransferApp() {
   const handleSignup = async (formData: any) => {
     setLoading(true);
     try {
-<<<<<<< HEAD
-      const existing = await supabase
-=======
       // Check if email already exists
       const { data: existingUser, error: checkError } = await supabase
->>>>>>> 3d3e538 (fixed signup)
         .from('users')
         .select('id')
         .eq('email', formData.email.trim())
         .maybeSingle();
 
-<<<<<<< HEAD
-      if (existing.data) {
-        Alert.alert('Error', 'Email already registered');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('users')
-        .insert({
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          password: formData.password.trim(),
-          role: 'user',
-          balance: 0,
-          // Store additional profile data in a JSON field or separate table if needed
-          metadata: JSON.stringify({
-            age: formData.age,
-            phone: formData.phone,
-            city: formData.city,
-            occupation: formData.occupation,
-            monthlyIncome: formData.monthlyIncome,
-            maritalStatus: formData.maritalStatus,
-            dependents: formData.dependents,
-            primaryGoal: formData.primaryGoal,
-            investmentExperience: formData.investmentExperience,
-          }),
-=======
       if (checkError) {
         console.error('Error checking email:', checkError);
         Alert.alert('Error', `Failed to check email: ${checkError.message}`);
+        setLoading(false);
         return;
       }
 
@@ -639,58 +608,46 @@ export default function MoneyTransferApp() {
       };
 
       // First, try to insert with metadata
-      let { data, error } = await supabase
+      let insertResult = await supabase
         .from('users')
         .insert({
           ...userData,
           metadata: JSON.stringify(metadata),
->>>>>>> 3d3e538 (fixed signup)
         })
         .select('*')
         .single();
 
-<<<<<<< HEAD
-      if (error || !data) {
-        Alert.alert('Error', 'Sign up failed');
-=======
       // If that fails (metadata column might not exist), try without it
-      if (error && (error.message?.includes('metadata') || error.message?.includes('column'))) {
+      if (insertResult.error && (insertResult.error.message?.includes('metadata') || insertResult.error.message?.includes('column'))) {
         console.log('Metadata column not found, inserting without metadata');
-        const result = await supabase
+        insertResult = await supabase
           .from('users')
           .insert(userData)
           .select('*')
           .single();
-        
-        data = result.data;
-        error = result.error;
       }
 
-      if (error) {
-        console.error('Signup error:', error);
-        Alert.alert('Error', `Sign up failed: ${error.message || 'Unknown error'}`);
+      if (insertResult.error) {
+        console.error('Signup error:', insertResult.error);
+        Alert.alert('Error', `Sign up failed: ${insertResult.error.message || 'Unknown error'}`);
         setLoading(false);
         return;
       }
 
-      if (!data) {
+      if (!insertResult.data) {
         Alert.alert('Error', 'Sign up failed: No data returned');
         setLoading(false);
->>>>>>> 3d3e538 (fixed signup)
         return;
       }
+
+      const data = insertResult.data;
 
       setCurrentUser(data);
       setShowSignupForm(false);
       Alert.alert('Success', `Welcome ${data.name}!`);
-<<<<<<< HEAD
-    } catch (error) {
-      Alert.alert('Error', 'Sign up failed');
-=======
     } catch (error: any) {
       console.error('Signup exception:', error);
       Alert.alert('Error', `Sign up failed: ${error?.message || 'Unknown error'}`);
->>>>>>> 3d3e538 (fixed signup)
     } finally {
       setLoading(false);
     }
