@@ -1235,6 +1235,7 @@ export default function MoneyTransferApp() {
             <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
           </TouchableOpacity>
 
+        
           {/* Quick Actions - QR Code Buttons */}
           <View style={styles.quickActions}>
             <TouchableOpacity 
@@ -1244,7 +1245,7 @@ export default function MoneyTransferApp() {
                 setShowQRScanner(true);
               }}
             >
-              <Icon name="camera" size={24} color="#007AFF" />
+              <MaterialCommunityIcons name="qrcode" size={24} color="#007AFF" />
               <Text style={styles.qrButtonText}>Scan QR</Text>
             </TouchableOpacity>
 
@@ -1255,10 +1256,10 @@ export default function MoneyTransferApp() {
               <Icon name="maximize" size={24} color="#007AFF" />
               <Text style={styles.qrButtonText}>My QR</Text>
             </TouchableOpacity>
-          </View>
+         
 
           {/* Cash Wallet Quick Actions */}
-          <View style={styles.quickActions}>
+          
             <TouchableOpacity 
               style={styles.qrButton}
               onPress={() => { setCashAction('add'); setShowCashModal(true); }}
@@ -1274,7 +1275,6 @@ export default function MoneyTransferApp() {
               <Text style={styles.qrButtonText}>Cash -</Text>
             </TouchableOpacity>
           </View>
-
           {/* QR-only transfers: regular form removed */}
 
           {/* Recent Transactions */}
@@ -1795,7 +1795,7 @@ langTextActive: {
   // Quick Actions Styles
   quickActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 20,
   },
   qrButton: {
@@ -1803,7 +1803,7 @@ langTextActive: {
     backgroundColor: 'white',
     padding: 15,
     borderRadius: 10,
-    width: '45%',
+    width: '23%',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1812,8 +1812,9 @@ langTextActive: {
   },
   qrButtonText: {
     marginTop: 8,
+    fontSize: 10,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#000000ff',
   },
   form: {
     backgroundColor: 'white',

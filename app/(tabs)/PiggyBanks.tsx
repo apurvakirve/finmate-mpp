@@ -450,7 +450,7 @@ export default function PiggyBanks({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    padding: 20,
+    padding: 2,
   },
   summaryCard: {
     flexDirection: 'row',

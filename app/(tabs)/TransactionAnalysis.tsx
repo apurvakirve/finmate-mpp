@@ -960,6 +960,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     backgroundColor: 'white',
+    
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
@@ -1176,3 +1177,15 @@ const styles = StyleSheet.create({
     marginTop: -8,
   },
 });
+
+
+
+
+
+
+
+
+
+
+
+
