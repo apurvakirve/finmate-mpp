@@ -53,10 +53,32 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
     setFormData({ ...formData, [field]: value });
   };
 
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const getPasswordStrength = (password: string): { strength: 'weak' | 'medium' | 'strong'; color: string; text: string } => {
+    if (password.length < 6) return { strength: 'weak', color: '#FF3B30', text: 'Too short' };
+    if (password.length < 8) return { strength: 'medium', color: '#FF9500', text: 'Medium' };
+    if (password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)) {
+      return { strength: 'strong', color: '#34C759', text: 'Strong' };
+    }
+    return { strength: 'medium', color: '#FF9500', text: 'Medium' };
+  };
+
   const validateStep = (stepNum: number): boolean => {
     if (stepNum === 1) {
       if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim()) {
         Alert.alert('Error', 'Please fill all required fields');
+        return false;
+      }
+      if (formData.name.trim().length < 2) {
+        Alert.alert('Error', 'Name must be at least 2 characters');
+        return false;
+      }
+      if (!validateEmail(formData.email.trim())) {
+        Alert.alert('Error', 'Please enter a valid email address');
         return false;
       }
       if (formData.password.length < 6) {
@@ -69,10 +91,24 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
         Alert.alert('Error', 'Please fill all fields');
         return false;
       }
+      const ageNum = parseInt(formData.age);
+      if (isNaN(ageNum) || ageNum < 13 || ageNum > 120) {
+        Alert.alert('Error', 'Please enter a valid age (13-120)');
+        return false;
+      }
+      if (formData.phone.trim().length < 10) {
+        Alert.alert('Error', 'Please enter a valid phone number');
+        return false;
+      }
     }
     if (stepNum === 3) {
       if (!formData.monthlyIncome) {
         Alert.alert('Error', 'Please enter your monthly income');
+        return false;
+      }
+      const incomeNum = parseFloat(formData.monthlyIncome);
+      if (isNaN(incomeNum) || incomeNum < 0) {
+        Alert.alert('Error', 'Please enter a valid monthly income');
         return false;
       }
     }
@@ -115,13 +151,19 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email *</Text>
             <TextInput
-              style={styles.input}
+              style={[
+                styles.input,
+                formData.email && !validateEmail(formData.email) && styles.inputError
+              ]}
               placeholder="your.email@example.com"
               value={formData.email}
               onChangeText={(v) => updateField('email', v)}
               keyboardType="email-address"
               autoCapitalize="none"
             />
+            {formData.email && !validateEmail(formData.email) && (
+              <Text style={styles.errorText}>Please enter a valid email address</Text>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -133,6 +175,25 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               onChangeText={(v) => updateField('password', v)}
               secureTextEntry
             />
+            {formData.password.length > 0 && (
+              <View style={styles.passwordStrengthContainer}>
+                <View style={styles.passwordStrengthBar}>
+                  <View 
+                    style={[
+                      styles.passwordStrengthFill,
+                      { 
+                        width: `${(formData.password.length / 12) * 100}%`,
+                        backgroundColor: getPasswordStrength(formData.password).color
+                      }
+                    ]} 
+                  />
+                </View>
+                <Text style={[styles.passwordStrengthText, { color: getPasswordStrength(formData.password).color }]}>
+                  {getPasswordStrength(formData.password).text}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.hintText}>Use 8+ characters with mix of letters and numbers for better security</Text>
           </View>
         </View>
       )}
@@ -465,6 +526,37 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#6c6c70',
     fontWeight: '600',
+  },
+  inputError: {
+    borderColor: '#FF3B30',
+  },
+  errorText: {
+    color: '#FF3B30',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  passwordStrengthContainer: {
+    marginTop: 8,
+  },
+  passwordStrengthBar: {
+    height: 4,
+    backgroundColor: '#e5e5ea',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  passwordStrengthFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  passwordStrengthText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#8e8e93',
+    marginTop: 4,
   },
 });
 

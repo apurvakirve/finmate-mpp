@@ -208,16 +208,24 @@ export default function PiggyBanks({
   }, [effectiveIncome, todayIncome]);
 
   return (
-    <View style={styles.wrapper}>
+    <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
       <View style={styles.summaryCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.summaryLabel}>Net earned today</Text>
           <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
-          <Text style={styles.summaryMeta}>Gross received ₹{todayIncome.toFixed(0)}</Text>
-          <Text style={styles.summaryMeta}>Spent today ₹{Math.max(0, dailyDifference).toFixed(0)}</Text>
+          <View style={styles.summaryMetaRow}>
+            <View style={styles.metaItem}>
+              <Icon name="arrow-down" size={14} color="#34C759" />
+              <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Icon name="arrow-up" size={14} color="#FF3B30" />
+              <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, dailyDifference).toFixed(0)} spent</Text>
+            </View>
+          </View>
         </View>
         <View style={styles.riskBadge}>
-          <Text style={styles.riskLabel}>Risk</Text>
+          <Text style={styles.riskLabel}>Risk Profile</Text>
           <View style={[styles.riskTag, styles[`risk-${riskLevel}`]]}>
             <Text style={styles.riskTagText}>{riskLevel.toUpperCase()}</Text>
           </View>
@@ -435,26 +443,27 @@ export default function PiggyBanks({
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
+    padding: 20,
   },
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   summaryLabel: {
     color: '#6c6c70',
@@ -466,9 +475,16 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
   },
   summaryMeta: {
-    marginTop: 2,
     color: '#8e8e93',
     fontSize: 12,
+  },
+  summaryMetaRow: {
+    marginTop: 8,
+    gap: 8,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   riskBadge: {
     alignItems: 'flex-end',
@@ -518,14 +534,14 @@ const styles = StyleSheet.create({
   },
   incomeCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   sectionTitle: {
     fontSize: 16,
@@ -610,14 +626,14 @@ const styles = StyleSheet.create({
   },
   balancesCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   grid: {
     flexDirection: 'row',
@@ -654,14 +670,14 @@ const styles = StyleSheet.create({
   },
   transferCard: {
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 32,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 40,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   transferContainer: {
     marginTop: 16,

@@ -509,8 +509,8 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Spending Analysis</Text>
-        <View style={styles.timeFilter}>
+        <Text style={styles.title}>{activeTab === 'coach' ? 'Financial Coach' : 'Spending Analysis'}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeFilter}>
           {(['week', 'month', 'year', 'all'] as const).map(range => (
             <TouchableOpacity
               key={range}
@@ -528,11 +528,11 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Navigation Tabs */}
-      <View style={styles.tabContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer} contentContainerStyle={styles.tabContainerContent}>
         {(['overview', 'categories', 'contacts', 'trends', 'coach'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
@@ -550,7 +550,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Overview Tab */}
@@ -768,16 +768,16 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         {/* Coach Tab */}
         {activeTab === 'coach' && (
           <View>
-            <Text style={styles.sectionTitle}>Coach</Text>
-
             {/* Risk Profile */}
-            <View style={styles.insightsContainer}>
+            <View style={styles.coachCard}>
+              <Text style={styles.sectionTitle}>Your Risk Profile</Text>
               <RiskProfile userId={currentUser.id} onRiskLevelChange={setRiskLevel} />
             </View>
 
             {/* Budget Overview */}
-            <View style={styles.insightsContainer}>
-              <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>Budgets (Monthly)</Text>
+            <View style={styles.coachCard}>
+              <Text style={styles.sectionTitle}>Monthly Budgets</Text>
+              <Text style={styles.coachSubtitle}>Track your spending against budgets</Text>
               {Object.keys(CATEGORY_CONFIG).map((cat) => {
                 const config = CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG];
                 const spent = monthSentByCategory[cat] || 0;
@@ -833,8 +833,12 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
             </View>
 
             {/* Proactive Nudges */}
-            <View style={styles.insightsContainer}>
-              <Text style={styles.sectionTitle}>Proactive Nudges</Text>
+            <View style={styles.coachCard}>
+              <View style={styles.coachHeader}>
+                <Icon name="target" size={20} color="#5856D6" />
+                <Text style={[styles.sectionTitle, { marginLeft: 8, marginBottom: 0 }]}>Proactive Nudges</Text>
+              </View>
+              <Text style={styles.coachSubtitle}>Personalized financial insights</Text>
               <View style={styles.insightItem}>
                 <Icon name="target" size={16} color="#5856D6" />
                 <Text style={styles.insightText}>
@@ -934,14 +938,14 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   timeFilter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginTop: 12,
   },
   timeFilterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: '#f0f0f0',
+    marginRight: 8,
   },
   timeFilterButtonActive: {
     backgroundColor: '#007AFF',
@@ -955,16 +959,21 @@ const styles = StyleSheet.create({
     color: 'white',
   },
   tabContainer: {
-    flexDirection: 'row',
     backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e5e5',
+  },
+  tabContainerContent: {
     paddingHorizontal: 20,
+    flexDirection: 'row',
   },
   tab: {
-    flex: 1,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
+    marginRight: 8,
   },
   activeTab: {
     borderBottomColor: '#007AFF',
@@ -1143,5 +1152,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#007AFF',
+  },
+  coachCard: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  coachHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  coachSubtitle: {
+    fontSize: 14,
+    color: '#8e8e93',
+    marginBottom: 16,
+    marginTop: -8,
   },
 });

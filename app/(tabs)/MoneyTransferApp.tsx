@@ -64,6 +64,90 @@ export default function MoneyTransferApp() {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(1)).current;
 
+  // Helper function to check spending limits and show alerts
+  const checkSpendingLimit = async (amount: number, category: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      (async () => {
+        try {
+          // Get user metadata to find monthly income
+          let monthlyIncome = 0;
+          if (currentUser?.metadata) {
+            try {
+              const metadata = typeof currentUser.metadata === 'string' 
+                ? JSON.parse(currentUser.metadata) 
+                : currentUser.metadata;
+              monthlyIncome = parseFloat(metadata.monthlyIncome) || 0;
+            } catch (e) {
+              console.log('Error parsing metadata:', e);
+            }
+          }
+
+          if (monthlyIncome <= 0) {
+            resolve(true); // No limit if income not set
+            return;
+          }
+
+          // Get current month's spending
+          const now = new Date();
+          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+          const { data: monthTransactions } = await supabase
+            .from('transactions')
+            .select('amount')
+            .eq('from_user_id', currentUser.id)
+            .gte('created_at', startOfMonth)
+            .lte('created_at', endOfMonth);
+
+          const monthSpending = (monthTransactions || []).reduce((sum, t) => sum + (t.amount || 0), 0);
+          const projectedSpending = monthSpending + amount;
+          const spendingPercentage = (projectedSpending / monthlyIncome) * 100;
+
+          // Alert thresholds
+          if (spendingPercentage >= 100) {
+            Alert.alert(
+              '⚠️ High Spending Alert',
+              `You're about to exceed your monthly income!\n\n` +
+              `Monthly Income: ₹${monthlyIncome.toFixed(0)}\n` +
+              `Spent this month: ₹${monthSpending.toFixed(0)}\n` +
+              `After this transaction: ₹${projectedSpending.toFixed(0)}\n\n` +
+              `This is ${spendingPercentage.toFixed(1)}% of your income. Consider reducing expenses.`,
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Proceed Anyway', onPress: () => resolve(true) }
+              ]
+            );
+          } else if (spendingPercentage >= 80) {
+            Alert.alert(
+              '⚠️ Spending Warning',
+              `You're spending ${spendingPercentage.toFixed(1)}% of your monthly income.\n\n` +
+              `Monthly Income: ₹${monthlyIncome.toFixed(0)}\n` +
+              `Spent this month: ₹${monthSpending.toFixed(0)}\n` +
+              `After this transaction: ₹${projectedSpending.toFixed(0)}\n\n` +
+              `You have ₹${(monthlyIncome - projectedSpending).toFixed(0)} remaining this month.`,
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Continue', onPress: () => resolve(true) }
+              ]
+            );
+          } else if (spendingPercentage >= 60) {
+            Alert.alert(
+              '💡 Spending Reminder',
+              `You've spent ${spendingPercentage.toFixed(1)}% of your monthly income.\n\n` +
+              `Remaining: ₹${(monthlyIncome - projectedSpending).toFixed(0)}`,
+              [{ text: 'OK', onPress: () => resolve(true) }]
+            );
+          } else {
+            resolve(true);
+          }
+        } catch (error) {
+          console.log('Error checking spending limit:', error);
+          resolve(true); // Allow transaction if check fails
+        }
+      })();
+    });
+  };
+
   // QR Code States
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showMyQR, setShowMyQR] = useState(false);
@@ -394,6 +478,14 @@ export default function MoneyTransferApp() {
         const nextCash = cashBalance - amt;
         if (nextCash < 0) {
           Alert.alert('Error', 'Insufficient cash');
+          setLoading(false);
+          return;
+        }
+
+        // Check spending limit before proceeding with cash spend
+        const canProceed = await checkSpendingLimit(amt, cashCategory);
+        if (!canProceed) {
+          setLoading(false);
           return;
         }
         await saveCashBalance(nextCash);
@@ -469,6 +561,7 @@ export default function MoneyTransferApp() {
 
       if (!sender || !receiver) {
         Alert.alert('Error', 'User not found');
+        setLoading(false);
         return;
       }
 
@@ -477,6 +570,14 @@ export default function MoneyTransferApp() {
 
       if (senderBalance < amt) {
         Alert.alert('Error', 'Insufficient balance');
+        setLoading(false);
+        return;
+      }
+
+      // Check spending limit before proceeding
+      const canProceed = await checkSpendingLimit(amt, qrCategory);
+      if (!canProceed) {
+        setLoading(false);
         return;
       }
 
@@ -716,6 +817,7 @@ export default function MoneyTransferApp() {
 
         if (!sender || !receiver) {
           Alert.alert('Error', 'User not found');
+          setLoading(false);
           return;
         }
 
@@ -724,6 +826,14 @@ export default function MoneyTransferApp() {
 
         if (senderBalance < amt) {
           Alert.alert('Error', 'Insufficient balance');
+          setLoading(false);
+          return;
+        }
+
+        // Check spending limit before proceeding
+        const canProceed = await checkSpendingLimit(amt, categoryType);
+        if (!canProceed) {
+          setLoading(false);
           return;
         }
 
