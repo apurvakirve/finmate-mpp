@@ -71,6 +71,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
   const [draft, setDraft] = useState<RiskProfileData>(defaultProfile);
 
   useEffect(() => {
+    if (!userId) return;
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(riskProfileStorageKey(userId));
@@ -90,6 +91,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
   }, [profile, onRiskLevelChange]);
 
   const saveProfile = async () => {
+    if (!userId) return;
     setProfile(draft);
     await AsyncStorage.setItem(riskProfileStorageKey(userId), JSON.stringify(draft));
     setShowModal(false);

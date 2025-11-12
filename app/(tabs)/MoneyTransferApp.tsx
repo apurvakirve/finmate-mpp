@@ -29,7 +29,7 @@ import TransactionAnalysis from './TransactionAnalysis';
 // Add transaction types constant
 const TRANSACTION_TYPES = [
   { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
-  { value: 'transportation', label: '🚗 Transportation', icon: 'car' },
+  { value: 'transportation', label: '🚗 Transportation', icon: 'truck' },
   { value: 'shopping', label: '🛍️ Shopping', icon: 'shopping-bag' },
   { value: 'utilities', label: '💡 Utilities', icon: 'home' },
   { value: 'entertainment', label: '🎬 Entertainment', icon: 'film' },
@@ -1344,7 +1344,7 @@ export default function MoneyTransferApp() {
       )}
 
       {/* Investments Tab */}
-      {activeTab === 'investments' && (
+      {activeTab === 'investments' && currentUser?.id && (
         <InvestmentsTab userId={currentUser.id} />
       )}
       </Animated.View>
@@ -2207,4 +2207,4 @@ langTextActive: {
     flex: 1,
     fontWeight: '600',
   },
-}); 
+});

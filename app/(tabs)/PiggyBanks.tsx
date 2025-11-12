@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -102,6 +102,17 @@ export default function PiggyBanks({
   const [transferAmount, setTransferAmount] = useState('');
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'investment' | 'emi'>('investment');
+  const [editingEnvelope, setEditingEnvelope] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
+  const [sourceEnvelope, setSourceEnvelope] = useState<string | null>(null);
+  
+  // Animation references for envelope interactions
+  const envelopeAnimations = useRef<Record<EnvelopeKey, Animated.Value>>(
+    ENVELOPES.reduce((acc, { key }) => ({
+      ...acc,
+      [key]: new Animated.Value(1)
+    }), {} as Record<EnvelopeKey, Animated.Value>)
+  ).current;
 
   const key = useMemo(() => storageKey(userId), [userId]);
 
@@ -202,6 +213,73 @@ export default function PiggyBanks({
     setCalendarVisible(false);
   };
 
+  const handleEnvelopeEdit = (envelopeKey: EnvelopeKey) => {
+    setEditingEnvelope(envelopeKey);
+    setEditAmount(state.allocationsPct[envelopeKey].toString());
+    setSourceEnvelope(null);
+  };
+
+  const handleEnvelopeAmountChange = (value: string) => {
+    setEditAmount(value);
+  };
+
+  const confirmEnvelopeEdit = () => {
+    if (!editingEnvelope || !editAmount) return;
+    const newPct = parseFloat(editAmount);
+    if (isNaN(newPct) || newPct < 0 || newPct > 100) return;
+    
+    setState(prev => {
+      const newAllocations = { ...prev.allocationsPct, [editingEnvelope]: newPct };
+      
+      // If we have a source envelope, update its balance too
+      if (sourceEnvelope && sourceEnvelope !== editingEnvelope) {
+        const oldAmount = Math.floor((effectiveIncome * (prev.allocationsPct[editingEnvelope] || 0)) / 100);
+        const newAmount = Math.floor((effectiveIncome * newPct) / 100);
+        const difference = newAmount - oldAmount;
+        
+        if (difference !== 0) {
+          const sourceOldPct = prev.allocationsPct[sourceEnvelope] || 0;
+          const sourceOldAmount = Math.floor((effectiveIncome * sourceOldPct) / 100);
+          const sourceNewAmount = sourceOldAmount - difference;
+          const sourceNewPct = effectiveIncome > 0 ? Math.max(0, Math.min(100, (sourceNewAmount * 100) / effectiveIncome)) : 0;
+          
+          newAllocations[sourceEnvelope] = Math.round(sourceNewPct);
+        }
+      }
+      
+      return { ...prev, allocationsPct: newAllocations };
+    });
+    
+    cancelEnvelopeEdit();
+  };
+
+  const cancelEnvelopeEdit = () => {
+    setEditingEnvelope(null);
+    setEditAmount('');
+    setSourceEnvelope(null);
+  };
+
+  // Animation functions for envelope interactions
+  const animateEnvelopePress = (envelopeKey: EnvelopeKey) => {
+    Animated.sequence([
+      Animated.timing(envelopeAnimations[envelopeKey], {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(envelopeAnimations[envelopeKey], {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleEnvelopePress = (envelopeKey: EnvelopeKey) => {
+    animateEnvelopePress(envelopeKey);
+    handleEnvelopeEdit(envelopeKey);
+  };
+
   const dailyDifference = useMemo(() => {
     if (todayIncome <= 0) return 0;
     return todayIncome - effectiveIncome;
@@ -259,28 +337,45 @@ export default function PiggyBanks({
           <Icon name="dollar-sign" size={18} color="#007AFF" />
           <Text style={styles.incomeText}>Daily base used: ₹{effectiveIncome.toFixed(0)}</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-          {ENVELOPES.map(({ key, label, color }) => (
-            <View key={key} style={[styles.allocChip, { borderColor: color }]}> 
-              <Text style={[styles.allocLabel, { color }]}>{label}</Text>
-              <TextInput
-                value={String(state.allocationsPct[key] ?? 0)}
-                onChangeText={(value) => {
-                  const next = {
-                    ...state,
-                    allocationsPct: {
-                      ...state.allocationsPct,
-                      [key]: Math.max(0, Math.min(100, parseInt(value || '0', 10))),
-                    },
-                  };
-                  persist(next);
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16, paddingVertical: 8 }}>
+          {ENVELOPES.map(({ key, label, color }) => {
+            const allocationAmount = Math.floor((effectiveIncome * (state.allocationsPct[key] || 0)) / 100);
+            return (
+              <Animated.View
+                key={key}
+                style={{
+                  transform: [{ scale: envelopeAnimations[key] }]
                 }}
-                keyboardType="numeric"
-                style={styles.allocInput}
-              />
-              <Text style={styles.allocPercent}>%</Text>
-            </View>
-          ))}
+              >
+                <TouchableOpacity
+                  style={[styles.allocChip, { borderColor: color }]}
+                  onPress={() => handleEnvelopePress(key)}
+                  activeOpacity={0.9}
+                > 
+                  <View style={styles.allocContent}>
+                    <Text style={[styles.allocLabel, { color }]}>{label}</Text>
+                    <Text style={[styles.allocValue, { color }]}>
+                      ₹{allocationAmount.toLocaleString()}
+                    </Text>
+                    <Text style={[styles.allocPercent, { color: color + '80' }]}>
+                      {state.allocationsPct[key] ?? 0}%
+                    </Text>
+                  </View>
+                  <View style={styles.allocProgressContainer}>
+                    <View 
+                      style={[
+                        styles.allocProgress, 
+                        { 
+                          backgroundColor: color, 
+                          width: `${Math.min(100, state.allocationsPct[key] || 0)}%` 
+                        }
+                      ]} 
+                    />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
         </ScrollView>
         <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
           <Text style={styles.primaryButtonText}>Propose Today Allocation</Text>
@@ -443,6 +538,90 @@ export default function PiggyBanks({
           </View>
         </View>
       </Modal>
+
+      {/* Envelope Edit Modal */}
+      <Modal visible={editingEnvelope !== null} animationType="slide" transparent onRequestClose={cancelEnvelopeEdit}>
+        <View style={styles.envelopeEditOverlay}>
+          <View style={styles.envelopeEditModal}>
+            <View style={styles.envelopeEditHeader}>
+              <Text style={styles.envelopeEditTitle}>
+                Edit {editingEnvelope ? ENVELOPES.find(e => e.key === editingEnvelope)?.label : ''} Allocation
+              </Text>
+              <TouchableOpacity onPress={cancelEnvelopeEdit}>
+                <Icon name="x" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.envelopeEditContent}>
+              <Text style={styles.envelopeEditLabel}>Allocation Percentage</Text>
+              <View style={styles.envelopeEditInputContainer}>
+                <TextInput
+                  value={editAmount}
+                  onChangeText={handleEnvelopeAmountChange}
+                  keyboardType="numeric"
+                  style={styles.envelopeEditInput}
+                  placeholder="Enter percentage"
+                  placeholderTextColor="#8e8e93"
+                  autoFocus
+                />
+                <Text style={styles.envelopeEditPercent}>%</Text>
+              </View>
+              
+              <Text style={styles.envelopeEditHint}>
+                Amount: ₹{Math.floor((effectiveIncome * (parseFloat(editAmount) || 0)) / 100).toLocaleString()}
+              </Text>
+              
+              <Text style={styles.envelopeEditLabel}>Take money from:</Text>
+              <View style={styles.sourceEnvelopeContainer}>
+                <TouchableOpacity
+                  style={[styles.sourceEnvelopeOption, !sourceEnvelope && styles.sourceEnvelopeOptionActive]}
+                  onPress={() => setSourceEnvelope(null)}
+                >
+                  <Text style={[styles.sourceEnvelopeText, !sourceEnvelope && styles.sourceEnvelopeTextActive]}>
+                    Auto-distribute
+                  </Text>
+                </TouchableOpacity>
+                {ENVELOPES.filter(({ key }) => key !== editingEnvelope).map(({ key, label, color }) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={[
+                      styles.sourceEnvelopeOption, 
+                      sourceEnvelope === key && styles.sourceEnvelopeOptionActive,
+                      { borderColor: color }
+                    ]}
+                    onPress={() => setSourceEnvelope(key)}
+                  >
+                    <Text style={[
+                      styles.sourceEnvelopeText, 
+                      sourceEnvelope === key && styles.sourceEnvelopeTextActive
+                    ]}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <Text style={styles.envelopeEditHint}>
+                Current total: {ENVELOPES.reduce((sum, { key }) => {
+                  if (key === editingEnvelope) {
+                    return sum + (parseFloat(editAmount) || 0);
+                  }
+                  return sum + state.allocationsPct[key];
+                }, 0).toFixed(1)}%
+              </Text>
+              
+              <View style={styles.envelopeEditButtons}>
+                <TouchableOpacity style={styles.envelopeEditCancel} onPress={cancelEnvelopeEdit}>
+                  <Text style={styles.envelopeEditCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.envelopeEditConfirm} onPress={confirmEnvelopeEdit}>
+                  <Text style={styles.envelopeEditConfirmText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -534,42 +713,55 @@ const styles = StyleSheet.create({
   },
   incomeCard: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#1c1c1e',
+    marginBottom: 12,
   },
   incomeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    marginBottom: 16,
+    paddingVertical: 8,
   },
   incomeText: {
     marginLeft: 8,
     color: '#6c6c70',
+    fontSize: 16,
+    fontWeight: '600',
   },
   allocChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    backgroundColor: '#f9f9f9',
+    width: 160,
+    height: 120,
+    justifyContent: 'space-between',
+    borderWidth: 2,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    marginRight: 16,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   allocLabel: {
-    fontWeight: '600',
-    marginRight: 6,
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   allocInput: {
     borderBottomWidth: 1,
@@ -584,14 +776,20 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 16,
+    marginTop: 20,
+    shadowColor: '#007AFF',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
   primaryButtonText: {
     color: 'white',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
   },
   pendingCard: {
     backgroundColor: '#f5f5f5',
@@ -828,6 +1026,156 @@ const styles = StyleSheet.create({
   calendarDayTextActive: {
     color: 'white',
     fontWeight: '600',
+  },
+  
+  // Envelope Edit Modal Styles
+  envelopeEditOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  envelopeEditModal: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 400,
+  },
+  envelopeEditHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  envelopeEditTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  envelopeEditContent: {
+    marginTop: 10,
+  },
+  envelopeEditLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6c6c70',
+    marginBottom: 10,
+  },
+  envelopeEditInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#fafafa',
+    marginBottom: 10,
+  },
+  envelopeEditInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    paddingVertical: 16,
+    color: '#1c1c1e',
+  },
+  envelopeEditPercent: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginLeft: 8,
+  },
+  envelopeEditHint: {
+    fontSize: 12,
+    color: '#6c6c70',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  envelopeEditButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  sourceEnvelopeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sourceEnvelopeOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f8f8f8',
+  },
+  sourceEnvelopeOptionActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  sourceEnvelopeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  sourceEnvelopeTextActive: {
+    color: 'white',
+  },
+  envelopeEditCancel: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  envelopeEditCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6c6c70',
+  },
+  envelopeEditConfirm: {
+    flex: 1,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  envelopeEditConfirmText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  allocValue: {
+    fontWeight: '700',
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  allocPercent: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 6,
+    opacity: 0.8,
+  },
+  allocContent: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  allocProgressContainer: {
+    height: 8,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 4,
+    marginTop: 8,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  allocProgress: {
+    height: '100%',
+    borderRadius: 4,
   },
 });
 

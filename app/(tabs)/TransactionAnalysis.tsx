@@ -532,7 +532,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       </View>
 
       {/* Navigation Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer} contentContainerStyle={styles.tabContainerContent}>
+      <View style={styles.tabContainer}>
         {(['overview', 'categories', 'contacts', 'trends', 'coach'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
@@ -550,9 +550,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={{ flex: 1 }}>
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <View>
@@ -905,6 +906,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           <Text style={styles.refreshButtonText}>Refresh Data</Text>
         </TouchableOpacity>
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -932,13 +934,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e5e5',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 15,
   },
   timeFilter: {
-    marginTop: 12,
+    marginTop: 1,
   },
   timeFilterButton: {
     paddingHorizontal: 16,
@@ -960,21 +962,18 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     backgroundColor: 'white',
-    
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-  },
-  tabContainerContent: {
-    paddingHorizontal: 20,
+     paddingHorizontal: 10,
     flexDirection: 'row',
+    alignItems: 'center',
   },
+
   tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
-    marginRight: 8,
+    marginRight: 5,
   },
   activeTab: {
     borderBottomColor: '#007AFF',
@@ -990,7 +989,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 20, 
   },
   metricsGrid: {
     flexDirection: 'row',
