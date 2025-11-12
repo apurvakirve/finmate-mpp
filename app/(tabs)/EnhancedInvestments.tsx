@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather as Icon } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
@@ -46,6 +47,7 @@ interface EnhancedInvestmentsProps {
 }
 
 const storageKey = (userId: string | number) => `mt_enhanced_investments_${userId}`;
+const planKey = (userId: string | number) => `mt_investment_plan_${userId}`;
 
 export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps) {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>('moderate');
@@ -62,6 +64,10 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const prevRiskRef = React.useRef<RiskLevel | null>(null);
   const latestPreferencesRef = React.useRef<UserInvestmentPreferences | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<Record<string, number>>({});
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  const screenWidth = Math.min(360, Dimensions.get('window').width - 40);
 
   useEffect(() => {
     loadPreferences();
@@ -188,6 +194,47 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     await AsyncStorage.setItem(storageKey(userId), JSON.stringify(updatedPrefs));
     setRiskLevel(level);
   }, [preferences, riskLevel, userId]);
+
+  // Load saved plan
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(planKey(userId));
+        if (raw) {
+          setSelectedPlan(JSON.parse(raw));
+        }
+      } catch {}
+    })();
+  }, [userId]);
+
+  const toggleSelectFund = (fund: InvestmentFund) => {
+    setSelectedPlan((prev) => {
+      const next = { ...prev };
+      if (next[fund.id]) {
+        delete next[fund.id];
+      } else {
+        next[fund.id] = Math.max(fund.minInvestment || 500, 500);
+      }
+      return next;
+    });
+  };
+
+  const updateSipForFund = (fundId: string, value: string) => {
+    const amt = Math.max(0, parseInt(value || '0', 10));
+    setSelectedPlan((prev) => ({ ...prev, [fundId]: amt }));
+  };
+
+  const confirmPlan = async () => {
+    try {
+      setSavingPlan(true);
+      await AsyncStorage.setItem(planKey(userId), JSON.stringify(selectedPlan));
+      Alert.alert('Investments', 'Your investment plan is saved.');
+    } catch {
+      Alert.alert('Investments', 'Could not save your plan.');
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   const handleEditFund = (fund: InvestmentFund) => {
     setEditingFund(fund);
@@ -363,6 +410,25 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     },
   };
 
+  // Build projected portfolio series (60 months) from selectedPlan using 1Y predicted growth
+  const portfolioProjection = useMemo(() => {
+    if (!predictions.length || !Object.keys(selectedPlan).length) return null;
+    const months = 60;
+    const series = new Array(months).fill(0);
+    predictions.forEach((p) => {
+      const sip = selectedPlan[p.fund.id] || 0;
+      if (!sip) return;
+      const monthlyRate = Math.max(0, (p.predictedGrowth.oneYear || 0.1)) / 12;
+      let value = 0;
+      for (let m = 0; m < months; m++) {
+        value = (value + sip) * (1 + monthlyRate);
+        series[m] += value;
+      }
+    });
+    const labels = series.map((_, idx) => (idx % 12 === 0 ? `Y${idx / 12 + 1}` : ''));
+    return { labels, datasets: [{ data: series.map((v) => Math.round(v)) }] };
+  }, [predictions, selectedPlan]);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
@@ -430,6 +496,32 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
 
                   <Text style={styles.fundName}>{prediction.fund.name}</Text>
                   <Text style={styles.fundCategory}>{prediction.fund.category}</Text>
+
+                  {/* Selection and SIP input */}
+                  <View style={styles.selectRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.checkbox,
+                        selectedPlan[prediction.fund.id] ? styles.checkboxActive : undefined,
+                      ]}
+                      onPress={() => toggleSelectFund(prediction.fund)}
+                    >
+                      {selectedPlan[prediction.fund.id] ? <Icon name="check" size={14} color="white" /> : null}
+                    </TouchableOpacity>
+                    <Text style={styles.checkboxLabel}>Include in my plan</Text>
+                    {selectedPlan[prediction.fund.id] !== undefined && (
+                      <View style={styles.sipInputBox}>
+                        <Text style={styles.sipCurrency}>₹</Text>
+                        <TextInput
+                          value={String(selectedPlan[prediction.fund.id])}
+                          onChangeText={(v) => updateSipForFund(prediction.fund.id, v)}
+                          keyboardType="numeric"
+                          style={styles.sipInput}
+                        />
+                        <Text style={styles.sipSuffix}>/mo</Text>
+                      </View>
+                    )}
+                  </View>
 
                   <View style={styles.predictionRow}>
                     <View style={styles.predictionItem}>
@@ -546,10 +638,11 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
                     <Text style={styles.detailSectionTitle}>NAV Trend (Last 90 Days)</Text>
                     <LineChart
                       data={chartData}
-                      width={320}
+                      width={screenWidth}
                       height={200}
                       chartConfig={chartConfig}
                       withInnerLines={false}
+                      withOuterLines={false}
                       style={{ borderRadius: 12 }}
                     />
                   </View>
@@ -712,6 +805,37 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
           </ScrollView>
         </SafeAreaView>
       </Modal>
+
+      {/* Confirm Plan Bar */}
+      {Object.keys(selectedPlan).length > 0 && (
+        <View style={styles.stickyConfirm}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.stickyTitle}>Selected funds: {Object.keys(selectedPlan).length}</Text>
+            <Text style={styles.stickySub}>
+              Total SIP ₹{Object.values(selectedPlan).reduce((a, b) => a + (b || 0), 0).toLocaleString()}/mo
+            </Text>
+          </View>
+          <TouchableOpacity style={styles.savePlanButton} onPress={confirmPlan} disabled={savingPlan}>
+            {savingPlan ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.savePlanText}>Confirm</Text>}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Portfolio Projection */}
+      {portfolioProjection && (
+        <View style={styles.projectionCard}>
+          <Text style={styles.sectionTitle}>Projected Portfolio (5 years)</Text>
+          <LineChart
+            data={portfolioProjection}
+            width={screenWidth}
+            height={220}
+            chartConfig={chartConfig}
+            withInnerLines={false}
+            withOuterLines={false}
+            style={{ borderRadius: 12, marginTop: 12 }}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -784,6 +908,53 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 12,
+    color: '#6c6c70',
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: '#c7c7cc',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  checkboxActive: {
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
+  },
+  checkboxLabel: {
+    color: '#1c1c1e',
+    fontWeight: '600',
+    marginRight: 12,
+  },
+  sipInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  sipCurrency: {
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginRight: 6,
+  },
+  sipInput: {
+    minWidth: 80,
+    textAlign: 'right',
+    color: '#1c1c1e',
+    fontWeight: '700',
+  },
+  sipSuffix: {
+    marginLeft: 6,
     color: '#6c6c70',
   },
   sectionHeader: {
@@ -1096,6 +1267,55 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '700',
     fontSize: 16,
+  },
+  stickyConfirm: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  stickyTitle: {
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  stickySub: {
+    color: '#6c6c70',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  savePlanButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  savePlanText: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  projectionCard: {
+    position: 'relative',
+    marginTop: 12,
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
 });
 
