@@ -22,6 +22,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import InvestmentsTab from './InvestmentsTab';
+import EnhancedInvestments from './EnhancedInvestments';
 import PiggyBanks from './PiggyBanks';
 import RiskProfile, { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
@@ -1344,8 +1345,8 @@ export default function MoneyTransferApp() {
       )}
 
       {/* Investments Tab */}
-      {activeTab === 'investments' && currentUser?.id && (
-        <InvestmentsTab userId={currentUser.id} />
+      {activeTab === 'investments' && (
+        <EnhancedInvestments userId={currentUser.id} />
       )}
       </Animated.View>
 

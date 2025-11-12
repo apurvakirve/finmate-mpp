@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather as Icon } from '@expo/vector-icons';
-import { RiskLevel } from './RiskProfile';
+import RiskProfile, { RiskLevel } from './RiskProfile';
 
 export type EnvelopeKey =
   | 'meal'
@@ -97,11 +97,14 @@ export default function PiggyBanks({
 }: PiggyBanksProps) {
   const [state, setState] = useState<EnvelopeState>(defaultState);
   const [pendingAllocations, setPendingAllocations] = useState<Record<EnvelopeKey, number> | null>(null);
-  const [fromEnv, setFromEnv] = useState<EnvelopeKey>('other');
-  const [toEnv, setToEnv] = useState<EnvelopeKey>('investments');
+  const [fromEnv, setFromEnv] = useState<EnvelopeKey | null>(null);
+  const [toEnv, setToEnv] = useState<EnvelopeKey | null>(null);
   const [transferAmount, setTransferAmount] = useState('');
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'investment' | 'emi'>('investment');
+  const [editingAllocation, setEditingAllocation] = useState<EnvelopeKey | null>(null);
+  const [allocationInput, setAllocationInput] = useState('');
+  const [showTransferModal, setShowTransferModal] = useState(false);
   const [editingEnvelope, setEditingEnvelope] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
   const [sourceEnvelope, setSourceEnvelope] = useState<string | null>(null);
@@ -174,6 +177,10 @@ export default function PiggyBanks({
   };
 
   const handleMove = async () => {
+    if (!fromEnv || !toEnv) {
+      Alert.alert('Error', 'Please select source and destination jars');
+      return;
+    }
     const amt = parseFloat(transferAmount);
     if (!amt || amt <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
@@ -192,10 +199,40 @@ export default function PiggyBanks({
     const next = { ...state };
     next.balances[fromEnv] = fromBalance - amt;
     next.balances[toEnv] = (next.balances[toEnv] || 0) + amt;
-    setState(next); // Update immediately for instant UI feedback
+    setState(next);
     await AsyncStorage.setItem(key, JSON.stringify(next));
     setTransferAmount('');
+    setFromEnv(null);
+    setToEnv(null);
+    setShowTransferModal(false);
     Alert.alert('Success', `₹${amt.toFixed(0)} moved from ${ENVELOPES.find(e => e.key === fromEnv)?.label} to ${ENVELOPES.find(e => e.key === toEnv)?.label}`);
+  };
+
+  const handleAllocationClick = (key: EnvelopeKey) => {
+    setEditingAllocation(key);
+    setAllocationInput(String(state.allocationsPct[key] || 0));
+  };
+
+  const saveAllocation = () => {
+    if (editingAllocation) {
+      const pct = Math.max(0, Math.min(100, parseInt(allocationInput || '0', 10)));
+      const next = {
+        ...state,
+        allocationsPct: {
+          ...state.allocationsPct,
+          [editingAllocation]: pct,
+        },
+      };
+      persist(next);
+      setEditingAllocation(null);
+      setAllocationInput('');
+    }
+  };
+
+  const getRiskScore = (): number => {
+    if (riskLevel === 'conservative') return 35;
+    if (riskLevel === 'moderate') return 55;
+    return 75;
   };
 
   const openCalendar = (mode: 'investment' | 'emi') => {
@@ -285,224 +322,253 @@ export default function PiggyBanks({
     return todayIncome - effectiveIncome;
   }, [effectiveIncome, todayIncome]);
 
+  const calculatedAllocations = useMemo(() => {
+    const allocations: Record<EnvelopeKey, number> = {
+      meal: 0,
+      travel: 0,
+      emergency: 0,
+      emis: 0,
+      investments: 0,
+      savings: 0,
+      vacations: 0,
+      other: 0,
+    };
+    ENVELOPES.forEach(({ key }) => {
+      const pct = Math.max(0, state.allocationsPct[key] || 0);
+      allocations[key] = Math.floor((effectiveIncome * pct) / 100);
+    });
+    return allocations;
+  }, [effectiveIncome, state.allocationsPct]);
+
+  const riskScore = getRiskScore();
+
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
-      <View style={styles.summaryCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.summaryLabel}>Net earned today</Text>
-          <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
-          <View style={styles.summaryMetaRow}>
-            <View style={styles.metaItem}>
-              <Icon name="arrow-down" size={14} color="#34C759" />
-              <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Icon name="arrow-up" size={14} color="#FF3B30" />
-              <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, dailyDifference).toFixed(0)} spent</Text>
-            </View>
+      {/* Info Banner */}
+      <View style={styles.infoBanner}>
+        <Icon name="sun" size={18} color="#007AFF" />
+        <Text style={styles.infoBannerText}>
+          Today's recorded income: ₹{todayIncome.toFixed(0)} • Risk profile: {riskLevel.toUpperCase()}. Adjust jars or edit your profile below.
+        </Text>
+      </View>
+
+      {/* Personal Risk Profile Card */}
+      <View style={styles.riskProfileCard}>
+        <View style={styles.riskProfileHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.riskProfileTitle}>Personal Risk Profile</Text>
+            <Text style={styles.riskProfileSubtitle}>Answer Few Questions to personalize coaching.</Text>
           </View>
+          <TouchableOpacity style={styles.addButton} onPress={() => {}}>
+            <Text style={styles.addButtonText}>Add</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.riskBadge}>
-          <Text style={styles.riskLabel}>Risk Profile</Text>
-          <View style={[styles.riskTag, styles[`risk-${riskLevel}`]]}>
-            <Text style={styles.riskTagText}>{riskLevel.toUpperCase()}</Text>
+        <View style={styles.riskScoreContainer}>
+          <Text style={styles.riskScoreText}>{riskScore}/100 ({riskLevel})</Text>
+          <View style={styles.riskProgressBar}>
+            <View style={[styles.riskProgressFill, { width: `${riskScore}%`, backgroundColor: '#FF9500' }]} />
           </View>
         </View>
       </View>
 
-      <View style={styles.scheduleRow}>
-        <TouchableOpacity style={[styles.scheduleButton, { marginRight: 10 }]} onPress={() => openCalendar('investment')}>
-          <Icon name="calendar" size={16} color="#007AFF" />
-          <View style={{ marginLeft: 8 }}>
-            <Text style={styles.scheduleTitle}>Investment Day</Text>
-            <Text style={styles.scheduleSubtitle}>
-              {state.scheduledInvestmentDay ? `Every month on ${state.scheduledInvestmentDay}` : 'Select a date'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.scheduleButton, { marginRight: 0 }]} onPress={() => openCalendar('emi')}>
-          <Icon name="alert-circle" size={16} color="#FF3B30" />
-          <View style={{ marginLeft: 8 }}>
-            <Text style={styles.scheduleTitle}>EMI / Loan Day</Text>
-            <Text style={styles.scheduleSubtitle}>
-              {state.emiPayDay ? `Remind me on ${state.emiPayDay}` : 'Set payday'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
+      {/* Allocation Plan Card */}
       <View style={styles.incomeCard}>
         <Text style={styles.sectionTitle}>Allocation Plan</Text>
         <View style={styles.incomeRow}>
           <Icon name="dollar-sign" size={18} color="#007AFF" />
           <Text style={styles.incomeText}>Daily base used: ₹{effectiveIncome.toFixed(0)}</Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 16, paddingVertical: 8 }}>
+        <View style={styles.allocationGrid}>
           {ENVELOPES.map(({ key, label, color }) => {
-            const allocationAmount = Math.floor((effectiveIncome * (state.allocationsPct[key] || 0)) / 100);
+            const amount = calculatedAllocations[key];
+            const isEditing = editingAllocation === key;
             return (
-              <Animated.View
+              <TouchableOpacity
                 key={key}
-                style={{
-                  transform: [{ scale: envelopeAnimations[key] }]
-                }}
+                style={[styles.allocationJar, { backgroundColor: color }]}
+                onPress={() => handleAllocationClick(key)}
               >
-                <TouchableOpacity
-                  style={[styles.allocChip, { borderColor: color }]}
-                  onPress={() => handleEnvelopePress(key)}
-                  activeOpacity={0.9}
-                > 
-                  <View style={styles.allocContent}>
-                    <Text style={[styles.allocLabel, { color }]}>{label}</Text>
-                    <Text style={[styles.allocValue, { color }]}>
-                      ₹{allocationAmount.toLocaleString()}
-                    </Text>
-                    <Text style={[styles.allocPercent, { color: color + '80' }]}>
-                      {state.allocationsPct[key] ?? 0}%
-                    </Text>
-                  </View>
-                  <View style={styles.allocProgressContainer}>
-                    <View 
-                      style={[
-                        styles.allocProgress, 
-                        { 
-                          backgroundColor: color, 
-                          width: `${Math.min(100, state.allocationsPct[key] || 0)}%` 
-                        }
-                      ]} 
+                <Text style={styles.jarCategoryLabel}>{label}</Text>
+                {isEditing ? (
+                  <View style={styles.jarEditContainer}>
+                    <TextInput
+                      value={allocationInput}
+                      onChangeText={setAllocationInput}
+                      keyboardType="numeric"
+                      style={styles.jarEditInput}
+                      autoFocus
+                      onSubmitEditing={saveAllocation}
+                      onBlur={saveAllocation}
                     />
+                    <Text style={styles.jarEditPercent}>%</Text>
                   </View>
-                </TouchableOpacity>
-              </Animated.View>
+                ) : (
+                  <Text style={styles.jarAmount}>₹ {amount.toFixed(0)}</Text>
+                )}
+              </TouchableOpacity>
             );
           })}
-        </ScrollView>
-        <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
-          <Text style={styles.primaryButtonText}>Propose Today Allocation</Text>
-        </TouchableOpacity>
+        </View>
         {pendingAllocations && (
-          <View style={styles.pendingCard}>
-            <Text style={styles.pendingTitle}>Suggested split</Text>
-            {ENVELOPES.map(({ key, label }) => (
-              <View key={key} style={styles.pendingRow}>
-                <Text style={styles.pendingLabel}>{label}</Text>
-                <Text style={styles.pendingValue}>₹{(pendingAllocations[key] || 0).toFixed(0)}</Text>
-              </View>
-            ))}
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759' }]} onPress={confirmAllocation}>
-              <Text style={styles.primaryButtonText}>Confirm & Fill Jars</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
-              <Text style={styles.linkButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity style={styles.confirmButton} onPress={confirmAllocation}>
+            <Text style={styles.confirmButtonText}>Confirm & Fill Jars</Text>
+          </TouchableOpacity>
+        )}
+        {!pendingAllocations && (
+          <TouchableOpacity style={styles.proposeButton} onPress={proposeTodayAllocation}>
+            <Text style={styles.proposeButtonText}>Propose Today Allocation</Text>
+          </TouchableOpacity>
         )}
       </View>
 
+      {/* Jar Balances Card */}
       <View style={styles.balancesCard}>
-        <Text style={styles.sectionTitle}>Jar balances</Text>
-        <View style={styles.grid}>
-          {ENVELOPES.map(({ key, label, color, icon }) => (
-            <TouchableOpacity key={key} style={[styles.balanceCell, { borderColor: color }]} onPress={() => setFromEnv(key)}>
-              <View style={styles.balanceHeader}>
-                <Icon name={icon as any} size={16} color={color} />
-                <Text style={styles.balanceLabel}>{label}</Text>
-              </View>
-              <Text style={[styles.balanceValue, { color }]}>₹{(state.balances[key] || 0).toFixed(0)}</Text>
-              <Text style={styles.balanceHint}>Tap to move from here</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.transferCard}>
-        <Text style={styles.sectionTitle}>Move between jars</Text>
-        
-        <View style={styles.transferContainer}>
-          <View style={styles.transferFrom}>
-            <Text style={styles.transferLabel}>From</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {ENVELOPES.map(({ key, label, color, icon }) => {
-                const isSelected = fromEnv === key;
-                const balance = state.balances[key] || 0;
-                return (
-                  <TouchableOpacity
-                    key={`from-${key}`}
-                    style={[
-                      styles.jarOption,
-                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
-                    ]}
-                    onPress={() => setFromEnv(key)}
-                  >
-                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
-                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
-                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <View style={styles.transferArrow}>
-            <Icon name="arrow-down" size={24} color="#007AFF" />
-          </View>
-
-          <View style={styles.transferTo}>
-            <Text style={styles.transferLabel}>To</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {ENVELOPES.map(({ key, label, color, icon }) => {
-                const isSelected = toEnv === key;
-                const balance = state.balances[key] || 0;
-                return (
-                  <TouchableOpacity
-                    key={`to-${key}`}
-                    style={[
-                      styles.jarOption,
-                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
-                    ]}
-                    onPress={() => setToEnv(key)}
-                  >
-                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
-                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
-                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <View style={styles.amountRow}>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>₹</Text>
-              <TextInput
-                value={transferAmount}
-                onChangeText={setTransferAmount}
-                placeholder="Enter amount"
-                keyboardType="numeric"
-                style={styles.amountInput}
-                placeholderTextColor="#8e8e93"
-              />
-            </View>
-            {fromEnv && (
-              <Text style={styles.availableText}>
-                Available: ₹{(state.balances[fromEnv] || 0).toFixed(0)}
-              </Text>
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.moveButton,
-              (!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv) && styles.moveButtonDisabled,
-            ]}
-            onPress={handleMove}
-            disabled={!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv}
+        <View style={styles.balancesHeader}>
+          <Text style={styles.sectionTitle}>Jar balances</Text>
+          <TouchableOpacity 
+            style={styles.moveMoneyButton}
+            onPress={() => setShowTransferModal(true)}
           >
-            <Icon name="arrow-right" size={18} color="white" />
-            <Text style={styles.moveButtonText}>Transfer Now</Text>
+            <Text style={styles.moveMoneyButtonText}>Move Money</Text>
           </TouchableOpacity>
         </View>
+        <View style={styles.balancesGrid}>
+          {ENVELOPES.map(({ key, label, color }) => {
+            const balance = state.balances[key] || 0;
+            const maxBalance = Math.max(...Object.values(state.balances), 1);
+            const fillPercentage = maxBalance > 0 ? (balance / maxBalance) * 100 : 0;
+            const isSelected = fromEnv === key || toEnv === key;
+            
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.balanceJar,
+                  isSelected && styles.balanceJarSelected,
+                  { borderColor: color }
+                ]}
+                onPress={() => {
+                  if (!fromEnv) {
+                    setFromEnv(key);
+                  } else if (!toEnv && fromEnv !== key) {
+                    setToEnv(key);
+                  } else if (fromEnv === key) {
+                    setFromEnv(null);
+                  } else if (toEnv === key) {
+                    setToEnv(null);
+                  }
+                }}
+              >
+                <View style={[styles.jarFillContainer, { backgroundColor: color + '20' }]}>
+                  <View style={[styles.jarFill, { 
+                    height: `${Math.max(20, fillPercentage)}%`,
+                    backgroundColor: color 
+                  }]} />
+                </View>
+                <Text style={[styles.balanceJarAmount, { color }]}>₹{balance.toFixed(0)}</Text>
+                <Text style={styles.balanceJarLabel}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
+
+      {/* Transfer Modal */}
+      <Modal visible={showTransferModal} animationType="slide" transparent onRequestClose={() => setShowTransferModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.transferModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Move Money Between Jars</Text>
+              <TouchableOpacity onPress={() => setShowTransferModal(false)}>
+                <Icon name="x" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.transferFrom}>
+              <Text style={styles.transferLabel}>From</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
+                {ENVELOPES.map(({ key, label, color, icon }) => {
+                  const isSelected = fromEnv === key;
+                  const balance = state.balances[key] || 0;
+                  return (
+                    <TouchableOpacity
+                      key={`from-${key}`}
+                      style={[
+                        styles.jarOption,
+                        isSelected && { borderColor: color, backgroundColor: `${color}15` },
+                      ]}
+                      onPress={() => setFromEnv(key)}
+                    >
+                      <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
+                      <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
+                      <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={styles.transferArrow}>
+              <Icon name="arrow-down" size={24} color="#007AFF" />
+            </View>
+
+            <View style={styles.transferTo}>
+              <Text style={styles.transferLabel}>To</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
+                {ENVELOPES.map(({ key, label, color, icon }) => {
+                  const isSelected = toEnv === key;
+                  const balance = state.balances[key] || 0;
+                  return (
+                    <TouchableOpacity
+                      key={`to-${key}`}
+                      style={[
+                        styles.jarOption,
+                        isSelected && { borderColor: color, backgroundColor: `${color}15` },
+                      ]}
+                      onPress={() => setToEnv(key)}
+                    >
+                      <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
+                      <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
+                      <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            <View style={styles.amountRow}>
+              <View style={styles.amountInputContainer}>
+                <Text style={styles.currencySymbol}>₹</Text>
+                <TextInput
+                  value={transferAmount}
+                  onChangeText={setTransferAmount}
+                  placeholder="Enter amount"
+                  keyboardType="numeric"
+                  style={styles.amountInput}
+                  placeholderTextColor="#8e8e93"
+                />
+              </View>
+              {fromEnv && (
+                <Text style={styles.availableText}>
+                  Available: ₹{(state.balances[fromEnv] || 0).toFixed(0)}
+                </Text>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.moveButton,
+                (!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv) && styles.moveButtonDisabled,
+              ]}
+              onPress={handleMove}
+              disabled={!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv}
+            >
+              <Icon name="arrow-right" size={18} color="white" />
+              <Text style={styles.moveButtonText}>Transfer Now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={calendarVisible} animationType="slide" transparent onRequestClose={() => setCalendarVisible(false)}>
         <View style={styles.calendarOverlay}>
@@ -629,20 +695,80 @@ export default function PiggyBanks({
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    padding: 2,
+    padding: 20,
+    backgroundColor: '#f5f5f5',
   },
-  summaryCard: {
+  infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#EAF4FF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoBannerText: {
+    marginLeft: 10,
+    color: '#0a66c2',
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  riskProfileCard: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 20,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  riskProfileHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  riskProfileTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginBottom: 4,
+  },
+  riskProfileSubtitle: {
+    fontSize: 13,
+    color: '#6c6c70',
+  },
+  addButton: {
+    backgroundColor: '#E3F2FD',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  addButtonText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  riskScoreContainer: {
+    marginTop: 8,
+  },
+  riskScoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF9500',
+    marginBottom: 8,
+  },
+  riskProgressBar: {
+    height: 8,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  riskProgressFill: {
+    height: '100%',
+    borderRadius: 4,
   },
   summaryLabel: {
     color: '#6c6c70',
@@ -741,40 +867,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  allocChip: {
-    width: 160,
-    height: 120,
+  allocationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    borderWidth: 2,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    marginRight: 16,
-    backgroundColor: '#ffffff',
+    marginTop: 16,
+  },
+  allocationJar: {
+    width: '23%',
+    aspectRatio: 0.8,
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 12,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  allocLabel: {
+  jarCategoryLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'white',
+    textAlign: 'center',
+  },
+  jarAmount: {
+    fontSize: 14,
     fontWeight: '700',
-    fontSize: 16,
-    marginBottom: 8,
+    color: 'white',
     textAlign: 'center',
   },
-  allocInput: {
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
-    minWidth: 32,
+  jarEditContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  jarEditInput: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
+    minWidth: 30,
     textAlign: 'center',
-    paddingVertical: 0,
-    marginRight: 4,
   },
-  allocPercent: {
-    color: '#6c6c70',
+  jarEditPercent: {
+    color: 'white',
+    fontSize: 12,
+    marginLeft: 2,
   },
-  primaryButton: {
+  proposeButton: {
     backgroundColor: '#007AFF',
     borderRadius: 16,
     paddingVertical: 16,
@@ -786,7 +931,19 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
-  primaryButtonText: {
+  proposeButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  confirmButton: {
+    backgroundColor: '#34C759',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  confirmButtonText: {
     color: 'white',
     fontWeight: '700',
     fontSize: 16,
@@ -833,52 +990,102 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  grid: {
+  balancesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  moveMoneyButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  moveMoneyButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  balancesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 12,
   },
-  balanceCell: {
-    width: '48%',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
+  balanceJar: {
+    width: '23%',
+    aspectRatio: 0.75,
+    borderRadius: 12,
+    borderWidth: 2,
+    padding: 8,
     marginBottom: 12,
     backgroundColor: '#fafafa',
+    overflow: 'hidden',
+    position: 'relative',
   },
-  balanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  balanceJarSelected: {
+    borderWidth: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
-  balanceLabel: {
-    marginLeft: 6,
-    fontWeight: '600',
-    color: '#1c1c1e',
+  jarFillContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '60%',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    overflow: 'hidden',
   },
-  balanceValue: {
-    marginTop: 10,
-    fontSize: 18,
+  jarFill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+  },
+  balanceJarAmount: {
+    fontSize: 16,
     fontWeight: '700',
+    marginTop: 'auto',
+    marginBottom: 4,
+    textAlign: 'center',
   },
-  balanceHint: {
-    marginTop: 6,
-    color: '#8e8e93',
-    fontSize: 12,
+  balanceJarLabel: {
+    fontSize: 11,
+    color: '#6c6c70',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  transferCard: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  transferModal: {
     backgroundColor: 'white',
     borderRadius: 20,
     padding: 20,
-    marginBottom: 40,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    width: '100%',
+    maxWidth: 400,
   },
-  transferContainer: {
-    marginTop: 16,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1c1c1e',
   },
   transferFrom: {
     marginBottom: 16,
