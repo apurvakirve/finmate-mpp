@@ -180,9 +180,11 @@ export function calculateSipProjection(
   const monthlyRate = annualReturn / 12;
   
   // Future value of SIP: FV = P * [((1 + r)^n - 1) / r] * (1 + r)
-  const futureValue = monthlyAmount * 
-    ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * 
-    (1 + monthlyRate);
+  // Guard against zero rate to avoid division by zero
+  const growthFactor = monthlyRate === 0
+    ? months
+    : ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate);
+  const futureValue = monthlyAmount * growthFactor;
   
   const totalInvested = monthlyAmount * months;
   const estimatedReturns = futureValue - totalInvested;

@@ -59,16 +59,21 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const [preferences, setPreferences] = useState<UserInvestmentPreferences | null>(null);
   const [showAddFund, setShowAddFund] = useState(false);
   const [newFundCode, setNewFundCode] = useState('');
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const prevRiskRef = React.useRef<RiskLevel | null>(null);
 
   useEffect(() => {
     loadPreferences();
   }, [userId]);
 
+  // Only re-load when riskLevel changes. Avoid tying this to preferences to prevent loops.
   useEffect(() => {
-    if (riskLevel) {
-      loadRecommendations();
-    }
-  }, [riskLevel, preferences]);
+    if (!riskLevel) return;
+    if (prevRiskRef.current === riskLevel && predictions.length > 0) return;
+    prevRiskRef.current = riskLevel;
+    loadRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskLevel]);
 
   const loadPreferences = async () => {
     try {
@@ -76,14 +81,19 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       if (raw) {
         const prefs = JSON.parse(raw) as UserInvestmentPreferences;
         setPreferences(prefs);
-        setRiskLevel(prefs.riskLevel || 'moderate');
+        // Avoid unnecessary state updates that can cause re-renders
+        if (prefs.riskLevel && prefs.riskLevel !== riskLevel) {
+          setRiskLevel(prefs.riskLevel);
+        }
       } else {
         // Load from risk profile
         const riskRaw = await AsyncStorage.getItem(riskProfileStorageKey(userId));
         if (riskRaw) {
           const profile = JSON.parse(riskRaw);
           const computed = computeRiskScore(profile);
-          setRiskLevel(computed.level);
+          if (computed.level !== riskLevel) {
+            setRiskLevel(computed.level);
+          }
         }
       }
     } catch (e) {
@@ -97,6 +107,8 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   };
 
   const loadRecommendations = async () => {
+    if (isLoadingRecommendations) return; // Prevent concurrent loads
+    setIsLoadingRecommendations(true);
     setLoading(true);
     try {
       let recommendations = getRecommendationsByRiskLevel(riskLevel);
@@ -120,7 +132,11 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
           const res = await fetch(`https://api.mfapi.in/mf/${fund.code}`);
           if (res.ok) {
             const data = await res.json() as FundDetailResponse;
-            setFundDetails(prev => ({ ...prev, [fund.code]: data }));
+            // Batch update: avoid setState thrash by staging then merging
+            setFundDetails(prev => {
+              if (prev[fund.code]) return prev;
+              return { ...prev, [fund.code]: data };
+            });
             
             const historicalData = data.data?.map(d => ({
               date: d.date,
@@ -143,6 +159,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       Alert.alert('Error', 'Failed to load investment recommendations');
     } finally {
       setLoading(false);
+      setIsLoadingRecommendations(false);
     }
   };
 
@@ -350,7 +367,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
-              setRiskLevel('moderate');
+              // Only reload current recommendations; avoid forcing risk change
               loadRecommendations();
             }}
           >
