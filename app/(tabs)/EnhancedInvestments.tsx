@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -61,6 +61,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const [newFundCode, setNewFundCode] = useState('');
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const prevRiskRef = React.useRef<RiskLevel | null>(null);
+  const latestPreferencesRef = React.useRef<UserInvestmentPreferences | null>(null);
 
   useEffect(() => {
     loadPreferences();
@@ -81,6 +82,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       if (raw) {
         const prefs = JSON.parse(raw) as UserInvestmentPreferences;
         setPreferences(prefs);
+        latestPreferencesRef.current = prefs;
         // Avoid unnecessary state updates that can cause re-renders
         if (prefs.riskLevel && prefs.riskLevel !== riskLevel) {
           setRiskLevel(prefs.riskLevel);
@@ -94,6 +96,13 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
           if (computed.level !== riskLevel) {
             setRiskLevel(computed.level);
           }
+          const defaultPrefs: UserInvestmentPreferences = {
+            riskLevel: computed.level,
+            customFunds: [],
+            editedRecommendations: {},
+          };
+          setPreferences(defaultPrefs);
+          latestPreferencesRef.current = defaultPrefs;
         }
       }
     } catch (e) {
@@ -103,6 +112,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
 
   const savePreferences = async (prefs: UserInvestmentPreferences) => {
     setPreferences(prefs);
+    latestPreferencesRef.current = prefs;
     await AsyncStorage.setItem(storageKey(userId), JSON.stringify(prefs));
   };
 
@@ -162,6 +172,22 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       setIsLoadingRecommendations(false);
     }
   };
+  const handleRiskLevelChange = useCallback(async (level: RiskLevel) => {
+    if (level === riskLevel) return;
+    const currentPrefs = latestPreferencesRef.current || preferences || {
+      riskLevel,
+      customFunds: [],
+      editedRecommendations: {},
+    };
+    const updatedPrefs: UserInvestmentPreferences = {
+      ...currentPrefs,
+      riskLevel: level,
+    };
+    setPreferences(updatedPrefs);
+    latestPreferencesRef.current = updatedPrefs;
+    await AsyncStorage.setItem(storageKey(userId), JSON.stringify(updatedPrefs));
+    setRiskLevel(level);
+  }, [preferences, riskLevel, userId]);
 
   const handleEditFund = (fund: InvestmentFund) => {
     setEditingFund(fund);
@@ -346,16 +372,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
           <RiskProfile
             variant="summary"
             userId={userId}
-            onRiskLevelChange={async (level) => {
-              setRiskLevel(level);
-              const updatedPrefs: UserInvestmentPreferences = {
-                riskLevel: level,
-                customFunds: preferences?.customFunds || [],
-                editedRecommendations: preferences?.editedRecommendations || {},
-              };
-              await savePreferences(updatedPrefs);
-              await loadRecommendations();
-            }}
+            onRiskLevelChange={handleRiskLevelChange}
           />
         </View>
 
