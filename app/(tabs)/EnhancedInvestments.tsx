@@ -66,12 +66,27 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const latestPreferencesRef = React.useRef<UserInvestmentPreferences | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Record<string, number>>({});
   const [savingPlan, setSavingPlan] = useState(false);
+  const [confirmedPlan, setConfirmedPlan] = useState<Record<string, number> | null>(null);
 
   const screenWidth = Math.min(360, Dimensions.get('window').width - 40);
 
   useEffect(() => {
     loadPreferences();
+    loadConfirmedPlan();
   }, [userId]);
+
+  const loadConfirmedPlan = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(planKey(userId));
+      if (raw) {
+        const plan = JSON.parse(raw) as Record<string, number>;
+        setConfirmedPlan(plan);
+        setSelectedPlan(plan);
+      }
+    } catch (e) {
+      console.log('Error loading confirmed plan', e);
+    }
+  };
 
   // Only re-load when riskLevel changes. Avoid tying this to preferences to prevent loops.
   useEffect(() => {
@@ -228,9 +243,12 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     try {
       setSavingPlan(true);
       await AsyncStorage.setItem(planKey(userId), JSON.stringify(selectedPlan));
-      Alert.alert('Investments', 'Your investment plan is saved.');
+      setConfirmedPlan(selectedPlan);
+      Alert.alert('Success', 'Your investment plan has been confirmed!', [
+        { text: 'OK', onPress: () => {} }
+      ]);
     } catch {
-      Alert.alert('Investments', 'Could not save your plan.');
+      Alert.alert('Error', 'Could not save your plan.');
     } finally {
       setSavingPlan(false);
     }
@@ -376,7 +394,25 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     if (!detail?.data?.length) return null;
     
     const lastPoints = detail.data.slice(-90);
-    const labels = lastPoints.map((p, i) => (i % 15 === 0 ? p.date.slice(0, 6) : ''));
+    // Format dates properly: DD/MM format, show only every 15th point
+    const formatDate = (dateStr: string) => {
+      try {
+        const parts = dateStr.split('-');
+        if (parts.length >= 2) {
+          return `${parts[2]}/${parts[1]}`;
+        }
+        return dateStr.slice(0, 5);
+      } catch {
+        return dateStr.slice(0, 5);
+      }
+    };
+    
+    const labels = lastPoints.map((p, i) => {
+      if (i % 15 === 0) {
+        return formatDate(p.date);
+      }
+      return '';
+    });
     const values = lastPoints.map((p) => parseFloat(p.nav));
     return {
       labels,
@@ -425,13 +461,25 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
         series[m] += value;
       }
     });
-    const labels = series.map((_, idx) => (idx % 12 === 0 ? `Y${idx / 12 + 1}` : ''));
+    // Clean labels: show Year 1, Year 2, etc. only at year boundaries
+    const labels = series.map((_, idx) => {
+      if (idx % 12 === 0 && idx > 0) {
+        return `Y${idx / 12}`;
+      }
+      return '';
+    });
+    // First label should be "Now"
+    if (labels.length > 0) labels[0] = 'Now';
     return { labels, datasets: [{ data: series.map((v) => Math.round(v)) }] };
   }, [predictions, selectedPlan]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scroll} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scroll} 
+        contentContainerStyle={{ padding: 20, paddingBottom: Object.keys(selectedPlan).length > 0 ? 100 : 40 }} 
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerCard}>
           <Text style={styles.title}>Smart Investments</Text>
           <Text style={styles.subtitle}>AI-powered recommendations based on your risk profile</Text>
@@ -573,6 +621,48 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
                 </TouchableOpacity>
               );
             })}
+
+            {/* Portfolio Projection - Show after confirmation */}
+            {confirmedPlan && portfolioProjection && (
+              <View style={styles.projectionCard}>
+                <View style={styles.projectionHeader}>
+                  <Icon name="bar-chart-2" size={20} color="#007AFF" />
+                  <Text style={styles.projectionTitle}>Your Portfolio Projection</Text>
+                </View>
+                <Text style={styles.projectionSubtitle}>5-year growth forecast based on your selected investments</Text>
+                <View style={styles.chartContainer}>
+                  <LineChart
+                    data={portfolioProjection}
+                    width={screenWidth - 32}
+                    height={240}
+                    chartConfig={{
+                      ...chartConfig,
+                      color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+                      strokeWidth: 2,
+                    }}
+                    withInnerLines={true}
+                    withOuterLines={false}
+                    withVerticalLabels={true}
+                    withHorizontalLabels={true}
+                    segments={4}
+                    bezier
+                    style={styles.chartStyle}
+                  />
+                </View>
+                <View style={styles.projectionStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>Current Value</Text>
+                    <Text style={styles.statValue}>₹0</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statLabel}>5-Year Projection</Text>
+                    <Text style={[styles.statValue, { color: '#34C759' }]}>
+                      ₹{portfolioProjection.datasets[0].data[59]?.toLocaleString() || '0'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -636,15 +726,21 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
                 {chartData && (
                   <View style={styles.detailSection}>
                     <Text style={styles.detailSectionTitle}>NAV Trend (Last 90 Days)</Text>
-                    <LineChart
-                      data={chartData}
-                      width={screenWidth}
-                      height={200}
-                      chartConfig={chartConfig}
-                      withInnerLines={false}
-                      withOuterLines={false}
-                      style={{ borderRadius: 12 }}
-                    />
+                    <View style={styles.chartContainer}>
+                      <LineChart
+                        data={chartData}
+                        width={screenWidth - 32}
+                        height={220}
+                        chartConfig={chartConfig}
+                        withInnerLines={true}
+                        withOuterLines={false}
+                        withVerticalLabels={true}
+                        withHorizontalLabels={true}
+                        segments={4}
+                        bezier
+                        style={styles.chartStyle}
+                      />
+                    </View>
                   </View>
                 )}
 
@@ -809,33 +905,31 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       {/* Confirm Plan Bar */}
       {Object.keys(selectedPlan).length > 0 && (
         <View style={styles.stickyConfirm}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.stickyTitle}>Selected funds: {Object.keys(selectedPlan).length}</Text>
-            <Text style={styles.stickySub}>
-              Total SIP ₹{Object.values(selectedPlan).reduce((a, b) => a + (b || 0), 0).toLocaleString()}/mo
-            </Text>
+          <View style={styles.stickyInfo}>
+            <View style={styles.stickyInfoRow}>
+              <Icon name="check-circle" size={18} color="#34C759" />
+              <Text style={styles.stickyTitle}>{Object.keys(selectedPlan).length} funds selected</Text>
+            </View>
+            <View style={styles.stickyInfoRow}>
+              <Icon name="trending-up" size={16} color="#007AFF" />
+              <Text style={styles.stickySub}>
+                ₹{Object.values(selectedPlan).reduce((a, b) => a + (b || 0), 0).toLocaleString()}/month
+              </Text>
+            </View>
           </View>
           <TouchableOpacity style={styles.savePlanButton} onPress={confirmPlan} disabled={savingPlan}>
-            {savingPlan ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.savePlanText}>Confirm</Text>}
+            {savingPlan ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <>
+                <Icon name="check" size={18} color="white" />
+                <Text style={styles.savePlanText}>Confirm Plan</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Portfolio Projection */}
-      {portfolioProjection && (
-        <View style={styles.projectionCard}>
-          <Text style={styles.sectionTitle}>Projected Portfolio (5 years)</Text>
-          <LineChart
-            data={portfolioProjection}
-            width={screenWidth}
-            height={220}
-            chartConfig={chartConfig}
-            withInnerLines={false}
-            withOuterLines={false}
-            style={{ borderRadius: 12, marginTop: 12 }}
-          />
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -1278,44 +1372,108 @@ const styles = StyleSheet.create({
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 8,
+  },
+  stickyInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  stickyInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  stickyTitle: {
+    fontWeight: '700',
+    color: '#1c1c1e',
+    fontSize: 15,
+    marginLeft: 6,
+  },
+  stickySub: {
+    color: '#6c6c70',
+    fontSize: 13,
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  savePlanButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  savePlanText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 15,
+  },
+  chartContainer: {
+    alignItems: 'center',
+    marginTop: 12,
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    padding: 8,
+    overflow: 'hidden',
+  },
+  chartStyle: {
+    borderRadius: 12,
+    marginVertical: 8,
+  },
+  projectionCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  stickyTitle: {
+  projectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  projectionTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: '#1c1c1e',
+    marginLeft: 8,
   },
-  stickySub: {
+  projectionSubtitle: {
     color: '#6c6c70',
+    fontSize: 13,
+    marginBottom: 16,
+    marginLeft: 28,
+  },
+  projectionStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statLabel: {
     fontSize: 12,
-    marginTop: 2,
+    color: '#6c6c70',
+    marginBottom: 4,
   },
-  savePlanButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  savePlanText: {
-    color: 'white',
+  statValue: {
+    fontSize: 18,
     fontWeight: '700',
-  },
-  projectionCard: {
-    position: 'relative',
-    marginTop: 12,
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    color: '#1c1c1e',
   },
 });
 

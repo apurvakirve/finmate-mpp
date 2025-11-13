@@ -24,14 +24,14 @@ export type EnvelopeKey =
   | 'other';
 
 const ENVELOPES: { key: EnvelopeKey; label: string; color: string; icon: string }[] = [
-  { key: 'meal', label: 'Meals', color: '#FF9F1C', icon: 'coffee' },
-  { key: 'travel', label: 'Travel', color: '#2EC4B6', icon: 'navigation' },
-  { key: 'emergency', label: 'Emergency', color: '#FF3B30', icon: 'alert-triangle' },
-  { key: 'emis', label: 'EMIs', color: '#8E8E93', icon: 'credit-card' },
-  { key: 'investments', label: 'Invest', color: '#5856D6', icon: 'trending-up' },
-  { key: 'savings', label: 'Savings', color: '#34C759', icon: 'shield' },
-  { key: 'vacations', label: 'Vacations', color: '#AF52DE', icon: 'umbrella' },
-  { key: 'other', label: 'Other', color: '#C9CBCF', icon: 'box' },
+  { key: 'meal', label: 'Meals', color: '#FF6B35', icon: 'coffee' },
+  { key: 'travel', label: 'Travel', color: '#00CED1', icon: 'navigation' },
+  { key: 'emergency', label: 'Emergency', color: '#FF4757', icon: 'alert-triangle' },
+  { key: 'emis', label: 'EMIs', color: '#747D8C', icon: 'credit-card' },
+  { key: 'investments', label: 'Invest', color: '#5F27CD', icon: 'trending-up' },
+  { key: 'savings', label: 'Savings', color: '#00D2D3', icon: 'shield' },
+  { key: 'vacations', label: 'Vacations', color: '#C44569', icon: 'umbrella' },
+  { key: 'other', label: 'Other', color: '#A4B0BE', icon: 'box' },
 ];
 
 interface EnvelopeState {
@@ -330,18 +330,66 @@ export default function PiggyBanks({
       </View>
 
       <View style={styles.balancesCard}>
-        <Text style={styles.sectionTitle}>Jar balances</Text>
-        <View style={styles.grid}>
-          {ENVELOPES.map(({ key, label, color, icon }) => (
-            <TouchableOpacity key={key} style={[styles.balanceCell, { borderColor: color }]} onPress={() => setFromEnv(key)}>
-              <View style={styles.balanceHeader}>
-                <Icon name={icon as any} size={16} color={color} />
-                <Text style={styles.balanceLabel}>{label}</Text>
-              </View>
-              <Text style={[styles.balanceValue, { color }]}>₹{(state.balances[key] || 0).toFixed(0)}</Text>
-              <Text style={styles.balanceHint}>Tap to move from here</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={styles.sectionTitle}>Your Money Jars</Text>
+        <Text style={styles.sectionSubtitle}>Tap any jar to transfer money</Text>
+        <View style={styles.jarsGrid}>
+          {ENVELOPES.map(({ key, label, color, icon }) => {
+            const balance = state.balances[key] || 0;
+            const maxBalance = Math.max(...Object.values(state.balances), 1000);
+            const fillPercentage = maxBalance > 0 ? Math.min(100, (balance / maxBalance) * 100) : 0;
+            const isSelected = fromEnv === key;
+            
+            return (
+              <TouchableOpacity 
+                key={key} 
+                style={[
+                  styles.jarContainer,
+                  isSelected && { borderColor: color, borderWidth: 2, transform: [{ scale: 1.02 }] }
+                ]} 
+                onPress={() => setFromEnv(key)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.jarBody}>
+                  {/* Jar fill effect */}
+                  <View 
+                    style={[
+                      styles.jarFill,
+                      { 
+                        backgroundColor: color,
+                        height: `${Math.max(10, fillPercentage)}%`,
+                        opacity: 0.3 + (fillPercentage / 100) * 0.4,
+                      }
+                    ]}
+                  />
+                  {/* Jar content */}
+                  <View style={styles.jarContent}>
+                    <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
+                      <Icon name={icon as any} size={24} color={color} />
+                    </View>
+                    <Text style={styles.jarLabel}>{label}</Text>
+                    <Text style={[styles.jarAmount, { color }]}>
+                      ₹{balance.toLocaleString('en-IN')}
+                    </Text>
+                    {fillPercentage > 0 && (
+                      <View style={styles.jarFillBar}>
+                        <View 
+                          style={[
+                            styles.jarFillBarInner,
+                            { 
+                              width: `${fillPercentage}%`,
+                              backgroundColor: color,
+                            }
+                          ]}
+                        />
+                      </View>
+                    )}
+                  </View>
+                </View>
+                {/* Jar lid */}
+                <View style={[styles.jarLid, { backgroundColor: color }]} />
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -691,38 +739,103 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
-  grid: {
+  sectionSubtitle: {
+    color: '#6c6c70',
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  jarsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 12,
+    marginTop: 8,
   },
-  balanceCell: {
+  jarContainer: {
     width: '48%',
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 12,
-    marginBottom: 12,
-    backgroundColor: '#fafafa',
+    marginBottom: 20,
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#e5e5ea',
+    backgroundColor: 'transparent',
+    overflow: 'visible',
   },
-  balanceHeader: {
-    flexDirection: 'row',
+  jarBody: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    backgroundColor: '#fafafa',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderBottomWidth: 0,
+  },
+  jarFill: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
+  jarContent: {
+    position: 'relative',
+    zIndex: 1,
+    height: '100%',
+    padding: 12,
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  balanceLabel: {
-    marginLeft: 6,
+  jarIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  jarLabel: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#1c1c1e',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  balanceValue: {
-    marginTop: 10,
-    fontSize: 18,
+  jarAmount: {
+    fontSize: 16,
     fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  balanceHint: {
+  jarFillBar: {
+    width: '80%',
+    height: 4,
+    backgroundColor: '#e5e5ea',
+    borderRadius: 2,
     marginTop: 6,
-    color: '#8e8e93',
-    fontSize: 12,
+    overflow: 'hidden',
+  },
+  jarFillBarInner: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  jarLid: {
+    width: '100%',
+    height: 12,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderBottomWidth: 0,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 2,
   },
   transferCard: {
     backgroundColor: 'white',
@@ -754,14 +867,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   jarOption: {
-    borderWidth: 2,
+    borderWidth: 2.5,
     borderColor: '#e5e5ea',
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     marginRight: 10,
-    minWidth: 100,
+    minWidth: 110,
     alignItems: 'center',
     backgroundColor: '#fafafa',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   jarOptionLabel: {
     fontSize: 12,
