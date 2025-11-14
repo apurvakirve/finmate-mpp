@@ -13,50 +13,197 @@ import {
 } from 'react-native';
 import { RiskLevel } from './RiskProfile';
 
-export type EnvelopeKey =
-  | 'meal'
-  | 'travel'
-  | 'emergency'
-  | 'emis'
-  | 'investments'
-  | 'savings'
-  | 'vacations'
-  | 'other';
+export type EnvelopeKey = string;
 
-const ENVELOPES: { key: EnvelopeKey; label: string; color: string; icon: string }[] = [
-  { key: 'meal', label: 'Meals', color: '#FF6B35', icon: 'coffee' },
-  { key: 'travel', label: 'Travel', color: '#00CED1', icon: 'navigation' },
-  { key: 'emergency', label: 'Emergency', color: '#FF4757', icon: 'alert-triangle' },
-  { key: 'emis', label: 'EMIs', color: '#747D8C', icon: 'credit-card' },
-  { key: 'investments', label: 'Invest', color: '#5F27CD', icon: 'trending-up' },
-  { key: 'savings', label: 'Savings', color: '#00D2D3', icon: 'shield' },
-  { key: 'vacations', label: 'Lifestyle', color: '#C44569', icon: 'umbrella' },
-  { key: 'other', label: 'Utilities', color: '#A4B0BE', icon: 'box' },
+type JarBucket = 'needs-fixed' | 'needs-variable' | 'wants' | 'savings' | 'invest';
+
+interface JarMeta {
+  key: EnvelopeKey;
+  label: string;
+  color: string;
+  icon: string;
+  bucket: JarBucket;
+  description: string;
+  targetPct?: number;
+  defaultTarget?: number;
+  examples?: string;
+}
+
+const ENVELOPES: JarMeta[] = [
+  {
+    key: 'emis',
+    label: 'EMIs & Loans',
+    color: '#5F27CD',
+    icon: 'credit-card',
+    bucket: 'needs-fixed',
+    description: 'Loan instalments, insurance premiums, tuition fees',
+    targetPct: 15,
+  },
+  {
+    key: 'rent',
+    label: 'Rent & Housing',
+    color: '#1D4ED8',
+    icon: 'home',
+    bucket: 'needs-fixed',
+    description: 'Rent, maintenance, property dues',
+    targetPct: 15,
+    defaultTarget: 15000,
+  },
+  {
+    key: 'insurance',
+    label: 'Insurance & Medical',
+    color: '#F43F5E',
+    icon: 'heart',
+    bucket: 'needs-fixed',
+    description: 'Life, health & term insurance payments',
+    targetPct: 5,
+  },
+  {
+    key: 'other',
+    label: 'Utilities & Bills',
+    color: '#00B8D9',
+    icon: 'zap',
+    bucket: 'needs-fixed',
+    description: 'Electricity, broadband, data packs',
+    targetPct: 5,
+  },
+  {
+    key: 'meal',
+    label: 'Groceries & Meals',
+    color: '#FF9F1C',
+    icon: 'shopping-cart',
+    bucket: 'needs-variable',
+    description: 'Food, essentials, household supplies',
+    targetPct: 10,
+  },
+  {
+    key: 'travel',
+    label: 'Commute & Fuel',
+    color: '#4F46E5',
+    icon: 'navigation',
+    bucket: 'needs-variable',
+    description: 'Fuel, public transport, cabs',
+    targetPct: 5,
+  },
+  {
+    key: 'treats',
+    label: 'Dining & Fun',
+    color: '#FF6B6B',
+    icon: 'coffee',
+    bucket: 'wants',
+    description: 'Eating out, entertainment, subscriptions',
+    targetPct: 10,
+  },
+  {
+    key: 'vacations',
+    label: 'Goals & Vacations',
+    color: '#F97316',
+    icon: 'umbrella',
+    bucket: 'wants',
+    description: 'Trips, gadgets, hobbies & treats',
+    targetPct: 20,
+  },
+  {
+    key: 'savings',
+    label: 'Savings Goals',
+    color: '#2EC4B6',
+    icon: 'shield',
+    bucket: 'savings',
+    description: 'Short-term savings and buffers',
+    targetPct: 10,
+    defaultTarget: 20000,
+  },
+  {
+    key: 'emergency',
+    label: 'Emergency Fund',
+    color: '#0EA5E9',
+    icon: 'life-buoy',
+    bucket: 'savings',
+    description: '3-6 month rainy day stash',
+    targetPct: 5,
+    defaultTarget: 30000,
+  },
+  {
+    key: 'investments',
+    label: 'Investments',
+    color: '#7C3AED',
+    icon: 'trending-up',
+    bucket: 'invest',
+    description: 'SIPs, mutual funds, stocks',
+    targetPct: 5,
+    defaultTarget: 5000,
+  },
 ];
 
-const ENVELOPE_GROUPS: Record<
-  'needs' | 'wants' | 'safety',
-  { label: string; targetPct: number; description: string; envelopes: EnvelopeKey[] }
-> = {
-  needs: {
-    label: 'Needs',
-    targetPct: 50,
-    description: 'Fixed bills & daily essentials that keep life running.',
-    envelopes: ['meal', 'travel', 'emis', 'other'],
+const BUCKET_COPY: Record<JarBucket, { title: string; subtitle: string; targetPct: number; accent: string }> = {
+  'needs-fixed': {
+    title: 'Fixed Needs',
+    subtitle: 'EMIs, rent, insurance that stay constant',
+    targetPct: 25,
+    accent: '#2563EB',
+  },
+  'needs-variable': {
+    title: 'Variable Needs',
+    subtitle: 'Groceries, transport, daily utilities',
+    targetPct: 25,
+    accent: '#22C55E',
   },
   wants: {
-    label: 'Wants',
+    title: 'Wants & Goals',
+    subtitle: 'Vacations, hobbies, eating out',
     targetPct: 30,
-    description: 'Lifestyle upgrades and nice-to-haves to keep in check.',
-    envelopes: ['vacations'],
+    accent: '#F97316',
   },
-  safety: {
-    label: 'Savings & Safety',
-    targetPct: 20,
-    description: 'Emergency buffers, savings goals, and monthly investments.',
-    envelopes: ['savings', 'emergency', 'investments'],
+  savings: {
+    title: 'Savings & Safety',
+    subtitle: 'Emergency buffers, short-term goals',
+    targetPct: 15,
+    accent: '#0EA5E9',
+  },
+  invest: {
+    title: 'Investments',
+    subtitle: 'Long-term wealth building',
+    targetPct: 5,
+    accent: '#7C3AED',
   },
 };
+
+const READY_KEY = (userId: string | number) => `mt_ready_investments_${userId}`;
+
+const DEFAULT_BALANCES = ENVELOPES.reduce(
+  (acc, jar) => {
+    acc[jar.key] = 0;
+    return acc;
+  },
+  {} as Record<EnvelopeKey, number>
+);
+
+const DEFAULT_ALLOCATIONS = ENVELOPES.reduce(
+  (acc, jar) => {
+    acc[jar.key] = jar.targetPct ?? 0;
+    return acc;
+  },
+  {} as Record<EnvelopeKey, number>
+);
+
+const DEFAULT_TARGETS = ENVELOPES.reduce(
+  (acc, jar) => {
+    if (jar.defaultTarget) {
+      acc[jar.key] = jar.defaultTarget;
+    }
+    return acc;
+  },
+  {} as Record<EnvelopeKey, number>
+);
+
+interface ReadyInvestment {
+  id: EnvelopeKey;
+  label: string;
+  targetAmount: number;
+  bucket: JarBucket;
+  currentAmount: number;
+  achievedAt: string;
+}
 
 interface EnvelopeState {
   balances: Record<EnvelopeKey, number>;
@@ -68,34 +215,53 @@ interface EnvelopeState {
     amount: number;
     at: string;
   };
+  customJars?: JarMeta[];
+  jarTargets?: Record<EnvelopeKey, number>;
+  readyInvestments?: ReadyInvestment[];
 }
 
 const defaultState: EnvelopeState = {
-  balances: {
-    meal: 0,
-    travel: 0,
-    emergency: 0,
-    emis: 0,
-    investments: 0,
-    savings: 0,
-    vacations: 0,
-    other: 0,
-  },
-  allocationsPct: {
-    meal: 20,
-    travel: 10,
-    emergency: 8,
-    emis: 15,
-    investments: 5,
-    savings: 7,
-    vacations: 30,
-    other: 5,
-  },
+  balances: { ...DEFAULT_BALANCES },
+  allocationsPct: { ...DEFAULT_ALLOCATIONS },
   dailyIncome: 500,
   scheduledInvestmentDay: 10,
   emiPayDay: 5,
   lastInvestmentPull: undefined,
+  customJars: [],
+  jarTargets: { ...DEFAULT_TARGETS },
+  readyInvestments: [],
 };
+
+const hydrateState = (incoming?: Partial<EnvelopeState>): EnvelopeState => {
+  if (!incoming) {
+    return { ...defaultState };
+  }
+  const next: EnvelopeState = {
+    ...defaultState,
+    ...incoming,
+    balances: { ...DEFAULT_BALANCES, ...(incoming.balances || {}) },
+    allocationsPct: { ...DEFAULT_ALLOCATIONS, ...(incoming.allocationsPct || {}) },
+    jarTargets: { ...DEFAULT_TARGETS, ...(incoming.jarTargets || {}) },
+    customJars: incoming.customJars || [],
+    readyInvestments: incoming.readyInvestments || [],
+  };
+
+  (next.customJars || []).forEach(jar => {
+    if (next.balances[jar.key] === undefined) {
+      next.balances[jar.key] = 0;
+    }
+    if (next.allocationsPct[jar.key] === undefined) {
+      next.allocationsPct[jar.key] = jar.targetPct ?? 0;
+    }
+    if (jar.defaultTarget && next.jarTargets && next.jarTargets[jar.key] === undefined) {
+      next.jarTargets[jar.key] = jar.defaultTarget;
+    }
+  });
+
+  return next;
+};
+
+const CUSTOM_COLORS = ['#6366F1', '#EC4899', '#0EA5E9', '#22C55E', '#F97316', '#14B8A6'];
 
 interface PiggyBanksProps {
   userId: string | number;
@@ -130,8 +296,31 @@ export default function PiggyBanks({
   const [transferAmount, setTransferAmount] = useState('');
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'investment' | 'emi'>('investment');
+  const [addJarVisible, setAddJarVisible] = useState(false);
+  const [addJarBucket, setAddJarBucket] = useState<JarBucket>('needs-variable');
+  const [addJarName, setAddJarName] = useState('');
+  const [addJarColor, setAddJarColor] = useState(CUSTOM_COLORS[0]);
+  const [addJarTarget, setAddJarTarget] = useState('');
+  const [addJarDescription, setAddJarDescription] = useState('');
+  const [targetJar, setTargetJar] = useState<JarMeta | null>(null);
+  const [targetValue, setTargetValue] = useState('');
 
   const key = useMemo(() => storageKey(userId), [userId]);
+  const customJars = useMemo(() => state.customJars || [], [state.customJars]);
+  const combinedJars = useMemo(() => {
+    const defaults = [...ENVELOPES];
+    const existingIds = new Set(defaults.map(j => j.key));
+    customJars.forEach(jar => {
+      if (!existingIds.has(jar.key)) {
+        defaults.push(jar);
+      }
+    });
+    return defaults;
+  }, [customJars]);
+  const jarMetaMap = useMemo(
+    () => Object.fromEntries(combinedJars.map(jar => [jar.key, jar])),
+    [combinedJars]
+  );
 
   const totalAllocPct = useMemo(() => {
     return (Object.values(state.allocationsPct || {}) as number[]).reduce((acc, v) => acc + Math.max(0, v || 0), 0);
@@ -142,18 +331,62 @@ export default function PiggyBanks({
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(key);
-        if (raw) {
-          const stored = JSON.parse(raw);
-          setState({ ...defaultState, ...stored });
+        const [raw, readyRaw] = await Promise.all([
+          AsyncStorage.getItem(key),
+          AsyncStorage.getItem(READY_KEY(userId)),
+        ]);
+        const stored = raw ? JSON.parse(raw) : undefined;
+        const hydrated = hydrateState(stored);
+        if (readyRaw) {
+          hydrated.readyInvestments = JSON.parse(readyRaw);
         }
-      } catch {}
+        setState(hydrated);
+      } catch (error) {
+        console.warn('Failed to load jars', error);
+      }
     })();
-  }, [key]);
+  }, [key, userId]);
+
+  const syncReadyInvestments = async (snapshot: EnvelopeState) => {
+    const jarDefs = (() => {
+      const defaults = [...ENVELOPES];
+      const ids = new Set(defaults.map(j => j.key));
+      (snapshot.customJars || []).forEach(j => {
+        if (!ids.has(j.key)) {
+          defaults.push(j);
+        }
+      });
+      return defaults;
+    })();
+
+    const ready = jarDefs
+      .map(jar => {
+        const targetAmount = snapshot.jarTargets?.[jar.key] ?? jar.defaultTarget ?? 0;
+        const balance = snapshot.balances[jar.key] || 0;
+        const shouldTrack = ['invest', 'savings'].includes(jar.bucket);
+        if (!targetAmount || !shouldTrack) return null;
+        if (balance < targetAmount) return null;
+        return {
+          id: jar.key,
+          label: jar.label,
+          targetAmount,
+          currentAmount: balance,
+          bucket: jar.bucket,
+          achievedAt: new Date().toISOString(),
+        } as ReadyInvestment;
+      })
+      .filter(Boolean) as ReadyInvestment[];
+
+    const updated = { ...snapshot, readyInvestments: ready };
+    await AsyncStorage.setItem(READY_KEY(userId), JSON.stringify(ready));
+    return updated;
+  };
 
   const persist = async (next: EnvelopeState) => {
-    setState(next);
-    await AsyncStorage.setItem(key, JSON.stringify(next));
+    const normalized = hydrateState(next);
+    const withReady = await syncReadyInvestments(normalized);
+    setState(withReady);
+    await AsyncStorage.setItem(key, JSON.stringify(withReady));
   };
 
   const effectiveIncome = useMemo(() => {
@@ -162,63 +395,52 @@ export default function PiggyBanks({
     return state.dailyIncome;
   }, [state.dailyIncome, todayIncome, todayNetIncome]);
 
-  const envelopeGroupSummaries = useMemo(() => {
-    return (Object.entries(ENVELOPE_GROUPS) as [
-      keyof typeof ENVELOPE_GROUPS,
-      (typeof ENVELOPE_GROUPS)[keyof typeof ENVELOPE_GROUPS]
-    ][]).map(([groupKey, config]) => {
-      const actualPct = config.envelopes.reduce((sum, env) => sum + (state.allocationsPct[env] || 0), 0);
-      const actualAmount = (effectiveIncome * actualPct) / 100;
-      const targetAmount = (effectiveIncome * config.targetPct) / 100;
-      const balancesTotal = config.envelopes.reduce((sum, env) => sum + (state.balances[env] || 0), 0);
-      const deltaPct = actualPct - config.targetPct;
-      return {
-        key: groupKey,
-        label: config.label,
-        description: config.description,
-        targetPct: config.targetPct,
-        actualPct,
-        actualAmount,
-        targetAmount,
-        balancesTotal,
-        deltaPct,
-        status: Math.abs(deltaPct) < 1 ? 'on-track' : deltaPct > 0 ? 'over' : 'under',
+  const bucketSections = useMemo(() => {
+    const totalBalance = Object.values(state.balances).reduce((acc, val) => acc + val, 0);
+    return (Object.keys(BUCKET_COPY) as JarBucket[]).reduce((acc, bucket) => {
+      const jars = combinedJars.filter(jar => jar.bucket === bucket);
+      const saved = jars.reduce((sum, jar) => sum + (state.balances[jar.key] || 0), 0);
+      const plannedPct = jars.reduce((sum, jar) => sum + (state.allocationsPct[jar.key] || 0), 0);
+      const share = totalBalance > 0 ? (saved / totalBalance) * 100 : 0;
+      acc[bucket] = {
+        jars,
+        saved,
+        share,
+        plannedPct,
+        targetPct: BUCKET_COPY[bucket].targetPct,
       };
-    });
-  }, [state.allocationsPct, state.balances, effectiveIncome]);
+      return acc;
+    }, {} as Record<JarBucket, { jars: JarMeta[]; saved: number; share: number; plannedPct: number; targetPct: number }>);
+  }, [combinedJars, state.allocationsPct, state.balances]);
 
   const proposeTodayAllocation = () => {
-    const allocations: Record<EnvelopeKey, number> = {
-      meal: 0,
-      travel: 0,
-      emergency: 0,
-      emis: 0,
-      investments: 0,
-      savings: 0,
-      vacations: 0,
-      other: 0,
-    };
+    const allocations = combinedJars.reduce<Record<EnvelopeKey, number>>((acc, jar) => {
+      acc[jar.key] = 0;
+      return acc;
+    }, {});
 
-    // If total pct > 100, normalize to 100 to avoid over-allocation
     const totalPct = (Object.values(state.allocationsPct) as number[]).reduce((acc, v) => acc + Math.max(0, v || 0), 0);
     const normalizationFactor = totalPct > 100 ? 100 / totalPct : 1;
 
-    ENVELOPES.forEach(({ key }) => {
+    combinedJars.forEach(({ key }) => {
       const pct = Math.max(0, state.allocationsPct[key] || 0) * normalizationFactor;
       allocations[key] = Math.floor((effectiveIncome * pct) / 100);
     });
 
     const sum = Object.values(allocations).reduce((acc, v) => acc + v, 0);
     const remainder = Math.max(0, effectiveIncome - sum);
-    allocations.savings += remainder;
+    const savingsBucket = combinedJars.find(jar => jar.bucket === 'savings');
+    if (savingsBucket) {
+      allocations[savingsBucket.key] = (allocations[savingsBucket.key] || 0) + remainder;
+    }
 
     setPendingAllocations(allocations);
   };
 
   const confirmAllocation = async () => {
     if (!pendingAllocations) return;
-    const next = { ...state };
-    ENVELOPES.forEach(({ key }) => {
+    const next = { ...state, balances: { ...state.balances } };
+    combinedJars.forEach(({ key }) => {
       next.balances[key] = (next.balances[key] || 0) + (pendingAllocations[key] || 0);
     });
     await persist(next);
@@ -237,17 +459,24 @@ export default function PiggyBanks({
     }
     const fromBalance = state.balances[fromEnv] || 0;
     if (fromBalance < amt) {
-      Alert.alert('Error', `Insufficient balance in ${ENVELOPES.find(e => e.key === fromEnv)?.label}. Available: ₹${fromBalance.toFixed(0)}`);
+      const fromLabel = jarMetaMap[fromEnv]?.label || 'selected jar';
+      Alert.alert('Error', `Insufficient balance in ${fromLabel}. Available: ₹${fromBalance.toFixed(0)}`);
       return;
     }
 
-    const next = { ...state };
-    next.balances[fromEnv] = fromBalance - amt;
-    next.balances[toEnv] = (next.balances[toEnv] || 0) + amt;
-    setState(next); // Update immediately for instant UI feedback
-    await AsyncStorage.setItem(key, JSON.stringify(next));
+    const next = {
+      ...state,
+      balances: {
+        ...state.balances,
+        [fromEnv]: fromBalance - amt,
+        [toEnv]: (state.balances[toEnv] || 0) + amt,
+      },
+    };
+    await persist(next);
     setTransferAmount('');
-    Alert.alert('Success', `₹${amt.toFixed(0)} moved from ${ENVELOPES.find(e => e.key === fromEnv)?.label} to ${ENVELOPES.find(e => e.key === toEnv)?.label}`);
+    const fromLabel = jarMetaMap[fromEnv]?.label || 'Jar';
+    const toLabel = jarMetaMap[toEnv]?.label || 'Jar';
+    Alert.alert('Success', `₹${amt.toFixed(0)} moved from ${fromLabel} to ${toLabel}`);
   };
 
   const openCalendar = (mode: 'investment' | 'emi') => {
@@ -269,6 +498,152 @@ export default function PiggyBanks({
     if (todayIncome <= 0) return 0;
     return todayIncome - effectiveIncome;
   }, [effectiveIncome, todayIncome]);
+
+  const readyJarCount = state.readyInvestments?.length || 0;
+
+  const openAddJar = (bucket: JarBucket) => {
+    setAddJarBucket(bucket);
+    setAddJarColor(CUSTOM_COLORS[Math.floor(Math.random() * CUSTOM_COLORS.length)]);
+    setAddJarName('');
+    setAddJarTarget('');
+    setAddJarDescription('');
+    setAddJarVisible(true);
+  };
+
+  const handleCreateJar = async () => {
+    if (!addJarName.trim()) {
+      Alert.alert('Name required', 'Give this jar a name so you remember what it is for.');
+      return;
+    }
+    const newKey = `custom-${Date.now()}`;
+    const newJar: JarMeta = {
+      key: newKey,
+      label: addJarName.trim(),
+      color: addJarColor,
+      icon: 'target',
+      bucket: addJarBucket,
+      description: addJarDescription.trim() || BUCKET_COPY[addJarBucket].subtitle,
+      targetPct: 0,
+      defaultTarget: addJarTarget ? parseInt(addJarTarget, 10) : undefined,
+    };
+
+    const next: EnvelopeState = {
+      ...state,
+      balances: { ...state.balances, [newKey]: 0 },
+      allocationsPct: { ...state.allocationsPct, [newKey]: 0 },
+      customJars: [...(state.customJars || []), newJar],
+      jarTargets: {
+        ...(state.jarTargets || {}),
+        [newKey]: addJarTarget ? parseInt(addJarTarget, 10) : 0,
+      },
+    };
+
+    await persist(next);
+    setAddJarVisible(false);
+  };
+
+  const startEditTarget = (jar: JarMeta) => {
+    setTargetJar(jar);
+    setTargetValue(String(state.jarTargets?.[jar.key] ?? jar.defaultTarget ?? ''));
+  };
+
+  const handleSaveTarget = async () => {
+    if (!targetJar) return;
+    const amount = Math.max(0, parseInt(targetValue || '0', 10));
+    const next = {
+      ...state,
+      jarTargets: {
+        ...(state.jarTargets || {}),
+        [targetJar.key]: amount,
+      },
+    };
+    await persist(next);
+    setTargetJar(null);
+    setTargetValue('');
+  };
+
+  const bucketOrder: JarBucket[] = ['needs-fixed', 'needs-variable', 'wants', 'savings', 'invest'];
+  const readyJarSet = useMemo(
+    () => new Set((state.readyInvestments || []).map(item => item.id)),
+    [state.readyInvestments]
+  );
+
+  const renderJarCard = (jar: JarMeta) => {
+    const balance = state.balances[jar.key] || 0;
+    const targetAmount = state.jarTargets?.[jar.key] ?? jar.defaultTarget ?? 0;
+    const progress = targetAmount > 0 ? Math.min(100, (balance / targetAmount) * 100) : 0;
+    const isReady = readyJarSet.has(jar.key);
+    return (
+      <View key={jar.key} style={styles.jarCard}>
+        <View style={styles.jarCardHeader}>
+          <View style={[styles.jarCardIcon, { backgroundColor: `${jar.color}20` }]}>
+            <Icon name={jar.icon as any} size={18} color={jar.color} />
+          </View>
+          <Text style={styles.jarCardTitle}>{jar.label}</Text>
+          {isReady && <Text style={styles.jarReadyBadge}>Ready</Text>}
+        </View>
+        <Text style={styles.jarCardDescription}>{jar.description}</Text>
+        <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+        <Text style={styles.jarCardTarget}>
+          {targetAmount ? `Target ₹${targetAmount.toLocaleString('en-IN')}` : 'Set a target to stay focused'}
+        </Text>
+        <View style={styles.jarProgressBackground}>
+          <View
+            style={[
+              styles.jarProgressFill,
+              {
+                width: `${progress}%`,
+                backgroundColor: jar.color,
+              },
+            ]}
+          />
+        </View>
+        <View style={styles.jarCardActions}>
+          <TouchableOpacity style={styles.jarActionButton} onPress={() => setToEnv(jar.key)}>
+            <Icon name="arrow-up-circle" size={14} color="#007AFF" />
+            <Text style={styles.jarActionText}>Add funds</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.jarActionButton} onPress={() => startEditTarget(jar)}>
+            <Icon name="edit-2" size={14} color="#4B5563" />
+            <Text style={styles.jarActionText}>Set target</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
+  const renderJarSection = (bucket: JarBucket) => {
+    const section = bucketSections[bucket];
+    if (!section) return null;
+    const meta = BUCKET_COPY[bucket];
+    return (
+      <View key={bucket} style={styles.jarSection}>
+        <View style={styles.jarSectionHeader}>
+          <View>
+            <Text style={styles.jarSectionTitle}>{meta.title}</Text>
+            <Text style={styles.jarSectionSubtitle}>{meta.subtitle}</Text>
+          </View>
+          <TouchableOpacity style={styles.addJarButton} onPress={() => openAddJar(bucket)}>
+            <Icon name="plus" size={14} color="#007AFF" />
+            <Text style={styles.addJarButtonText}>Add jar</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.bucketSummaryRow}>
+          <Text style={styles.bucketAmount}>₹{section.saved.toFixed(0)} saved</Text>
+          <Text style={styles.bucketBalance}>
+            {section.share.toFixed(1)}% of jars
+          </Text>
+        </View>
+        {section.jars.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarCardsScroll}>
+            {section.jars.map(renderJarCard)}
+          </ScrollView>
+        ) : (
+          <Text style={styles.emptyJarText}>No jars yet. Add one to start tracking this bucket.</Text>
+        )}
+      </View>
+    );
+  };
 
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
@@ -294,6 +669,29 @@ export default function PiggyBanks({
           </View>
         </View>
       </View>
+
+      {readyJarCount > 0 && (
+        <View style={styles.readyInvestCard}>
+          <View style={styles.readyInvestHeader}>
+            <Icon name="target" size={16} color="#7C3AED" />
+            <Text style={styles.readyInvestTitle}>Jars ready to invest</Text>
+          </View>
+          {(state.readyInvestments || []).map(item => (
+            <View key={item.id} style={styles.readyInvestRow}>
+              <Text style={styles.readyInvestLabel}>{jarMetaMap[item.id]?.label || item.label}</Text>
+              <Text style={styles.readyInvestAmount}>
+                ₹{(item.currentAmount || 0).toLocaleString('en-IN')}
+              </Text>
+            </View>
+          ))}
+          <Text style={styles.readyInvestHint}>Hop over to the Investments tab whenever you are ready.</Text>
+          {state.lastInvestmentPull && (
+            <Text style={styles.readyInvestHint}>
+              Last auto sweep · {new Date(state.lastInvestmentPull.at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.scheduleRow}>
         <TouchableOpacity style={[styles.scheduleButton, { marginRight: 10 }]} onPress={() => openCalendar('investment')}>
@@ -338,7 +736,7 @@ export default function PiggyBanks({
           )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-          {ENVELOPES.map(({ key, label, color }) => (
+          {combinedJars.map(({ key, label, color }) => (
             <View key={key} style={[styles.allocChip, { borderColor: color }]}> 
               <Text style={[styles.allocLabel, { color }]}>{label}</Text>
               <TextInput
@@ -363,41 +761,45 @@ export default function PiggyBanks({
 
         <View style={styles.bucketCard}>
           <View style={styles.bucketHeader}>
-            <Text style={styles.bucketTitle}>50 / 30 / 20 Health Check</Text>
-            <Text style={styles.bucketSubtitle}>Keep wants under 30% and grow safety buffers over time.</Text>
+            <Text style={styles.bucketTitle}>50 / 30 / 20 Radar</Text>
+            <Text style={styles.bucketSubtitle}>Compare today&apos;s jars with the recommended split.</Text>
           </View>
-          {envelopeGroupSummaries.map(group => (
-            <View key={group.key} style={styles.bucketRow}>
-              <View style={styles.bucketRowTop}>
-                <Text style={styles.bucketRowLabel}>{group.label}</Text>
-                <Text style={[
-                  styles.bucketRowValue,
-                  group.status === 'over' ? styles.bucketOver : group.status === 'under' ? styles.bucketUnder : styles.bucketOnTrack,
-                ]}>
-                  {group.actualPct.toFixed(0)}% (target {group.targetPct}%)
-                </Text>
+          {bucketOrder.map(bucket => {
+            const section = bucketSections[bucket];
+            if (!section) return null;
+            const meta = BUCKET_COPY[bucket];
+            const delta = section.share - meta.targetPct;
+            const statusStyle =
+              delta > 3 ? styles.bucketSummaryOver : delta < -3 ? styles.bucketSummaryUnder : styles.bucketSummaryOnTrack;
+            const width = meta.targetPct ? Math.min(100, (section.share / meta.targetPct) * 100) : section.share;
+            return (
+              <View key={bucket} style={styles.bucketRow}>
+                <View style={styles.bucketRowTop}>
+                  <Text style={styles.bucketRowLabel}>{meta.title}</Text>
+                  <Text style={[styles.bucketRowValue, statusStyle]}>
+                    {section.share.toFixed(1)}% vs {meta.targetPct}%
+                  </Text>
+                </View>
+                <View style={styles.bucketProgressBar}>
+                  <View
+                    style={[
+                      styles.bucketProgressFill,
+                      {
+                        width: `${width}%`,
+                        backgroundColor: meta.accent,
+                      },
+                    ]}
+                  />
+                </View>
+                <View style={styles.bucketAmountsRow}>
+                  <Text style={styles.bucketAmount}>Saved ₹{section.saved.toFixed(0)}</Text>
+                  <Text style={styles.bucketBalance}>
+                    Planned {section.plannedPct.toFixed(0)}%
+                  </Text>
+                </View>
               </View>
-              <View style={styles.bucketProgressBar}>
-                <View
-                  style={[
-                    styles.bucketProgressFill,
-                    {
-                      width: `${Math.min(100, (group.actualPct / group.targetPct) * 100)}%`,
-                      backgroundColor:
-                        group.status === 'over' ? '#FF3B30' : group.status === 'under' ? '#FF9500' : '#34C759',
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.bucketDescription}>{group.description}</Text>
-              <View style={styles.bucketAmountsRow}>
-                <Text style={styles.bucketAmount}>
-                  Plan ₹{group.actualAmount.toFixed(0)} • Goal ₹{group.targetAmount.toFixed(0)}
-                </Text>
-                <Text style={styles.bucketBalance}>Jar total ₹{group.balancesTotal.toFixed(0)}</Text>
-              </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
@@ -406,7 +808,7 @@ export default function PiggyBanks({
         {pendingAllocations && (
           <View style={styles.pendingCard}>
             <Text style={styles.pendingTitle}>Suggested split</Text>
-            {ENVELOPES.map(({ key, label }) => (
+            {combinedJars.map(({ key, label }) => (
               <View key={key} style={styles.pendingRow}>
                 <Text style={styles.pendingLabel}>{label}</Text>
                 <Text style={styles.pendingValue}>₹{(pendingAllocations[key] || 0).toFixed(0)}</Text>
@@ -422,80 +824,7 @@ export default function PiggyBanks({
         )}
       </View>
 
-      <View style={styles.balancesCard}>
-        <Text style={styles.sectionTitle}>Your Money Jars</Text>
-        <Text style={styles.sectionSubtitle}>Tap any jar to transfer money</Text>
-        <View style={styles.sectionCalloutBox}>
-          <Text style={styles.sectionCallout}>
-            Investments now auto-sweep from the Invest jar whenever you confirm a plan. Keep topping it up through daily splits.
-          </Text>
-          {state.lastInvestmentPull && (
-            <Text style={styles.sectionCalloutSecondary}>
-              Last sweep · ₹{state.lastInvestmentPull.amount.toFixed(0)} on{' '}
-              {new Date(state.lastInvestmentPull.at).toLocaleDateString('en-IN', {
-                day: 'numeric',
-                month: 'short',
-              })}
-            </Text>
-          )}
-        </View>
-        <View style={styles.jarsGrid}>
-          {ENVELOPES.map(({ key, label, color, icon }) => {
-            const balance = state.balances[key] || 0;
-            const maxBalance = Math.max(...Object.values(state.balances), 1000);
-            const fillPercentage = maxBalance > 0 ? Math.min(100, (balance / maxBalance) * 100) : 0;
-            const isSelected = fromEnv === key;
-
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.jarContainer,
-                  isSelected && { borderColor: color, borderWidth: 2, transform: [{ scale: 1.02 }] }
-                ]}
-                onPress={() => setFromEnv(key)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.jarBody}>
-                  <View
-                    style={[
-                      styles.jarFill,
-                      {
-                        backgroundColor: color,
-                        height: `${Math.max(10, fillPercentage)}%`,
-                        opacity: 0.3 + (fillPercentage / 100) * 0.4,
-                      }
-                    ]}
-                  />
-                  <View style={styles.jarContent}>
-                    <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
-                      <Icon name={icon as any} size={24} color={color} />
-                    </View>
-                    <Text style={styles.jarLabel}>{label}</Text>
-                    <Text style={[styles.jarAmount, { color }]}>
-                      ₹{balance.toLocaleString('en-IN')}
-                    </Text>
-                    {fillPercentage > 0 && (
-                      <View style={styles.jarFillBar}>
-                        <View
-                          style={[
-                            styles.jarFillBarInner,
-                            {
-                              width: `${fillPercentage}%`,
-                              backgroundColor: color,
-                            }
-                          ]}
-                        />
-                      </View>
-                    )}
-                  </View>
-                </View>
-                <View style={[styles.jarLid, { backgroundColor: color }]} />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
+      {bucketOrder.map(bucket => renderJarSection(bucket))}
 
       <View style={styles.transferCard}>
         <Text style={styles.sectionTitle}>Move between jars</Text>
@@ -504,7 +833,7 @@ export default function PiggyBanks({
           <View style={styles.transferFrom}>
             <Text style={styles.transferLabel}>From</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {ENVELOPES.map(({ key, label, color, icon }) => {
+              {combinedJars.map(({ key, label, color, icon }) => {
                 const isSelected = fromEnv === key;
                 const balance = state.balances[key] || 0;
                 return (
@@ -532,7 +861,7 @@ export default function PiggyBanks({
           <View style={styles.transferTo}>
             <Text style={styles.transferLabel}>To</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {ENVELOPES.map(({ key, label, color, icon }) => {
+              {combinedJars.map(({ key, label, color, icon }) => {
                 const isSelected = toEnv === key;
                 const balance = state.balances[key] || 0;
                 return (
@@ -594,6 +923,94 @@ export default function PiggyBanks({
           </TouchableOpacity>
         </View>
       </View>
+
+      <Modal visible={addJarVisible} animationType="slide" transparent onRequestClose={() => setAddJarVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Add a new jar</Text>
+            <Text style={styles.modalLabel}>Jar name</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Eg. Phone upgrade"
+              value={addJarName}
+              onChangeText={setAddJarName}
+            />
+
+            <Text style={styles.modalLabel}>Jar type</Text>
+            <View style={styles.modalBucketRow}>
+              {bucketOrder.map(bucket => (
+                <TouchableOpacity
+                  key={`bucket-${bucket}`}
+                  style={[
+                    styles.bucketChip,
+                    addJarBucket === bucket && { backgroundColor: `${BUCKET_COPY[bucket].accent}15`, borderColor: BUCKET_COPY[bucket].accent },
+                  ]}
+                  onPress={() => setAddJarBucket(bucket)}
+                >
+                  <Text
+                    style={[
+                      styles.bucketChipText,
+                      addJarBucket === bucket && { color: BUCKET_COPY[bucket].accent },
+                    ]}
+                  >
+                    {BUCKET_COPY[bucket].title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.modalLabel}>Target amount (optional)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Eg. 5000"
+              keyboardType="numeric"
+              value={addJarTarget}
+              onChangeText={setAddJarTarget}
+            />
+
+            <Text style={styles.modalLabel}>Description</Text>
+            <TextInput
+              style={[styles.modalInput, { height: 60 }]}
+              placeholder="What will you store here?"
+              value={addJarDescription}
+              onChangeText={setAddJarDescription}
+              multiline
+            />
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setAddJarVisible(false)}>
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalPrimaryBtn} onPress={handleCreateJar}>
+                <Text style={styles.modalPrimaryText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!targetJar} animationType="fade" transparent onRequestClose={() => setTargetJar(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Set target for {targetJar?.label}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Amount in ₹"
+              keyboardType="numeric"
+              value={targetValue}
+              onChangeText={setTargetValue}
+            />
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setTargetJar(null)}>
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalPrimaryBtn} onPress={handleSaveTarget}>
+                <Text style={styles.modalPrimaryText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={calendarVisible} animationType="slide" transparent onRequestClose={() => setCalendarVisible(false)}>
         <View style={styles.calendarOverlay}>
@@ -933,6 +1350,43 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
   },
+  readyInvestCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  readyInvestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  readyInvestTitle: {
+    fontWeight: '700',
+    color: '#1c1c1e',
+    fontSize: 15,
+  },
+  readyInvestRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  readyInvestLabel: {
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  readyInvestAmount: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  readyInvestHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#6b7280',
+  },
   sectionCalloutBox: {
     backgroundColor: '#eef9ff',
     borderRadius: 12,
@@ -956,6 +1410,53 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginTop: 8,
+  },
+  bucketSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  jarSection: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  jarSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  jarSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  jarSectionSubtitle: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  addJarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+    gap: 4,
+  },
+  addJarButtonText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: 12,
   },
   jarContainer: {
     width: '48%',
@@ -1021,6 +1522,88 @@ const styles = StyleSheet.create({
   jarFillBarInner: {
     height: '100%',
     borderRadius: 2,
+  },
+  jarCardsScroll: {
+    marginTop: 12,
+  },
+  jarCard: {
+    width: 220,
+    backgroundColor: '#f9fafb',
+    borderRadius: 16,
+    padding: 14,
+    marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  jarCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  jarCardIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  jarCardTitle: {
+    fontWeight: '700',
+    color: '#111827',
+    flex: 1,
+  },
+  jarReadyBadge: {
+    fontSize: 11,
+    color: '#16a34a',
+    fontWeight: '700',
+  },
+  jarCardDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    minHeight: 32,
+  },
+  jarCardAmount: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 6,
+  },
+  jarCardTarget: {
+    fontSize: 12,
+    color: '#4b5563',
+    marginTop: 2,
+  },
+  jarProgressBackground: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#e5e7eb',
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  jarProgressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  jarCardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  jarActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  jarActionText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  emptyJarText: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 8,
   },
   jarLid: {
     width: '100%',
@@ -1213,6 +1796,80 @@ const styles = StyleSheet.create({
   calendarDayTextActive: {
     color: 'white',
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4b5563',
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#111827',
+  },
+  modalBucketRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bucketChip: {
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  bucketChipText: {
+    fontSize: 12,
+    color: '#374151',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 18,
+    gap: 12,
+  },
+  modalSecondaryBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  modalSecondaryText: {
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  modalPrimaryBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#007AFF',
+  },
+  modalPrimaryText: {
+    color: 'white',
+    fontWeight: '700',
   },
 });
 

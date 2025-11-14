@@ -1,30 +1,30 @@
+import { Feather as Icon } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Dimensions } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Feather as Icon } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
-import RiskProfile, { RiskLevel, computeRiskScore, riskProfileStorageKey } from './RiskProfile';
 import {
-  InvestmentFund,
-  InvestmentPrediction,
-  InvestmentType,
-  getRecommendationsByRiskLevel,
-  predictInvestmentGrowth,
-  calculateSipProjection,
-  compareInvestments,
+    InvestmentFund,
+    InvestmentPrediction,
+    InvestmentType,
+    calculateSipProjection,
+    compareInvestments,
+    getRecommendationsByRiskLevel,
+    predictInvestmentGrowth,
 } from '../../lib/investmentPrediction';
+import RiskProfile, { RiskLevel, computeRiskScore, riskProfileStorageKey } from './RiskProfile';
 
 interface FundDetailResponse {
   meta: {
@@ -42,12 +42,29 @@ interface UserInvestmentPreferences {
   editedRecommendations: Record<string, Partial<InvestmentFund>>;
 }
 
+type ReadyJarSummary = {
+  id: string;
+  label: string;
+  targetAmount: number;
+  currentAmount?: number;
+  bucket: string;
+  achievedAt: string;
+};
+
 interface EnhancedInvestmentsProps {
   userId: string | number;
 }
 
 const storageKey = (userId: string | number) => `mt_enhanced_investments_${userId}`;
 const planKey = (userId: string | number) => `mt_investment_plan_${userId}`;
+const readyKey = (userId: string | number) => `mt_ready_investments_${userId}`;
+const piggyStorageKey = (userId: string | number) => `mt_piggy_${userId}`;
+
+interface PiggyStateSnapshot {
+  balances?: Record<string, number>;
+  allocationsPct?: Record<string, number>;
+  [key: string]: unknown;
+}
 
 export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps) {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>('moderate');
@@ -67,15 +84,27 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const [selectedPlan, setSelectedPlan] = useState<Record<string, number>>({});
   const [savingPlan, setSavingPlan] = useState(false);
   const [confirmedPlan, setConfirmedPlan] = useState<Record<string, number> | null>(null);
+  const [readyJars, setReadyJars] = useState<ReadyJarSummary[]>([]);
 
   const screenWidth = Math.min(360, Dimensions.get('window').width - 40);
 
   useEffect(() => {
     loadPreferences();
     loadConfirmedPlan();
+  }, [loadConfirmedPlan, loadPreferences]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(readyKey(userId));
+        setReadyJars(raw ? JSON.parse(raw) : []);
+      } catch (error) {
+        console.log('Error loading ready jars', error);
+      }
+    })();
   }, [userId]);
 
-  const loadConfirmedPlan = async () => {
+  const loadConfirmedPlan = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(planKey(userId));
       if (raw) {
@@ -86,7 +115,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     } catch (e) {
       console.log('Error loading confirmed plan', e);
     }
-  };
+  }, [userId]);
 
   // Only re-load when riskLevel changes. Avoid tying this to preferences to prevent loops.
   useEffect(() => {
@@ -97,7 +126,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riskLevel]);
 
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(storageKey(userId));
       if (raw) {
@@ -129,7 +158,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     } catch (e) {
       console.log('Error loading preferences', e);
     }
-  };
+  }, [riskLevel, userId]);
 
   const savePreferences = async (prefs: UserInvestmentPreferences) => {
     setPreferences(prefs);
@@ -240,15 +269,67 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   };
 
   const confirmPlan = async () => {
+    const totalPlanAmount = Object.values(selectedPlan).reduce(
+      (sum, value) => sum + (Number.isFinite(value) ? Number(value) : 0),
+      0
+    );
+
+    if (totalPlanAmount <= 0) {
+      Alert.alert('Add SIP amounts', 'Set at least one monthly SIP amount to confirm your plan.');
+      return;
+    }
+
     try {
       setSavingPlan(true);
+
+      const piggyRaw = await AsyncStorage.getItem(piggyStorageKey(userId));
+      if (!piggyRaw) {
+        Alert.alert(
+          'Invest jar needs funds',
+          `Move ₹${totalPlanAmount.toLocaleString('en-IN')} into your Invest jar inside Piggy before confirming this plan.`
+        );
+        return;
+      }
+
+      const piggyState = JSON.parse(piggyRaw) as PiggyStateSnapshot;
+      const investBalance = Number(piggyState?.balances?.investments ?? 0);
+
+      if (investBalance < totalPlanAmount) {
+        const shortage = totalPlanAmount - investBalance;
+        Alert.alert(
+          'Top up Invest jar',
+          `Your Invest jar holds ₹${investBalance.toLocaleString('en-IN')}. Add ₹${shortage.toLocaleString(
+            'en-IN'
+          )} more and try again.`
+        );
+        return;
+      }
+
+      const updatedPiggyState: PiggyStateSnapshot = {
+        ...piggyState,
+        balances: {
+          ...(piggyState?.balances || {}),
+          investments: investBalance - totalPlanAmount,
+        },
+        lastInvestmentPull: {
+          amount: totalPlanAmount,
+          at: new Date().toISOString(),
+        },
+      };
+
+      await AsyncStorage.setItem(piggyStorageKey(userId), JSON.stringify(updatedPiggyState));
       await AsyncStorage.setItem(planKey(userId), JSON.stringify(selectedPlan));
       setConfirmedPlan(selectedPlan);
-      Alert.alert('Success', 'Your investment plan has been confirmed!', [
-        { text: 'OK', onPress: () => {} }
-      ]);
-    } catch {
-      Alert.alert('Error', 'Could not save your plan.');
+
+      Alert.alert(
+        'Plan confirmed',
+        `₹${totalPlanAmount.toLocaleString(
+          'en-IN'
+        )} has been deployed from your Invest jar. Keep refilling it through daily allocations.`
+      );
+    } catch (e) {
+      console.log('Error saving investment plan', e);
+      Alert.alert('Error', 'Could not save your plan. Please try again.');
     } finally {
       setSavingPlan(false);
     }
@@ -359,7 +440,8 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       setNewFundCode('');
       setShowAddFund(false);
       await loadRecommendations();
-    } catch (e) {
+    } catch (error) {
+      console.log('Error adding custom fund', error);
       Alert.alert('Error', 'Fund not found. Please check the fund code.');
     }
   };
@@ -506,6 +588,24 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
             <Text style={styles.actionButtonText}>Refresh</Text>
           </TouchableOpacity>
         </View>
+
+        {readyJars.length > 0 && (
+          <View style={styles.jarReadyCard}>
+            <View style={styles.jarReadyHeader}>
+              <Icon name="target" size={16} color="#7C3AED" />
+              <Text style={styles.jarReadyTitle}>Piggy jars ready to invest</Text>
+            </View>
+            {readyJars.map(jar => (
+              <View key={jar.id} style={styles.jarReadyRow}>
+                <Text style={styles.jarReadyLabel}>{jar.label}</Text>
+                <Text style={styles.jarReadyAmount}>
+                  ₹{(jar.currentAmount || jar.targetAmount || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
+            ))}
+            <Text style={styles.jarReadyHint}>Allocate them into a plan below when you&apos;re ready.</Text>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.loaderBox}>
@@ -977,6 +1077,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
+  },
+  jarReadyCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+    marginBottom: 16,
+  },
+  jarReadyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  jarReadyTitle: {
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  jarReadyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  jarReadyLabel: {
+    color: '#4b5563',
+    fontWeight: '600',
+  },
+  jarReadyAmount: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  jarReadyHint: {
+    fontSize: 12,
+    color: '#6b7280',
   },
   actionButton: {
     flex: 1,
