@@ -30,9 +30,33 @@ const ENVELOPES: { key: EnvelopeKey; label: string; color: string; icon: string 
   { key: 'emis', label: 'EMIs', color: '#747D8C', icon: 'credit-card' },
   { key: 'investments', label: 'Invest', color: '#5F27CD', icon: 'trending-up' },
   { key: 'savings', label: 'Savings', color: '#00D2D3', icon: 'shield' },
-  { key: 'vacations', label: 'Vacations', color: '#C44569', icon: 'umbrella' },
-  { key: 'other', label: 'Other', color: '#A4B0BE', icon: 'box' },
+  { key: 'vacations', label: 'Lifestyle', color: '#C44569', icon: 'umbrella' },
+  { key: 'other', label: 'Utilities', color: '#A4B0BE', icon: 'box' },
 ];
+
+const ENVELOPE_GROUPS: Record<
+  'needs' | 'wants' | 'safety',
+  { label: string; targetPct: number; description: string; envelopes: EnvelopeKey[] }
+> = {
+  needs: {
+    label: 'Needs',
+    targetPct: 50,
+    description: 'Fixed bills & daily essentials that keep life running.',
+    envelopes: ['meal', 'travel', 'emis', 'other'],
+  },
+  wants: {
+    label: 'Wants',
+    targetPct: 30,
+    description: 'Lifestyle upgrades and nice-to-haves to keep in check.',
+    envelopes: ['vacations'],
+  },
+  safety: {
+    label: 'Savings & Safety',
+    targetPct: 20,
+    description: 'Emergency buffers, savings goals, and monthly investments.',
+    envelopes: ['savings', 'emergency', 'investments'],
+  },
+};
 
 interface EnvelopeState {
   balances: Record<EnvelopeKey, number>;
@@ -40,47 +64,32 @@ interface EnvelopeState {
   dailyIncome: number;
   scheduledInvestmentDay?: number;
   emiPayDay?: number;
-}
-
-const defaultState: EnvelopeState = {
-  balances: {
-    meal: 0,
-    travel: 0,
-    emergency: 0,
-    emis: 0,
-    investments: 0,
-    savings: 0,
-    vacations: 0,
-    other: 0,
   },
   allocationsPct: {
-    meal: 15,
-    travel: 15,
-    emergency: 10,
-    emis: 10,
-    investments: 25,
-    savings: 15,
-    vacations: 5,
+    meal: 20,
+    travel: 10,
+    emergency: 8,
+    emis: 15,
+    investments: 5,
+    savings: 7,
+    vacations: 30,
     other: 5,
   },
-  dailyIncome: 600,
+  dailyIncome: 500,
   scheduledInvestmentDay: 10,
   emiPayDay: 5,
 };
 
 interface PiggyBanksProps {
   userId: string | number;
-  todayIncome?: number;
   todayNetIncome?: number;
   riskLevel?: RiskLevel;
 }
 
-const storageKey = (userId: string | number) => `mt_piggy_${userId}`;
 
 const buildCalendarDays = () => {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const startOffset = first.getDay();
   const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const days: (number | null)[] = [];
   for (let i = 0; i < startOffset; i++) days.push(null);
@@ -133,6 +142,30 @@ export default function PiggyBanks({
     if (todayIncome > 0) return todayIncome;
     return state.dailyIncome;
   }, [state.dailyIncome, todayIncome, todayNetIncome]);
+
+  const envelopeGroupSummaries = useMemo(() => {
+    return (Object.entries(ENVELOPE_GROUPS) as Array<
+      [keyof typeof ENVELOPE_GROUPS, (typeof ENVELOPE_GROUPS)[keyof typeof ENVELOPE_GROUPS]]
+    >).map(([groupKey, config]) => {
+      const actualPct = config.envelopes.reduce((sum, env) => sum + (state.allocationsPct[env] || 0), 0);
+      const actualAmount = (effectiveIncome * actualPct) / 100;
+      const targetAmount = (effectiveIncome * config.targetPct) / 100;
+      const balancesTotal = config.envelopes.reduce((sum, env) => sum + (state.balances[env] || 0), 0);
+      const deltaPct = actualPct - config.targetPct;
+      return {
+        key: groupKey,
+        label: config.label,
+        description: config.description,
+        targetPct: config.targetPct,
+        actualPct,
+        actualAmount,
+        targetAmount,
+        balancesTotal,
+        deltaPct,
+        status: Math.abs(deltaPct) < 1 ? 'on-track' : deltaPct > 0 ? 'over' : 'under',
+      };
+    });
+  }, [state.allocationsPct, state.balances, effectiveIncome]);
 
   const proposeTodayAllocation = () => {
     const allocations: Record<EnvelopeKey, number> = {
@@ -307,6 +340,46 @@ export default function PiggyBanks({
             </View>
           ))}
         </ScrollView>
+
+        <View style={styles.bucketCard}>
+          <View style={styles.bucketHeader}>
+            <Text style={styles.bucketTitle}>50 / 30 / 20 Health Check</Text>
+            <Text style={styles.bucketSubtitle}>Keep wants under 30% and grow safety buffers over time.</Text>
+          </View>
+          {envelopeGroupSummaries.map(group => (
+            <View key={group.key} style={styles.bucketRow}>
+              <View style={styles.bucketRowTop}>
+                <Text style={styles.bucketRowLabel}>{group.label}</Text>
+                <Text style={[
+                  styles.bucketRowValue,
+                  group.status === 'over' ? styles.bucketOver : group.status === 'under' ? styles.bucketUnder : styles.bucketOnTrack,
+                ]}>
+                  {group.actualPct.toFixed(0)}% (target {group.targetPct}%)
+                </Text>
+              </View>
+              <View style={styles.bucketProgressBar}>
+                <View
+                  style={[
+                    styles.bucketProgressFill,
+                    {
+                      width: `${Math.min(100, (group.actualPct / group.targetPct) * 100)}%`,
+                      backgroundColor:
+                        group.status === 'over' ? '#FF3B30' : group.status === 'under' ? '#FF9500' : '#34C759',
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.bucketDescription}>{group.description}</Text>
+              <View style={styles.bucketAmountsRow}>
+                <Text style={styles.bucketAmount}>
+                  Plan ₹{group.actualAmount.toFixed(0)} • Goal ₹{group.targetAmount.toFixed(0)}
+                </Text>
+                <Text style={styles.bucketBalance}>Jar total ₹{group.balancesTotal.toFixed(0)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
         <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
           <Text style={styles.primaryButtonText}>Propose Today Allocation</Text>
         </TouchableOpacity>
@@ -332,38 +405,19 @@ export default function PiggyBanks({
       <View style={styles.balancesCard}>
         <Text style={styles.sectionTitle}>Your Money Jars</Text>
         <Text style={styles.sectionSubtitle}>Tap any jar to transfer money</Text>
+        <Text style={styles.sectionCallout}>
+          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
+        </Text>
         <View style={styles.jarsGrid}>
           {ENVELOPES.map(({ key, label, color, icon }) => {
-            const balance = state.balances[key] || 0;
-            const maxBalance = Math.max(...Object.values(state.balances), 1000);
-            const fillPercentage = maxBalance > 0 ? Math.min(100, (balance / maxBalance) * 100) : 0;
-            const isSelected = fromEnv === key;
-            
-            return (
-              <TouchableOpacity 
-                key={key} 
-                style={[
-                  styles.jarContainer,
-                  isSelected && { borderColor: color, borderWidth: 2, transform: [{ scale: 1.02 }] }
-                ]} 
-                onPress={() => setFromEnv(key)}
-                activeOpacity={0.7}
+        <Text style={styles.sectionCallout}>
+          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
+        </Text> activeOpacity={0.7}
               >
                 <View style={styles.jarBody}>
-                  {/* Jar fill effect */}
-                  <View 
-                    style={[
-                      styles.jarFill,
-                      { 
-                        backgroundColor: color,
-                        height: `${Math.max(10, fillPercentage)}%`,
-                        opacity: 0.3 + (fillPercentage / 100) * 0.4,
-                      }
-                    ]}
-                  />
-                  {/* Jar content */}
-                  <View style={styles.jarContent}>
-                    <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
+        <Text style={styles.sectionCallout}>
+          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
+        </Text>     <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
                       <Icon name={icon as any} size={24} color={color} />
                     </View>
                     <Text style={styles.jarLabel}>{label}</Text>
@@ -416,7 +470,7 @@ export default function PiggyBanks({
                     <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
                     <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
                   </TouchableOpacity>
-                );
+                );//hlloyrdyinh adkfj testing
               })}
             </ScrollView>
           </View>
@@ -686,6 +740,90 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
     fontSize: 12,
   },
+  bucketCard: {
+    marginTop: 16,
+    backgroundColor: '#f7faff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#d4e2ff',
+  },
+  bucketHeader: {
+    marginBottom: 8,
+  },
+  bucketTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0a3d91',
+  },
+  bucketSubtitle: {
+    fontSize: 12,
+    color: '#4b587c',
+    marginTop: 2,
+  },
+  bucketRow: {
+    marginTop: 12,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e0e6f8',
+  },
+  bucketRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bucketRowLabel: {
+    fontWeight: '600',
+    color: '#1c1c1e',
+    fontSize: 14,
+  },
+  bucketRowValue: {
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  bucketOver: {
+    color: '#FF3B30',
+  },
+  bucketUnder: {
+    color: '#FF9500',
+  },
+  bucketOnTrack: {
+    color: '#34C759',
+  },
+  bucketProgressBar: {
+    marginTop: 10,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#eef2ff',
+    overflow: 'hidden',
+  },
+  bucketProgressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  bucketDescription: {
+    marginTop: 8,
+    color: '#4b587c',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  bucketAmountsRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  bucketAmount: {
+    fontSize: 12,
+    color: '#1c1c1e',
+    fontWeight: '600',
+  },
+  bucketBalance: {
+    fontSize: 12,
+    color: '#4b587c',
+    fontWeight: '600',
+  },
   primaryButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
@@ -745,6 +883,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
   },
+  sectionCallout: {
+    backgroundColor: '#eef9ff',
+    borderRadius: 10,
+    padding: 10,
+    color: '#0a84ff',
+    fontSize: 12,
+    marginBottom: 12,
+  },
   jarsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -753,24 +899,13 @@ const styles = StyleSheet.create({
   },
   jarContainer: {
     width: '48%',
-    marginBottom: 20,
+  sectionCallout: {
     alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: '#e5e5ea',
-    backgroundColor: 'transparent',
-    overflow: 'visible',
+    borderRadius: 10,
+    padding: 10,ble',
   },
   jarBody: {
-    width: '100%',
-    height: 140,
-    borderRadius: 16,
-    backgroundColor: '#fafafa',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
     overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 2,
     borderColor: '#ffffff',
     borderBottomWidth: 0,
   },
