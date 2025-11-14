@@ -64,6 +64,22 @@ interface EnvelopeState {
   dailyIncome: number;
   scheduledInvestmentDay?: number;
   emiPayDay?: number;
+  lastInvestmentPull?: {
+    amount: number;
+    at: string;
+  };
+}
+
+const defaultState: EnvelopeState = {
+  balances: {
+    meal: 0,
+    travel: 0,
+    emergency: 0,
+    emis: 0,
+    investments: 0,
+    savings: 0,
+    vacations: 0,
+    other: 0,
   },
   allocationsPct: {
     meal: 20,
@@ -78,18 +94,22 @@ interface EnvelopeState {
   dailyIncome: 500,
   scheduledInvestmentDay: 10,
   emiPayDay: 5,
+  lastInvestmentPull: undefined,
 };
 
 interface PiggyBanksProps {
   userId: string | number;
+  todayIncome?: number;
   todayNetIncome?: number;
   riskLevel?: RiskLevel;
 }
 
+const storageKey = (userId: string | number) => `mt_piggy_${userId}`;
 
 const buildCalendarDays = () => {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOffset = first.getDay();
   const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const days: (number | null)[] = [];
   for (let i = 0; i < startOffset; i++) days.push(null);
@@ -116,7 +136,6 @@ export default function PiggyBanks({
   const totalAllocPct = useMemo(() => {
     return (Object.values(state.allocationsPct || {}) as number[]).reduce((acc, v) => acc + Math.max(0, v || 0), 0);
   }, [state.allocationsPct]);
-  const remainingAllocPct = useMemo(() => Math.max(0, 100 - totalAllocPct), [totalAllocPct]);
   const isAllocPerfect = totalAllocPct === 100;
   const isAllocOver = totalAllocPct > 100;
 
@@ -144,9 +163,10 @@ export default function PiggyBanks({
   }, [state.dailyIncome, todayIncome, todayNetIncome]);
 
   const envelopeGroupSummaries = useMemo(() => {
-    return (Object.entries(ENVELOPE_GROUPS) as Array<
-      [keyof typeof ENVELOPE_GROUPS, (typeof ENVELOPE_GROUPS)[keyof typeof ENVELOPE_GROUPS]]
-    >).map(([groupKey, config]) => {
+    return (Object.entries(ENVELOPE_GROUPS) as [
+      keyof typeof ENVELOPE_GROUPS,
+      (typeof ENVELOPE_GROUPS)[keyof typeof ENVELOPE_GROUPS]
+    ][]).map(([groupKey, config]) => {
       const actualPct = config.envelopes.reduce((sum, env) => sum + (state.allocationsPct[env] || 0), 0);
       const actualAmount = (effectiveIncome * actualPct) / 100;
       const targetAmount = (effectiveIncome * config.targetPct) / 100;
@@ -405,19 +425,50 @@ export default function PiggyBanks({
       <View style={styles.balancesCard}>
         <Text style={styles.sectionTitle}>Your Money Jars</Text>
         <Text style={styles.sectionSubtitle}>Tap any jar to transfer money</Text>
-        <Text style={styles.sectionCallout}>
-          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
-        </Text>
+        <View style={styles.sectionCalloutBox}>
+          <Text style={styles.sectionCallout}>
+            Investments now auto-sweep from the Invest jar whenever you confirm a plan. Keep topping it up through daily splits.
+          </Text>
+          {state.lastInvestmentPull && (
+            <Text style={styles.sectionCalloutSecondary}>
+              Last sweep · ₹{state.lastInvestmentPull.amount.toFixed(0)} on{' '}
+              {new Date(state.lastInvestmentPull.at).toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+              })}
+            </Text>
+          )}
+        </View>
         <View style={styles.jarsGrid}>
           {ENVELOPES.map(({ key, label, color, icon }) => {
-        <Text style={styles.sectionCallout}>
-          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
-        </Text> activeOpacity={0.7}
+            const balance = state.balances[key] || 0;
+            const maxBalance = Math.max(...Object.values(state.balances), 1000);
+            const fillPercentage = maxBalance > 0 ? Math.min(100, (balance / maxBalance) * 100) : 0;
+            const isSelected = fromEnv === key;
+
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[
+                  styles.jarContainer,
+                  isSelected && { borderColor: color, borderWidth: 2, transform: [{ scale: 1.02 }] }
+                ]}
+                onPress={() => setFromEnv(key)}
+                activeOpacity={0.7}
               >
                 <View style={styles.jarBody}>
-        <Text style={styles.sectionCallout}>
-          Investments auto-pull from the Invest jar when you schedule them. Keep it funded from your daily split.
-        </Text>     <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
+                  <View
+                    style={[
+                      styles.jarFill,
+                      {
+                        backgroundColor: color,
+                        height: `${Math.max(10, fillPercentage)}%`,
+                        opacity: 0.3 + (fillPercentage / 100) * 0.4,
+                      }
+                    ]}
+                  />
+                  <View style={styles.jarContent}>
+                    <View style={[styles.jarIconContainer, { backgroundColor: `${color}20` }]}>
                       <Icon name={icon as any} size={24} color={color} />
                     </View>
                     <Text style={styles.jarLabel}>{label}</Text>
@@ -426,10 +477,10 @@ export default function PiggyBanks({
                     </Text>
                     {fillPercentage > 0 && (
                       <View style={styles.jarFillBar}>
-                        <View 
+                        <View
                           style={[
-                            styles.jarFillBarInner, //testing
-                            { 
+                            styles.jarFillBarInner,
+                            {
                               width: `${fillPercentage}%`,
                               backgroundColor: color,
                             }
@@ -439,7 +490,6 @@ export default function PiggyBanks({
                     )}
                   </View>
                 </View>
-                {/* Jar lid */}
                 <View style={[styles.jarLid, { backgroundColor: color }]} />
               </TouchableOpacity>
             );
@@ -470,7 +520,7 @@ export default function PiggyBanks({
                     <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
                     <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
                   </TouchableOpacity>
-                );//hlloyrdyinh adkfj testing
+                );
               })}
             </ScrollView>
           </View>
@@ -883,13 +933,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
   },
-  sectionCallout: {
+  sectionCalloutBox: {
     backgroundColor: '#eef9ff',
-    borderRadius: 10,
-    padding: 10,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  sectionCallout: {
     color: '#0a84ff',
     fontSize: 12,
-    marginBottom: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  sectionCalloutSecondary: {
+    color: '#007AFF',
+    fontSize: 12,
+    marginTop: 6,
+    fontWeight: '600',
   },
   jarsGrid: {
     flexDirection: 'row',
@@ -899,14 +959,18 @@ const styles = StyleSheet.create({
   },
   jarContainer: {
     width: '48%',
-  sectionCallout: {
-    alignItems: 'center',
-    borderRadius: 10,
-    padding: 10,ble',
   },
   jarBody: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    backgroundColor: '#fafafa',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     overflow: 'hidden',
+    position: 'relative',
     borderColor: '#ffffff',
+    borderWidth: 2,
     borderBottomWidth: 0,
   },
   jarFill: {
