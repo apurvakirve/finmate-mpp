@@ -428,7 +428,7 @@ export default function PiggyBanks({
                       <View style={styles.jarFillBar}>
                         <View 
                           style={[
-                            styles.jarFillBarInner,
+                            styles.jarFillBarInner, //testing
                             { 
                               width: `${fillPercentage}%`,
                               backgroundColor: color,
