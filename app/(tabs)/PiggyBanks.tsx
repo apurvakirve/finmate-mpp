@@ -716,106 +716,86 @@ export default function PiggyBanks({
 
       <View style={styles.incomeCard}>
         <Text style={styles.sectionTitle}>Allocation Plan</Text>
-        <View style={styles.incomeRow}>
-          <Icon name="dollar-sign" size={18} color="#007AFF" />
-          <Text style={styles.incomeText}>Daily base used: ₹{effectiveIncome.toFixed(0)}</Text>
-        </View>
-        <View style={styles.allocSummaryRow}>
-          <View style={[
-            styles.allocSummaryPill,
-            isAllocPerfect ? styles.allocOk : isAllocOver ? styles.allocOver : styles.allocUnder
-          ]}>
-            <Text style={styles.allocSummaryText}>Total {totalAllocPct}%</Text>
+        <Text style={styles.allocDescription}>Set how much of your daily income (₹{effectiveIncome.toFixed(0)}) goes to each jar</Text>
+        
+        <View style={styles.allocSummaryBox}>
+          <View style={styles.allocSummaryRow}>
+            <Text style={styles.allocSummaryLabel}>Total Allocation</Text>
+            <View style={[
+              styles.allocSummaryPill,
+              isAllocPerfect ? styles.allocOk : isAllocOver ? styles.allocOver : styles.allocUnder
+            ]}>
+              <Text style={styles.allocSummaryText}>{totalAllocPct}%</Text>
+            </View>
           </View>
           {!isAllocPerfect && (
-            <View style={[styles.allocSummaryPill, styles.allocHintPill]}>
-              <Text style={[styles.allocSummaryText, { color: '#6c6c70' }]}>
-                {isAllocOver ? 'Reduce' : 'Remaining'} {Math.abs(100 - totalAllocPct)}%
-              </Text>
-            </View>
+            <Text style={styles.allocHint}>
+              {isAllocOver ? `Reduce by ${(totalAllocPct - 100).toFixed(0)}%` : `Add ${(100 - totalAllocPct).toFixed(0)}% more`}
+            </Text>
           )}
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-          {combinedJars.map(({ key, label, color }) => (
-            <View key={key} style={[styles.allocChip, { borderColor: color }]}> 
-              <Text style={[styles.allocLabel, { color }]}>{label}</Text>
-              <TextInput
-                value={String(state.allocationsPct[key] ?? 0)}
-                onChangeText={(value) => {
-                  const next = {
-                    ...state,
-                    allocationsPct: {
-                      ...state.allocationsPct,
-                      [key]: Math.max(0, Math.min(100, parseInt(value || '0', 10))),
-                    },
-                  };
-                  persist(next);
-                }}
-                keyboardType="numeric"
-                style={styles.allocInput}
-              />
-              <Text style={styles.allocPercent}>%</Text>
-            </View>
-          ))}
-        </ScrollView>
 
-        <View style={styles.bucketCard}>
-          <View style={styles.bucketHeader}>
-            <Text style={styles.bucketTitle}>50 / 30 / 20 Radar</Text>
-            <Text style={styles.bucketSubtitle}>Compare today&apos;s jars with the recommended split.</Text>
-          </View>
-          {bucketOrder.map(bucket => {
-            const section = bucketSections[bucket];
-            if (!section) return null;
-            const meta = BUCKET_COPY[bucket];
-            const delta = section.share - meta.targetPct;
-            const statusStyle =
-              delta > 3 ? styles.bucketSummaryOver : delta < -3 ? styles.bucketSummaryUnder : styles.bucketSummaryOnTrack;
-            const width = meta.targetPct ? Math.min(100, (section.share / meta.targetPct) * 100) : section.share;
+        <View style={styles.allocGrid}>
+          {combinedJars.map(({ key, label, color, icon }) => {
+            const pct = state.allocationsPct[key] ?? 0;
+            const amount = Math.floor((effectiveIncome * pct) / 100);
             return (
-              <View key={bucket} style={styles.bucketRow}>
-                <View style={styles.bucketRowTop}>
-                  <Text style={styles.bucketRowLabel}>{meta.title}</Text>
-                  <Text style={[styles.bucketRowValue, statusStyle]}>
-                    {section.share.toFixed(1)}% vs {meta.targetPct}%
-                  </Text>
+              <View key={key} style={styles.allocItem}>
+                <View style={styles.allocItemHeader}>
+                  <View style={[styles.allocIconContainer, { backgroundColor: `${color}15` }]}>
+                    <Icon name={icon as any} size={18} color={color} />
+                  </View>
+                  <Text style={styles.allocItemLabel} numberOfLines={1}>{label}</Text>
                 </View>
-                <View style={styles.bucketProgressBar}>
-                  <View
-                    style={[
-                      styles.bucketProgressFill,
-                      {
-                        width: `${width}%`,
-                        backgroundColor: meta.accent,
-                      },
-                    ]}
+                <View style={styles.allocInputContainer}>
+                  <TextInput
+                    value={String(pct)}
+                    onChangeText={(value) => {
+                      const next = {
+                        ...state,
+                        allocationsPct: {
+                          ...state.allocationsPct,
+                          [key]: Math.max(0, Math.min(100, parseInt(value || '0', 10))),
+                        },
+                      };
+                      persist(next);
+                    }}
+                    keyboardType="numeric"
+                    style={[styles.allocInput, { borderColor: color }]}
+                    placeholder="0"
                   />
+                  <Text style={styles.allocPercent}>%</Text>
                 </View>
-                <View style={styles.bucketAmountsRow}>
-                  <Text style={styles.bucketAmount}>Saved ₹{section.saved.toFixed(0)}</Text>
-                  <Text style={styles.bucketBalance}>
-                    Planned {section.plannedPct.toFixed(0)}%
-                  </Text>
-                </View>
+                {pct > 0 && (
+                  <Text style={[styles.allocAmount, { color }]}>₹{amount.toLocaleString('en-IN')}</Text>
+                )}
               </View>
             );
           })}
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
-          <Text style={styles.primaryButtonText}>Propose Today Allocation</Text>
+          <Icon name="zap" size={18} color="white" />
+          <Text style={styles.primaryButtonText}>Allocate Today's Income</Text>
         </TouchableOpacity>
         {pendingAllocations && (
           <View style={styles.pendingCard}>
-            <Text style={styles.pendingTitle}>Suggested split</Text>
-            {combinedJars.map(({ key, label }) => (
-              <View key={key} style={styles.pendingRow}>
-                <Text style={styles.pendingLabel}>{label}</Text>
-                <Text style={styles.pendingValue}>₹{(pendingAllocations[key] || 0).toFixed(0)}</Text>
-              </View>
-            ))}
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759' }]} onPress={confirmAllocation}>
-              <Text style={styles.primaryButtonText}>Confirm & Fill Jars</Text>
+            <Text style={styles.pendingTitle}>Today's Allocation</Text>
+            <View style={styles.pendingList}>
+              {combinedJars
+                .filter(({ key }) => (pendingAllocations[key] || 0) > 0)
+                .map(({ key, label, color }) => (
+                  <View key={key} style={styles.pendingRow}>
+                    <View style={styles.pendingRowLeft}>
+                      <View style={[styles.pendingDot, { backgroundColor: color }]} />
+                      <Text style={styles.pendingLabel}>{label}</Text>
+                    </View>
+                    <Text style={[styles.pendingValue, { color }]}>₹{(pendingAllocations[key] || 0).toLocaleString('en-IN')}</Text>
+                  </View>
+                ))}
+            </View>
+            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759', marginTop: 16 }]} onPress={confirmAllocation}>
+              <Text style={styles.primaryButtonText}>Confirm & Add to Jars</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
               <Text style={styles.linkButtonText}>Cancel</Text>
@@ -1160,170 +1140,170 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     color: '#6c6c70',
   },
-  allocChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    backgroundColor: '#f9f9f9',
-  },
-  allocLabel: {
-    fontWeight: '600',
-    marginRight: 6,
-  },
-  allocInput: {
-    borderBottomWidth: 1,
-    borderColor: '#ddd',
-    minWidth: 32,
-    textAlign: 'center',
-    paddingVertical: 0,
-    marginRight: 4,
-  },
-  allocPercent: {
+  allocDescription: {
+    fontSize: 14,
     color: '#6c6c70',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  allocSummaryBox: {
+    backgroundColor: '#f7faff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
   },
   allocSummaryRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    gap: 8,
+  },
+  allocSummaryLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1c1c1e',
+  },
+  allocHint: {
+    fontSize: 13,
+    color: '#6c6c70',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  allocGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  allocItem: {
+    width: '48%',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  allocItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  allocIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  allocItemLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    flex: 1,
+  },
+  allocInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  allocInput: {
+    borderWidth: 2,
+    borderRadius: 8,
+    width: 60,
+    textAlign: 'center',
+    paddingVertical: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    backgroundColor: 'white',
+  },
+  allocPercent: {
+    fontSize: 14,
+    color: '#6c6c70',
+    marginLeft: 6,
+    fontWeight: '600',
+  },
+  allocAmount: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 4,
   },
   allocSummaryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
   allocOk: { backgroundColor: '#e6f8ec' },
   allocUnder: { backgroundColor: '#fff4d6' },
   allocOver: { backgroundColor: '#ffe3e3' },
-  allocHintPill: {
-    backgroundColor: '#f5f5f5',
-  },
   allocSummaryText: {
-    fontWeight: '600',
-    color: '#1c1c1e',
-    fontSize: 12,
-  },
-  bucketCard: {
-    marginTop: 16,
-    backgroundColor: '#f7faff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#d4e2ff',
-  },
-  bucketHeader: {
-    marginBottom: 8,
-  },
-  bucketTitle: {
-    fontSize: 15,
     fontWeight: '700',
-    color: '#0a3d91',
-  },
-  bucketSubtitle: {
-    fontSize: 12,
-    color: '#4b587c',
-    marginTop: 2,
-  },
-  bucketRow: {
-    marginTop: 12,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e0e6f8',
-  },
-  bucketRowTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  bucketRowLabel: {
-    fontWeight: '600',
     color: '#1c1c1e',
-    fontSize: 14,
-  },
-  bucketRowValue: {
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  bucketOver: {
-    color: '#FF3B30',
-  },
-  bucketUnder: {
-    color: '#FF9500',
-  },
-  bucketOnTrack: {
-    color: '#34C759',
-  },
-  bucketProgressBar: {
-    marginTop: 10,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#eef2ff',
-    overflow: 'hidden',
-  },
-  bucketProgressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  bucketDescription: {
-    marginTop: 8,
-    color: '#4b587c',
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  bucketAmountsRow: {
-    marginTop: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  bucketAmount: {
-    fontSize: 12,
-    color: '#1c1c1e',
-    fontWeight: '600',
-  },
-  bucketBalance: {
-    fontSize: 12,
-    color: '#4b587c',
-    fontWeight: '600',
+    fontSize: 16,
   },
   primaryButton: {
     backgroundColor: '#007AFF',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
+    marginTop: 8,
+    gap: 8,
   },
   primaryButtonText: {
     color: 'white',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 16,
   },
   pendingCard: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 16,
+    padding: 20,
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   pendingTitle: {
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1c1c1e',
+    fontSize: 18,
+    marginBottom: 16,
+  },
+  pendingList: {
     marginBottom: 8,
   },
   pendingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  pendingRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  pendingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
   },
   pendingLabel: {
-    color: '#6c6c70',
+    color: '#1c1c1e',
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
   },
   pendingValue: {
-    fontWeight: '600',
-    color: '#1c1c1e',
+    fontWeight: '700',
+    fontSize: 16,
   },
   linkButton: {
     alignItems: 'center',

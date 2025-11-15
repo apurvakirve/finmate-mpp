@@ -6,7 +6,7 @@
 import { Platform } from 'react-native';
 
 const tintColorLight = '#0a7ea4';
-const tintColorDark = '#A855F7'; // Purple accent
+const tintColorDark = '#fff';
 
 export const Colors = {
   light: {
@@ -19,16 +19,11 @@ export const Colors = {
   },
   dark: {
     text: '#ECEDEE',
-    background: '#0F0F1E', // Dark purple-tinted background
+    background: '#151718',
     tint: tintColorDark,
     icon: '#9BA1A6',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: tintColorDark,
-    purple: '#A855F7',
-    purpleLight: '#C084FC',
-    purpleDark: '#7C3AED',
-    cardBg: '#1A1A2E',
-    cardBorder: '#2D2D44',
   },
 };
 

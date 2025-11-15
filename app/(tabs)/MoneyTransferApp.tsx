@@ -1211,7 +1211,7 @@ export default function MoneyTransferApp() {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity onPress={refreshCurrentUser} onLongPress={seedDemoData} style={styles.refreshButton}>
-            <Icon name="refresh-cw" size={20} color="#A855F7" />
+            <Icon name="refresh-cw" size={20} color="#007AFF" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
             <Icon name="log-out" size={24} color="red" />
@@ -1225,12 +1225,7 @@ export default function MoneyTransferApp() {
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
           {/* Balance Card */}
           <TouchableOpacity style={styles.balanceCard} onPress={() => setShowTotalBalance(!showTotalBalance)}>
-            <View style={styles.balanceHeader}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
-              <View style={styles.currencyBadge}>
-                <Text style={styles.currencyText}>USD</Text>
-              </View>
-            </View>
+            <Text style={styles.balanceLabel}>{showTotalBalance ? 'Total Balance (Wallet + Cash)' : 'Current Balance'}</Text>
             <Text style={styles.balance}>
               ₹{(
                 showTotalBalance 
@@ -1238,77 +1233,8 @@ export default function MoneyTransferApp() {
                   : parseFloat(currentUser.balance)
               ).toFixed(2)}
             </Text>
-            <View style={styles.moneyHoldRow}>
-              <Icon name="eye" size={14} color="#9BA1A6" />
-              <Text style={styles.moneyHoldText}>Money hold: ₹{cashBalance.toFixed(2)}</Text>
-            </View>
+            <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
           </TouchableOpacity>
-
-          {/* Credit Card */}
-          <View style={styles.creditCard}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardNumber}>**** 9154</Text>
-              <View style={styles.mastercardLogo}>
-                <View style={[styles.mcCircle, { backgroundColor: '#EB001B' }]} />
-                <View style={[styles.mcCircle, { backgroundColor: '#F79E1B', marginLeft: -8 }]} />
-              </View>
-            </View>
-            <Text style={styles.cardExpiry}>12/24</Text>
-            <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.cardActionBtn}>
-                <Icon name="bell" size={18} color="#A855F7" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cardActionBtn}>
-                <Icon name="arrow-up-right" size={18} color="#A855F7" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Goals Section */}
-          <View style={styles.goalsCard}>
-            <View style={styles.goalsHeader}>
-              <View>
-                <Text style={styles.goalsTitle}>Stay on Track with Your Goals</Text>
-                <Text style={styles.goalsSubtitle}>Visualize your progress toward savings, investments, or debt repayment goals.</Text>
-              </View>
-              <TouchableOpacity style={styles.addGoalButton}>
-                <Icon name="plus" size={20} color="#A855F7" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.goalProgress}>
-              <View style={styles.goalGraph}>
-                <Icon name="trending-up" size={16} color="#A855F7" />
-              </View>
-              <Text style={styles.goalAmount}>+₹324</Text>
-            </View>
-          </View>
-
-          {/* Cash Flow Section */}
-          <View style={styles.cashFlowCard}>
-            <View style={styles.cashFlowHeader}>
-              <Text style={styles.cashFlowTitle}>Cash Flow</Text>
-              <TouchableOpacity>
-                <Icon name="more-vertical" size={18} color="#9BA1A6" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.cashFlowLabel}>Income</Text>
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: '62.5%' }]} />
-              </View>
-              <Text style={styles.progressText}>₹2,000.00 / ₹3,200.00</Text>
-            </View>
-            <View style={styles.progressLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
-                <Text style={styles.legendText}>Earned</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#9BA1A6' }]} />
-                <Text style={styles.legendText}>Goal</Text>
-              </View>
-            </View>
-          </View>
 
         
           {/* Quick Actions - QR Code Buttons */}
@@ -1320,7 +1246,7 @@ export default function MoneyTransferApp() {
                 setShowQRScanner(true);
               }}
             >
-              <MaterialCommunityIcons name="qrcode" size={24} color="#A855F7" />
+              <MaterialCommunityIcons name="qrcode" size={24} color="#007AFF" />
               <Text style={styles.qrButtonText}>Scan QR</Text>
             </TouchableOpacity>
 
@@ -1328,7 +1254,7 @@ export default function MoneyTransferApp() {
               style={styles.qrButton}
               onPress={() => setShowMyQR(true)}
             >
-              <Icon name="maximize" size={24} color="#A855F7" />
+              <Icon name="maximize" size={24} color="#007AFF" />
               <Text style={styles.qrButtonText}>My QR</Text>
             </TouchableOpacity>
          
@@ -1430,10 +1356,10 @@ export default function MoneyTransferApp() {
           style={styles.bottomTab}
           onPress={() => setActiveTab('transfer')}
         >
-            <Icon 
+          <Icon 
             name="send" 
             size={22} 
-            color={activeTab === 'transfer' ? '#A855F7' : '#9BA1A6'} 
+            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.bottomTabText, activeTab === 'transfer' && styles.bottomTabTextActive]}>Transfer</Text>
         </TouchableOpacity>
@@ -1444,7 +1370,7 @@ export default function MoneyTransferApp() {
           <Icon 
             name="grid" 
             size={22} 
-            color={activeTab === 'piggy' ? '#A855F7' : '#9BA1A6'} 
+            color={activeTab === 'piggy' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.bottomTabText, activeTab === 'piggy' && styles.bottomTabTextActive]}>Piggy</Text>
         </TouchableOpacity>
@@ -1455,7 +1381,7 @@ export default function MoneyTransferApp() {
           <Icon 
             name="bar-chart-2" 
             size={22} 
-            color={activeTab === 'analysis' ? '#A855F7' : '#9BA1A6'} 
+            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.bottomTabText, activeTab === 'analysis' && styles.bottomTabTextActive]}>Analysis</Text>
         </TouchableOpacity>
@@ -1466,7 +1392,7 @@ export default function MoneyTransferApp() {
           <Icon 
             name="briefcase" 
             size={22} 
-            color={activeTab === 'coach' ? '#A855F7' : '#9BA1A6'} 
+            color={activeTab === 'coach' ? '#007AFF' : '#666'} 
           />
           <Text style={[styles.bottomTabText, activeTab === 'coach' && styles.bottomTabTextActive]}>Coach</Text>
         </TouchableOpacity>
@@ -1477,7 +1403,7 @@ export default function MoneyTransferApp() {
           <Icon
             name="pie-chart"
             size={22}
-            color={activeTab === 'investments' ? '#A855F7' : '#9BA1A6'}
+            color={activeTab === 'investments' ? '#007AFF' : '#666'}
           />
           <Text style={[styles.bottomTabText, activeTab === 'investments' && styles.bottomTabTextActive]}>Invest</Text>
         </TouchableOpacity>
@@ -1695,7 +1621,7 @@ const styles = StyleSheet.create({
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: '#0F0F1E',
+    backgroundColor: '#f5f5f5',
     paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   loginBox: {
@@ -1795,9 +1721,9 @@ langTextActive: {
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D44',
+    borderBottomColor: '#e5e5e5',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -1813,24 +1739,24 @@ langTextActive: {
   userName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#ECEDEE',
+    color: '#333',
   },
   userRole: {
-    color: '#9BA1A6',
+    color: 'gray',
     fontSize: 14,
   },
   appName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#A855F7',
+    color: '#007AFF',
     textTransform: 'uppercase',
   },
   // Bottom Tabs
   bottomTabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: 'white',
     borderTopWidth: 1,
-    borderTopColor: '#2D2D44',
+    borderTopColor: '#e5e5e5',
   },
   bottomTab: {
     flex: 1,
@@ -1840,233 +1766,32 @@ langTextActive: {
   },
   bottomTabText: {
     fontSize: 12,
-    color: '#9BA1A6',
+    color: '#666',
     marginTop: 2,
   },
   bottomTabTextActive: {
-    color: '#A855F7',
+    color: '#007AFF',
     fontWeight: '600',
   },
   tabContent: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#0F0F1E',
   },
   balanceCard: {
-    backgroundColor: '#1A1A2E',
-    padding: 24,
-    borderRadius: 24,
+    backgroundColor: '#007AFF',
+    padding: 20,
+    borderRadius: 10,
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
-    shadowColor: '#A855F7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
   },
   balanceLabel: {
-    color: '#9BA1A6',
-    fontSize: 14,
+    color: 'white',
+    fontSize: 16,
     opacity: 0.9,
-    marginBottom: 8,
   },
   balance: {
-    color: '#ECEDEE',
-    fontSize: 36,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  currencyBadge: {
-    backgroundColor: '#2D2D44',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  currencyText: {
-    color: '#ECEDEE',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  moneyHoldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    gap: 6,
-  },
-  moneyHoldText: {
-    color: '#9BA1A6',
-    fontSize: 13,
-  },
-  // Credit Card
-  creditCard: {
-    backgroundColor: '#1A1A2E',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cardNumber: {
-    color: '#ECEDEE',
-    fontSize: 18,
-    fontWeight: '600',
-    letterSpacing: 2,
-  },
-  mastercardLogo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  mcCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  cardExpiry: {
-    color: '#9BA1A6',
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  cardActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  cardActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2D2D44',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // Goals Card
-  goalsCard: {
-    backgroundColor: '#1A1A2E',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
-  },
-  goalsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  goalsTitle: {
-    color: '#ECEDEE',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  goalsSubtitle: {
-    color: '#9BA1A6',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  addGoalButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2D2D44',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalProgress: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goalGraph: {
-    width: 40,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#2D2D44',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  goalAmount: {
-    color: '#A855F7',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  // Cash Flow Card
-  cashFlowCard: {
-    backgroundColor: '#1A1A2E',
-    padding: 20,
-    borderRadius: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
-  },
-  cashFlowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  cashFlowTitle: {
-    color: '#ECEDEE',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  cashFlowLabel: {
-    color: '#ECEDEE',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  progressBarContainer: {
-    marginBottom: 12,
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#2D2D44',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: '#34C759',
-    borderRadius: 4,
-  },
-  progressText: {
-    color: '#ECEDEE',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  progressLegend: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    color: '#9BA1A6',
-    fontSize: 12,
+    color: 'white',
+    fontSize: 32,
+    fontWeight: 'bold',
   },
   // Quick Actions Styles
   quickActions: {
@@ -2076,23 +1801,21 @@ langTextActive: {
   },
   qrButton: {
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: 'white',
     padding: 15,
-    borderRadius: 16,
+    borderRadius: 10,
     width: '23%',
-    borderWidth: 1,
-    borderColor: '#2D2D44',
     elevation: 2,
-    shadowColor: '#A855F7',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   qrButtonText: {
     marginTop: 8,
     fontSize: 10,
-    fontWeight: '600',
-    color: '#ECEDEE',
+    fontWeight: 'bold',
+    color: '#000000ff',
   },
   form: {
     backgroundColor: 'white',
@@ -2104,7 +1827,7 @@ langTextActive: {
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 10,
-    color: '#ECEDEE',
+    color: '#333',
   },
   label: {
     fontWeight: '600',
@@ -2271,12 +1994,10 @@ langTextActive: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-    padding: 16,
-    borderRadius: 16,
-    marginVertical: 6,
-    borderWidth: 1,
-    borderColor: '#2D2D44',
+    backgroundColor: 'white',
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 4,
   },
   transactionInfo: {
     flex: 1,
@@ -2284,11 +2005,11 @@ langTextActive: {
   transactionNames: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#ECEDEE',
+    color: '#333',
   },
   transactionType: {
     fontSize: 12,
-    color: '#9BA1A6',
+    color: 'gray',
     marginTop: 2,
   },
   transactionAmount: {
