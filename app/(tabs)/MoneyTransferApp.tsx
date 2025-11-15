@@ -24,7 +24,6 @@ import { supabase } from '../../lib/supabase';
 import InvestmentsTab from './InvestmentsTab';
 import EnhancedInvestments from './EnhancedInvestments';
 import PiggyBanks from './PiggyBanks';
-import RiskProfile, { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
 // Add transaction types constant
@@ -53,7 +52,6 @@ export default function MoneyTransferApp() {
   const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'coach' | 'investments'>('transfer');
-  const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
   const [showTotalBalance, setShowTotalBalance] = useState(false);
   const [cashBalance, setCashBalance] = useState<number>(0);
   const [showCashModal, setShowCashModal] = useState(false);
@@ -320,17 +318,29 @@ export default function MoneyTransferApp() {
 
     let received = 0;
     let sent = 0;
+    let hasTransactions = false;
+    
     transactions.forEach((t) => {
       const created = new Date(t.created_at).getTime();
       if (created < start || created > end) return;
+      hasTransactions = true;
+      
+      // Count online/UPI transactions
       if (t.to_user_id === currentUserRef.current?.id) {
         received += Number(t.amount || 0);
       }
       if (t.from_user_id === currentUserRef.current?.id) {
         sent += Number(t.amount || 0);
       }
+      
+      // Count cash additions (method: cash, type: add, to_name: Cash)
+      if (t.method === 'cash' && t.type === 'add' && t.to_name === 'Cash' && t.from_user_id === currentUserRef.current?.id) {
+        received += Number(t.amount || 0);
+      }
     });
-    return received - sent;
+    
+    // Only return value if there are transactions today
+    return hasTransactions ? received - sent : 0;
   }, [transactions]);
 
   // DEV-ONLY: Seed ~60 days of demo data for current user
@@ -1317,19 +1327,12 @@ export default function MoneyTransferApp() {
 
       {activeTab === 'piggy' && (
         <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.infoBanner}>
-            <Icon name="sun" size={18} color="#007AFF" />
-            <Text style={styles.infoBannerText}>
-              Today’s recorded income: ₹{todayIncome.toFixed(0)} • Risk profile: {piggyRiskLevel.toUpperCase()}.
-              Adjust jars or edit your profile below.
-            </Text>
-          </View>
-          <RiskProfile userId={currentUser.id} onRiskLevelChange={setPiggyRiskLevel} />
           <PiggyBanks
             userId={currentUser.id}
             todayIncome={todayIncome}
             todayNetIncome={todayNetIncome}
-            riskLevel={piggyRiskLevel}
+            cashBalance={cashBalance}
+            transactions={transactions}
           />
         </ScrollView>
       )}
