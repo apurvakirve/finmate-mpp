@@ -328,6 +328,32 @@ export default function PiggyBanks({
     [combinedJars]
   );
 
+  const effectiveIncome = useMemo(() => {
+    // User can edit income, otherwise use calculated from transactions
+    if (state.editedIncome !== undefined && state.editedIncome > 0) {
+      return state.editedIncome;
+    }
+    // Only show if there are transactions today
+    if (todayNetIncome > 0) return todayNetIncome;
+    if (todayIncome > 0) return todayIncome;
+    return 0; // Don't show default if no transactions today
+  }, [todayIncome, todayNetIncome, state.editedIncome]);
+  
+  const hasTodayTransactions = useMemo(() => {
+    if (!transactions || transactions.length === 0) return false;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = today.getMonth();
+    const dd = today.getDate();
+    const start = new Date(yyyy, mm, dd, 0, 0, 0).getTime();
+    const end = new Date(yyyy, mm, dd, 23, 59, 59).getTime();
+    
+    return transactions.some((t) => {
+      const created = new Date(t.created_at).getTime();
+      return created >= start && created <= end;
+    });
+  }, [transactions]);
+
   // AI Algorithm: Calculate priority-based allocation
   const calculatePriorityAllocation = useMemo(() => {
     if (effectiveIncome <= 0) return {};
@@ -463,32 +489,6 @@ export default function PiggyBanks({
     setState(withReady);
     await AsyncStorage.setItem(key, JSON.stringify(withReady));
   };
-
-  const effectiveIncome = useMemo(() => {
-    // User can edit income, otherwise use calculated from transactions
-    if (state.editedIncome !== undefined && state.editedIncome > 0) {
-      return state.editedIncome;
-    }
-    // Only show if there are transactions today
-    if (todayNetIncome > 0) return todayNetIncome;
-    if (todayIncome > 0) return todayIncome;
-    return 0; // Don't show default if no transactions today
-  }, [todayIncome, todayNetIncome, state.editedIncome]);
-  
-  const hasTodayTransactions = useMemo(() => {
-    if (!transactions || transactions.length === 0) return false;
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = today.getMonth();
-    const dd = today.getDate();
-    const start = new Date(yyyy, mm, dd, 0, 0, 0).getTime();
-    const end = new Date(yyyy, mm, dd, 23, 59, 59).getTime();
-    
-    return transactions.some((t) => {
-      const created = new Date(t.created_at).getTime();
-      return created >= start && created <= end;
-    });
-  }, [transactions]);
 
   const bucketSections = useMemo(() => {
     const totalBalance = Object.values(state.balances).reduce((acc, val) => acc + val, 0);
@@ -726,56 +726,68 @@ export default function PiggyBanks({
     const targetAmount = state.jarTargets?.[jar.key] ?? jar.defaultTarget ?? 0;
     const progress = targetAmount > 0 ? Math.min(100, (balance / targetAmount) * 100) : 0;
     const isReady = readyJarSet.has(jar.key);
-    const isCustomJar = jar.key.startsWith('custom-');
     
     return (
-      <View key={jar.key} style={styles.jarCard}>
+      <View key={jar.key} style={[styles.jarCard, { borderLeftWidth: 4, borderLeftColor: jar.color }]}>
         <View style={styles.jarCardHeader}>
-          <View style={[styles.jarCardIcon, { backgroundColor: `${jar.color}20` }]}>
-            <Icon name={jar.icon as any} size={20} color={jar.color} />
+          <View style={[styles.jarCardIcon, { backgroundColor: jar.color }]}>
+            <Icon name={jar.icon as any} size={22} color="white" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.jarCardTitle}>{jar.label}</Text>
-            <Text style={styles.jarCardDescription}>{jar.description}</Text>
-          </View>
-          {isReady && (
-            <View style={styles.jarReadyBadgeContainer}>
-              <Text style={styles.jarReadyBadge}>Ready</Text>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.jarTitleRow}>
+              <Text style={styles.jarCardTitle}>{jar.label}</Text>
+              {isReady && (
+                <View style={styles.jarReadyBadgeContainer}>
+                  <Icon name="check-circle" size={14} color="#34C759" />
+                  <Text style={styles.jarReadyBadge}>Ready</Text>
+                </View>
+              )}
             </View>
-          )}
+            <Text style={styles.jarCardDescription} numberOfLines={1}>{jar.description}</Text>
+          </View>
         </View>
+        
         <View style={styles.jarAmountSection}>
           <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
           {targetAmount > 0 && (
-            <Text style={styles.jarCardTarget}>
-              Target: ₹{targetAmount.toLocaleString('en-IN')} ({progress.toFixed(0)}%)
-            </Text>
+            <View style={styles.jarTargetRow}>
+              <Text style={styles.jarCardTarget}>
+                Target: ₹{targetAmount.toLocaleString('en-IN')}
+              </Text>
+              <Text style={[styles.jarProgressText, { color: jar.color }]}>
+                {progress.toFixed(0)}%
+              </Text>
+            </View>
           )}
         </View>
-        <View style={styles.jarProgressBackground}>
-          <View
-            style={[
-              styles.jarProgressFill,
-              {
-                width: `${progress}%`,
-                backgroundColor: jar.color,
-              },
-            ]}
-          />
-        </View>
+        
+        {targetAmount > 0 && (
+          <View style={styles.jarProgressBackground}>
+            <View
+              style={[
+                styles.jarProgressFill,
+                {
+                  width: `${progress}%`,
+                  backgroundColor: jar.color,
+                },
+              ]}
+            />
+          </View>
+        )}
+        
         <View style={styles.jarCardActions}>
           {balance > 0 && (
             <TouchableOpacity 
-              style={[styles.jarActionButton, styles.jarMoveButton]} 
+              style={styles.jarMoveButton} 
               onPress={() => setMoveJarModal({ from: jar.key, to: null })}
             >
-              <Icon name="arrow-right-circle" size={16} color="#007AFF" />
-              <Text style={styles.jarActionText}>Move</Text>
+              <Icon name="arrow-right" size={16} color="white" />
+              <Text style={styles.jarMoveButtonText}>Move Money</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.jarActionButton} onPress={() => startEditTarget(jar)}>
-            <Icon name="edit-2" size={16} color="#4B5563" />
-            <Text style={styles.jarActionText}>Target</Text>
+          <TouchableOpacity style={styles.jarTargetButton} onPress={() => startEditTarget(jar)}>
+            <Icon name="target" size={16} color={jar.color} />
+            <Text style={[styles.jarTargetButtonText, { color: jar.color }]}>Set Target</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -817,7 +829,7 @@ export default function PiggyBanks({
 
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
-      {(hasTodayTransactions || state.editedIncome) && effectiveIncome > 0 && (
+      {effectiveIncome > 0 && (
         <View style={styles.summaryCard}>
           <View style={{ flex: 1 }}>
             <View style={styles.summaryHeaderRow}>
@@ -918,12 +930,17 @@ export default function PiggyBanks({
         </TouchableOpacity>
       </View>
 
-      {(hasTodayTransactions || state.editedIncome) && effectiveIncome > 0 && (
+      {effectiveIncome > 0 && (
         <View style={styles.incomeCard}>
           <View style={styles.allocHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>Allocation Plan</Text>
-              <Text style={styles.allocDescription}>AI suggests allocation based on priority. Adjust with slider or enter amount directly.</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.allocTitleRow}>
+                <Icon name="zap" size={20} color="#007AFF" />
+                <Text style={styles.sectionTitle}>Allocation Plan</Text>
+              </View>
+              <Text style={styles.allocDescription}>
+                AI suggests allocation based on priority. Adjust amounts using +/- buttons, slider, or enter directly.
+              </Text>
             </View>
             <TouchableOpacity 
               style={styles.resetAllocButton}
@@ -936,7 +953,7 @@ export default function PiggyBanks({
                 persist(next);
               }}
             >
-              <Icon name="refresh-cw" size={14} color="#007AFF" />
+              <Icon name="refresh-cw" size={16} color="#007AFF" />
               <Text style={styles.resetAllocText}>Reset</Text>
             </TouchableOpacity>
           </View>
@@ -1183,75 +1200,105 @@ export default function PiggyBanks({
 
       <Modal visible={!!moveJarModal} animationType="slide" transparent onRequestClose={() => setMoveJarModal(null)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Move Money</Text>
+          <View style={styles.moveModalCard}>
+            <View style={styles.moveModalHeader}>
+              <Text style={styles.moveModalTitle}>Move Money Between Jars</Text>
+              <TouchableOpacity onPress={() => setMoveJarModal(null)}>
+                <Icon name="x" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
             {moveJarModal && (
-              <>
-                <Text style={styles.modalLabel}>From: {jarMetaMap[moveJarModal.from]?.label}</Text>
-                <Text style={styles.modalSubtext}>
-                  Available: ₹{(state.balances[moveJarModal.from] || 0).toFixed(0)}
-                </Text>
-                
-                <Text style={styles.modalLabel}>To</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-                  {combinedJars
-                    .filter(jar => jar.key !== moveJarModal.from)
-                    .map(({ key, label, color, icon }) => {
-                      const isSelected = moveJarModal.to === key;
-                      return (
-                        <TouchableOpacity
-                          key={key}
-                          style={[
-                            styles.jarOption,
-                            isSelected && { borderColor: color, backgroundColor: `${color}15` },
-                          ]}
-                          onPress={() => setMoveJarModal({ ...moveJarModal, to: key })}
-                        >
-                          <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
-                          <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-
-                <Text style={styles.modalLabel}>Amount</Text>
-                <View style={styles.amountInputContainer}>
-                  <Text style={styles.currencySymbol}>₹</Text>
-                  <TextInput
-                    value={moveAmount}
-                    onChangeText={setMoveAmount}
-                    placeholder="Enter amount"
-                    keyboardType="numeric"
-                    style={styles.amountInput}
-                    placeholderTextColor="#8e8e93"
-                  />
-                  <TouchableOpacity
-                    onPress={() => {
-                      const avail = state.balances[moveJarModal.from] || 0;
-                      setMoveAmount(String(Math.max(0, Math.floor(avail))));
-                    }}
-                    style={styles.maxButton}
-                  >
-                    <Text style={styles.maxButtonText}>Max</Text>
-                  </TouchableOpacity>
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.moveFromCard}>
+                  <Text style={styles.moveSectionLabel}>From</Text>
+                  <View style={styles.moveJarDisplay}>
+                    <View style={[styles.moveJarIcon, { backgroundColor: `${jarMetaMap[moveJarModal.from]?.color}20` }]}>
+                      <Icon name={jarMetaMap[moveJarModal.from]?.icon as any} size={24} color={jarMetaMap[moveJarModal.from]?.color} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 12 }}>
+                      <Text style={styles.moveJarName}>{jarMetaMap[moveJarModal.from]?.label}</Text>
+                      <Text style={styles.moveJarBalance}>
+                        Available: ₹{(state.balances[moveJarModal.from] || 0).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
 
-                <View style={styles.modalButtonRow}>
-                  <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setMoveJarModal(null)}>
-                    <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <View style={styles.moveArrowContainer}>
+                  <Icon name="arrow-down" size={24} color="#007AFF" />
+                </View>
+
+                <View style={styles.moveToCard}>
+                  <Text style={styles.moveSectionLabel}>To</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.moveJarSelector}>
+                    {combinedJars
+                      .filter(jar => jar.key !== moveJarModal.from)
+                      .map(({ key, label, color, icon }) => {
+                        const isSelected = moveJarModal.to === key;
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            style={[
+                              styles.moveJarOption,
+                              isSelected && { borderColor: color, backgroundColor: `${color}15`, borderWidth: 2 },
+                            ]}
+                            onPress={() => setMoveJarModal({ ...moveJarModal, to: key })}
+                          >
+                            <View style={[styles.moveJarOptionIcon, { backgroundColor: `${color}20` }]}>
+                              <Icon name={icon as any} size={24} color={isSelected ? color : '#8e8e93'} />
+                            </View>
+                            <Text style={[styles.moveJarOptionLabel, isSelected && { color, fontWeight: '700' }]}>{label}</Text>
+                            <Text style={[styles.moveJarOptionBalance, isSelected && { color }]}>
+                              ₹{(state.balances[key] || 0).toLocaleString('en-IN')}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.moveAmountCard}>
+                  <Text style={styles.moveSectionLabel}>Amount</Text>
+                  <View style={styles.moveAmountInputContainer}>
+                    <Text style={styles.moveCurrencySymbol}>₹</Text>
+                    <TextInput
+                      value={moveAmount}
+                      onChangeText={setMoveAmount}
+                      placeholder="0"
+                      keyboardType="numeric"
+                      style={styles.moveAmountInput}
+                      placeholderTextColor="#8e8e93"
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={() => {
+                        const avail = state.balances[moveJarModal.from] || 0;
+                        setMoveAmount(String(Math.max(0, Math.floor(avail))));
+                      }}
+                      style={styles.moveMaxButton}
+                    >
+                      <Text style={styles.moveMaxButtonText}>Max</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.moveModalButtonRow}>
+                  <TouchableOpacity style={styles.moveCancelButton} onPress={() => setMoveJarModal(null)}>
+                    <Text style={styles.moveCancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[
-                      styles.modalPrimaryBtn,
-                      (!moveJarModal.to || !moveAmount || moveJarModal.from === moveJarModal.to) && styles.modalPrimaryBtnDisabled,
+                      styles.moveConfirmButton,
+                      (!moveJarModal.to || !moveAmount || moveJarModal.from === moveJarModal.to) && styles.moveConfirmButtonDisabled,
                     ]}
                     onPress={handleMoveBetweenJars}
                     disabled={!moveJarModal.to || !moveAmount || moveJarModal.from === moveJarModal.to}
                   >
-                    <Text style={styles.modalPrimaryText}>Move</Text>
+                    <Icon name="arrow-right" size={18} color="white" />
+                    <Text style={styles.moveConfirmButtonText}>Move Money</Text>
                   </TouchableOpacity>
                 </View>
-              </>
+              </ScrollView>
             )}
           </View>
         </View>
@@ -1333,6 +1380,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f0f0',
     borderRadius: 8,
     padding: 8,
+  },
+  allocTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
   },
   allocHeaderRow: {
     flexDirection: 'row',
@@ -1848,88 +1901,132 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   jarCard: {
-    width: 240,
+    width: 280,
     backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 16,
-    marginRight: 12,
-    borderWidth: 1.5,
+    padding: 18,
+    marginRight: 16,
+    borderWidth: 1,
     borderColor: '#e5e7eb',
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  jarAmountSection: {
-    marginVertical: 10,
-  },
-  jarReadyBadgeContainer: {
-    backgroundColor: '#e6f8ec',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  jarMoveButton: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   jarCardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   jarCardIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  jarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
   jarCardTitle: {
     fontWeight: '700',
     color: '#111827',
+    fontSize: 16,
     flex: 1,
+  },
+  jarCardDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  jarReadyBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#e6f8ec',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   jarReadyBadge: {
     fontSize: 11,
     color: '#16a34a',
     fontWeight: '700',
   },
-  jarCardDescription: {
-    fontSize: 12,
-    color: '#6b7280',
-    minHeight: 32,
+  jarAmountSection: {
+    marginVertical: 12,
   },
   jarCardAmount: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
     color: '#111827',
-    marginTop: 6,
+    marginBottom: 4,
+  },
+  jarTargetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
   },
   jarCardTarget: {
     fontSize: 12,
     color: '#4b5563',
-    marginTop: 2,
+  },
+  jarProgressText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   jarProgressBackground: {
-    height: 6,
-    borderRadius: 3,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#e5e7eb',
     marginTop: 8,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   jarProgressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
   jarCardActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
+    gap: 8,
+    marginTop: 8,
+  },
+  jarMoveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  jarMoveButtonText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  jarTargetButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  jarTargetButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   jarActionButton: {
     flexDirection: 'row',
@@ -2249,6 +2346,189 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '700',
     fontSize: 12,
+  },
+  // Move Money Modal Styles
+  moveModalCard: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  moveModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  moveModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  moveFromCard: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    padding: 16,
+    margin: 20,
+    marginBottom: 12,
+  },
+  moveSectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6c6c70',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  moveJarDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  moveJarIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moveJarName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginBottom: 4,
+  },
+  moveJarBalance: {
+    fontSize: 14,
+    color: '#6c6c70',
+  },
+  moveArrowContainer: {
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  moveToCard: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  moveJarSelector: {
+    marginTop: 8,
+  },
+  moveJarOption: {
+    width: 140,
+    borderWidth: 1.5,
+    borderColor: '#e5e5ea',
+    borderRadius: 16,
+    padding: 16,
+    marginRight: 12,
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+  },
+  moveJarOptionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  moveJarOptionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  moveJarOptionBalance: {
+    fontSize: 12,
+    color: '#6c6c70',
+    fontWeight: '600',
+  },
+  moveAmountCard: {
+    padding: 20,
+    paddingTop: 0,
+  },
+  moveAmountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fafafa',
+    marginTop: 8,
+  },
+  moveCurrencySymbol: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#1c1c1e',
+    marginRight: 10,
+  },
+  moveAmountInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    paddingVertical: 16,
+    color: '#1c1c1e',
+  },
+  moveMaxButton: {
+    marginLeft: 8,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  moveMaxButtonText: {
+    color: '#007AFF',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  moveModalButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  moveCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+    backgroundColor: '#fafafa',
+  },
+  moveCancelButtonText: {
+    color: '#6c6c70',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  moveConfirmButton: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+  },
+  moveConfirmButtonDisabled: {
+    backgroundColor: '#c7c7cc',
+    opacity: 0.6,
+  },
+  moveConfirmButtonText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
 
