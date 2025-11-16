@@ -1,9 +1,10 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Modal,
+  PanResponder,
   ScrollView,
   StyleSheet,
   Text,
@@ -387,7 +388,7 @@ export default function PiggyBanks({
       allocations[jar.key] = Math.floor(effectiveIncome * weight);
     });
 
-    // Distribute remainder to highest priority jars
+    // Distribute remainder to highest priority jars (ensure we don't exceed total)
     const allocated = Object.values(allocations).reduce((sum, v) => sum + v, 0);
     const remainder = effectiveIncome - allocated;
     
@@ -396,11 +397,35 @@ export default function PiggyBanks({
         .map(jar => ({ jar, priority: priorities[jar.key] || 5 }))
         .sort((a, b) => b.priority - a.priority);
       
-      let remaining = remainder;
+      let remaining = Math.min(remainder, effectiveIncome - allocated); // Cap at available
       for (const { jar } of sortedByPriority) {
         if (remaining <= 0) break;
         allocations[jar.key] += 1;
         remaining -= 1;
+      }
+    }
+    
+    // Final safety check: ensure total never exceeds effectiveIncome
+    const finalTotal = Object.values(allocations).reduce((sum, v) => sum + v, 0);
+    if (finalTotal > effectiveIncome) {
+      // Scale down proportionally
+      const scale = effectiveIncome / finalTotal;
+      Object.keys(allocations).forEach(key => {
+        allocations[key] = Math.floor(allocations[key] * scale);
+      });
+      // Distribute any remaining rounding errors
+      const newTotal = Object.values(allocations).reduce((sum, v) => sum + v, 0);
+      const finalRemainder = effectiveIncome - newTotal;
+      if (finalRemainder > 0) {
+        const sorted = combinedJars
+          .map(jar => ({ jar, priority: priorities[jar.key] || 5 }))
+          .sort((a, b) => b.priority - a.priority);
+        let rem = finalRemainder;
+        for (const { jar } of sorted) {
+          if (rem <= 0) break;
+          allocations[jar.key] += 1;
+          rem -= 1;
+        }
       }
     }
 
@@ -527,25 +552,25 @@ export default function PiggyBanks({
     // Auto-balance: reduce from other jars proportionally
     const otherJars = combinedJars.filter(j => j.key !== jarKey);
     const totalOtherAllocated = otherJars.reduce((sum, j) => sum + (newAllocations[j.key] || 0), 0);
-    const newTotalOther = totalAllocated - clampedAmount;
+    const maxOtherTotal = effectiveIncome - clampedAmount; // Max available for others
     
-    if (difference > 0 && newTotalOther < totalOtherAllocated) {
+    if (totalOtherAllocated > maxOtherTotal) {
       // Need to reduce from others
-      const reductionNeeded = totalOtherAllocated - newTotalOther;
-      const sortedByPriority = otherJars
+      const reductionNeeded = totalOtherAllocated - maxOtherTotal;
+      const sortedByAmount = otherJars
         .map(j => ({ jar: j, amount: newAllocations[j.key] || 0 }))
         .sort((a, b) => a.amount - b.amount); // Reduce from smallest first
       
       let remaining = reductionNeeded;
-      for (const { jar, amount } of sortedByPriority) {
+      for (const { jar, amount } of sortedByAmount) {
         if (remaining <= 0) break;
         const reduce = Math.min(amount, remaining);
         newAllocations[jar.key] = Math.max(0, amount - reduce);
         remaining -= reduce;
       }
-    } else if (difference < 0 && newTotalOther > totalOtherAllocated) {
+    } else if (totalOtherAllocated < maxOtherTotal) {
       // Can increase others proportionally
-      const increaseAvailable = newTotalOther - totalOtherAllocated;
+      const increaseAvailable = maxOtherTotal - totalOtherAllocated;
       const totalOtherPriority = otherJars.reduce((sum, j) => {
         const priority = state.jarPriorities?.[j.key] || 5;
         return sum + priority;
@@ -555,6 +580,30 @@ export default function PiggyBanks({
         const priority = state.jarPriorities?.[jar.key] || 5;
         const weight = totalOtherPriority > 0 ? priority / totalOtherPriority : 1 / otherJars.length;
         newAllocations[jar.key] = (newAllocations[jar.key] || 0) + Math.floor(increaseAvailable * weight);
+      });
+      
+      // Distribute any remainder
+      const newOtherTotal = otherJars.reduce((sum, j) => sum + (newAllocations[j.key] || 0), 0);
+      const finalRemainder = maxOtherTotal - newOtherTotal;
+      if (finalRemainder > 0) {
+        const sorted = otherJars
+          .map(j => ({ jar: j, priority: state.jarPriorities?.[j.key] || 5 }))
+          .sort((a, b) => b.priority - a.priority);
+        let rem = finalRemainder;
+        for (const { jar } of sorted) {
+          if (rem <= 0) break;
+          newAllocations[jar.key] += 1;
+          rem -= 1;
+        }
+      }
+    }
+    
+    // Final safety check: ensure total never exceeds effectiveIncome
+    const finalTotal = Object.values(newAllocations).reduce((sum, v) => sum + v, 0);
+    if (finalTotal > effectiveIncome) {
+      const scale = effectiveIncome / finalTotal;
+      Object.keys(newAllocations).forEach(key => {
+        newAllocations[key] = Math.floor(newAllocations[key] * scale);
       });
     }
     
@@ -735,12 +784,12 @@ export default function PiggyBanks({
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <View style={styles.jarTitleRow}>
-              <Text style={styles.jarCardTitle}>{jar.label}</Text>
+          <Text style={styles.jarCardTitle}>{jar.label}</Text>
               {isReady && (
                 <View style={styles.jarReadyBadgeContainer}>
                   <Icon name="check-circle" size={14} color="#34C759" />
                   <Text style={styles.jarReadyBadge}>Ready</Text>
-                </View>
+        </View>
               )}
             </View>
             <Text style={styles.jarCardDescription} numberOfLines={1}>{jar.description}</Text>
@@ -748,12 +797,12 @@ export default function PiggyBanks({
         </View>
         
         <View style={styles.jarAmountSection}>
-          <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+        <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
           {targetAmount > 0 && (
             <View style={styles.jarTargetRow}>
-              <Text style={styles.jarCardTarget}>
+        <Text style={styles.jarCardTarget}>
                 Target: ₹{targetAmount.toLocaleString('en-IN')}
-              </Text>
+        </Text>
               <Text style={[styles.jarProgressText, { color: jar.color }]}>
                 {progress.toFixed(0)}%
               </Text>
@@ -762,17 +811,17 @@ export default function PiggyBanks({
         </View>
         
         {targetAmount > 0 && (
-          <View style={styles.jarProgressBackground}>
-            <View
-              style={[
-                styles.jarProgressFill,
-                {
-                  width: `${progress}%`,
-                  backgroundColor: jar.color,
-                },
-              ]}
-            />
-          </View>
+        <View style={styles.jarProgressBackground}>
+          <View
+            style={[
+              styles.jarProgressFill,
+              {
+                width: `${progress}%`,
+                backgroundColor: jar.color,
+              },
+            ]}
+          />
+        </View>
         )}
         
         <View style={styles.jarCardActions}>
@@ -783,7 +832,7 @@ export default function PiggyBanks({
             >
               <Icon name="arrow-right" size={16} color="white" />
               <Text style={styles.jarMoveButtonText}>Move Money</Text>
-            </TouchableOpacity>
+          </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.jarTargetButton} onPress={() => startEditTarget(jar)}>
             <Icon name="target" size={16} color={jar.color} />
@@ -830,10 +879,10 @@ export default function PiggyBanks({
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
       {effectiveIncome > 0 && (
-        <View style={styles.summaryCard}>
-          <View style={{ flex: 1 }}>
+      <View style={styles.summaryCard}>
+        <View style={{ flex: 1 }}>
             <View style={styles.summaryHeaderRow}>
-              <Text style={styles.summaryLabel}>Net earned today</Text>
+          <Text style={styles.summaryLabel}>Net earned today</Text>
               <TouchableOpacity onPress={() => {
                 setEditingIncome(true);
                 setTempIncome(String(effectiveIncome));
@@ -865,25 +914,25 @@ export default function PiggyBanks({
               </View>
             ) : (
               <>
-                <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
+          <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
                 {!state.editedIncome && (
-                  <View style={styles.summaryMetaRow}>
-                    <View style={styles.metaItem}>
-                      <Icon name="arrow-down" size={14} color="#34C759" />
-                      <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
-                    </View>
+          <View style={styles.summaryMetaRow}>
+            <View style={styles.metaItem}>
+              <Icon name="arrow-down" size={14} color="#34C759" />
+              <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
+            </View>
                     {todayNetIncome < todayIncome && (
-                      <View style={styles.metaItem}>
-                        <Icon name="arrow-up" size={14} color="#FF3B30" />
+            <View style={styles.metaItem}>
+              <Icon name="arrow-up" size={14} color="#FF3B30" />
                         <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, todayIncome - todayNetIncome).toFixed(0)} spent</Text>
-                      </View>
+            </View>
                     )}
-                  </View>
+          </View>
                 )}
               </>
             )}
-          </View>
         </View>
+          </View>
       )}
 
       {readyJarCount > 0 && (
@@ -931,12 +980,12 @@ export default function PiggyBanks({
       </View>
 
       {effectiveIncome > 0 && (
-        <View style={styles.incomeCard}>
+      <View style={styles.incomeCard}>
           <View style={styles.allocHeaderRow}>
             <View style={{ flex: 1 }}>
               <View style={styles.allocTitleRow}>
                 <Icon name="zap" size={20} color="#007AFF" />
-                <Text style={styles.sectionTitle}>Allocation Plan</Text>
+        <Text style={styles.sectionTitle}>Allocation Plan</Text>
               </View>
               <Text style={styles.allocDescription}>
                 AI suggests allocation based on priority. Adjust amounts using +/- buttons, slider, or enter directly.
@@ -957,9 +1006,9 @@ export default function PiggyBanks({
               <Text style={styles.resetAllocText}>Reset</Text>
             </TouchableOpacity>
           </View>
-          
-          <View style={styles.allocSummaryBox}>
-            <View style={styles.allocSummaryRow}>
+        
+        <View style={styles.allocSummaryBox}>
+          <View style={styles.allocSummaryRow}>
               <Text style={styles.allocSummaryLabel}>Total Allocated</Text>
               <Text style={[styles.allocSummaryText, { color: Math.abs(remainingAllocation) < 1 ? '#34C759' : remainingAllocation > 0 ? '#FF9500' : '#FF3B30' }]}>
                 ₹{totalAllocated.toFixed(0)} / ₹{effectiveIncome.toFixed(0)}
@@ -970,60 +1019,93 @@ export default function PiggyBanks({
                 {remainingAllocation > 0 
                   ? `₹${remainingAllocation.toFixed(0)} remaining to allocate`
                   : `Over by ₹${Math.abs(remainingAllocation).toFixed(0)}`}
-              </Text>
-            )}
-          </View>
+            </Text>
+          )}
+        </View>
 
-          <View style={styles.allocGrid}>
-            {combinedJars.map(({ key, label, color, icon }) => {
-              const amount = allocationsMoney[key] || 0;
-              const sliderValue = effectiveIncome > 0 ? Math.min(100, Math.max(0, (amount / effectiveIncome) * 100)) : 0;
+        <View style={styles.allocGrid}>
+          {combinedJars.map(({ key, label, color, icon }) => {
+            const amount = allocationsMoney[key] || 0;
+            const sliderValue = effectiveIncome > 0 ? Math.min(100, Math.max(0, (amount / effectiveIncome) * 100)) : 0;
+            
+            // Create draggable slider component
+            const SliderComponent = () => {
+              const [sliderWidth, setSliderWidth] = useState(0);
+              const [isDragging, setIsDragging] = useState(false);
+              const trackRef = useRef<View>(null);
+              
+              const panResponder = PanResponder.create({
+                onStartShouldSetPanResponder: () => true,
+                onMoveShouldSetPanResponder: () => true,
+                onPanResponderGrant: () => setIsDragging(true),
+                onPanResponderMove: (evt, gestureState) => {
+                  if (sliderWidth > 0 && trackRef.current) {
+                    trackRef.current.measure((fx: number, fy: number, fw: number, fh: number, px: number, py: number) => {
+                      const relativeX = evt.nativeEvent.pageX - px;
+                      const newPercent = Math.max(0, Math.min(100, (relativeX / sliderWidth) * 100));
+                      const newAmount = Math.floor((effectiveIncome * newPercent) / 100);
+                      updateAllocationMoney(key, newAmount);
+                    });
+                  }
+                },
+                onPanResponderRelease: () => setIsDragging(false),
+              });
+              
               return (
-                <View key={key} style={styles.allocItem}>
-                  <View style={styles.allocItemHeader}>
-                    <View style={[styles.allocIconContainer, { backgroundColor: `${color}15` }]}>
-                      <Icon name={icon as any} size={18} color={color} />
-                    </View>
-                    <Text style={styles.allocItemLabel} numberOfLines={1}>{label}</Text>
+                <View style={styles.allocSliderContainer}>
+                  <View 
+                    ref={trackRef}
+                    style={styles.allocSliderTrack} 
+                    {...panResponder.panHandlers}
+                    onLayout={(e) => {
+                      setSliderWidth(e.nativeEvent.layout.width);
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.allocSliderFill,
+                        {
+                          width: `${sliderValue}%`,
+                          backgroundColor: color,
+                        },
+                      ]}
+                    />
+                    <View
+                      style={[
+                        styles.allocSliderThumb,
+                        {
+                          left: `${sliderValue}%`,
+                          backgroundColor: color,
+                          transform: [{ translateX: -8 }],
+                        },
+                        isDragging && styles.allocSliderThumbActive,
+                      ]}
+                    />
                   </View>
-                  <View style={styles.allocSliderContainer}>
-                    <View style={styles.allocSliderTrack}>
-                      <View
-                        style={[
-                          styles.allocSliderFill,
-                          {
-                            width: `${sliderValue}%`,
-                            backgroundColor: color,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <View style={styles.allocSliderControls}>
-                      <TouchableOpacity
-                        style={styles.sliderButton}
-                        onPress={() => {
-                          const newAmount = Math.max(0, amount - Math.max(10, Math.floor(effectiveIncome * 0.05)));
-                          updateAllocationMoney(key, newAmount);
-                        }}
-                      >
-                        <Icon name="minus" size={14} color={color} />
-                      </TouchableOpacity>
-                      <View style={styles.sliderValueContainer}>
-                        <Text style={[styles.sliderValueText, { color }]}>
-                          {sliderValue.toFixed(0)}%
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.sliderButton}
-                        onPress={() => {
-                          const newAmount = Math.min(effectiveIncome, amount + Math.max(10, Math.floor(effectiveIncome * 0.05)));
-                          updateAllocationMoney(key, newAmount);
-                        }}
-                      >
-                        <Icon name="plus" size={14} color={color} />
-                      </TouchableOpacity>
-                    </View>
+                </View>
+              );
+            };
+            
+            return (
+              <View key={key} style={styles.allocItem}>
+                <View style={styles.allocItemHeader}>
+                  <View style={[styles.allocIconContainer, { backgroundColor: `${color}15` }]}>
+                    <Icon name={icon as any} size={16} color={color} />
                   </View>
+                  <Text style={styles.allocItemLabel} numberOfLines={1}>{label}</Text>
+                  <Text style={[styles.allocItemAmount, { color }]}>₹{amount.toFixed(0)}</Text>
+                </View>
+                <SliderComponent />
+                <View style={styles.allocInputRow}>
+                  <TouchableOpacity
+                    style={[styles.allocButton, { borderColor: color }]}
+                    onPress={() => {
+                      const newAmount = Math.max(0, amount - Math.max(10, Math.floor(effectiveIncome * 0.05)));
+                      updateAllocationMoney(key, newAmount);
+                    }}
+                  >
+                    <Icon name="minus" size={14} color={color} />
+                  </TouchableOpacity>
                   <View style={styles.allocInputContainer}>
                     <Text style={styles.currencySymbol}>₹</Text>
                     <TextInput
@@ -1037,40 +1119,50 @@ export default function PiggyBanks({
                       placeholder="0"
                     />
                   </View>
+                  <TouchableOpacity
+                    style={[styles.allocButton, { borderColor: color }]}
+                    onPress={() => {
+                      const newAmount = Math.min(effectiveIncome, amount + Math.max(10, Math.floor(effectiveIncome * 0.05)));
+                      updateAllocationMoney(key, newAmount);
+                    }}
+                  >
+                    <Icon name="plus" size={14} color={color} />
+                  </TouchableOpacity>
                 </View>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
-            <Icon name="zap" size={18} color="white" />
-            <Text style={styles.primaryButtonText}>Allocate Today's Income</Text>
-          </TouchableOpacity>
-          {pendingAllocations && (
-            <View style={styles.pendingCard}>
-              <Text style={styles.pendingTitle}>Today's Allocation</Text>
-              <View style={styles.pendingList}>
-                {combinedJars
-                  .filter(({ key }) => (pendingAllocations[key] || 0) > 0)
-                  .map(({ key, label, color }) => (
-                    <View key={key} style={styles.pendingRow}>
-                      <View style={styles.pendingRowLeft}>
-                        <View style={[styles.pendingDot, { backgroundColor: color }]} />
-                        <Text style={styles.pendingLabel}>{label}</Text>
-                      </View>
-                      <Text style={[styles.pendingValue, { color }]}>₹{(pendingAllocations[key] || 0).toLocaleString('en-IN')}</Text>
-                    </View>
-                  ))}
               </View>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759', marginTop: 16 }]} onPress={confirmAllocation}>
-                <Text style={styles.primaryButtonText}>Confirm & Add to Jars</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
-                <Text style={styles.linkButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            );
+          })}
         </View>
+
+        <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
+          <Icon name="zap" size={18} color="white" />
+          <Text style={styles.primaryButtonText}>Allocate Today's Income</Text>
+        </TouchableOpacity>
+        {pendingAllocations && (
+          <View style={styles.pendingCard}>
+            <Text style={styles.pendingTitle}>Today's Allocation</Text>
+            <View style={styles.pendingList}>
+              {combinedJars
+                .filter(({ key }) => (pendingAllocations[key] || 0) > 0)
+                .map(({ key, label, color }) => (
+                  <View key={key} style={styles.pendingRow}>
+                    <View style={styles.pendingRowLeft}>
+                      <View style={[styles.pendingDot, { backgroundColor: color }]} />
+                      <Text style={styles.pendingLabel}>{label}</Text>
+                    </View>
+                    <Text style={[styles.pendingValue, { color }]}>₹{(pendingAllocations[key] || 0).toLocaleString('en-IN')}</Text>
+                  </View>
+                ))}
+            </View>
+            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759', marginTop: 16 }]} onPress={confirmAllocation}>
+              <Text style={styles.primaryButtonText}>Confirm & Add to Jars</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
+              <Text style={styles.linkButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
       )}
 
       {bucketOrder.map(bucket => renderJarSection(bucket))}
@@ -1543,10 +1635,15 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
     flex: 1,
   },
+  allocItemAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   allocSliderContainer: {
     marginVertical: 10,
   },
   allocSliderTrack: {
+    position: 'relative',
     height: 10,
     backgroundColor: '#e5e7eb',
     borderRadius: 5,
@@ -1556,6 +1653,41 @@ const styles = StyleSheet.create({
   allocSliderFill: {
     height: '100%',
     borderRadius: 5,
+  },
+  allocSliderThumb: {
+    position: 'absolute',
+    top: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'white',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  allocSliderThumbActive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    transform: [{ translateX: -10 }, { scale: 1.2 }],
+  },
+  allocInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  allocButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'white',
   },
   allocSliderControls: {
     flexDirection: 'row',
@@ -1901,18 +2033,18 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   jarCard: {
-    width: 280,
+    width: 220,
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
-    marginRight: 16,
+    borderRadius: 12,
+    padding: 14,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   jarCardHeader: {
     flexDirection: 'row',
@@ -1920,9 +2052,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   jarCardIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1961,7 +2093,7 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   jarCardAmount: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 4,
@@ -2349,16 +2481,16 @@ const styles = StyleSheet.create({
   },
   // Move Money Modal Styles
   moveModalCard: {
-    width: '90%',
-    maxWidth: 500,
+    width: '92%',
+    maxWidth: 420,
     backgroundColor: 'white',
-    borderRadius: 20,
-    maxHeight: '85%',
+    borderRadius: 24,
+    maxHeight: '80%',
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
   moveModalHeader: {
     flexDirection: 'row',
@@ -2421,22 +2553,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   moveJarOption: {
-    width: 140,
-    borderWidth: 1.5,
+    width: 120,
+    borderWidth: 2,
     borderColor: '#e5e5ea',
-    borderRadius: 16,
-    padding: 16,
-    marginRight: 12,
+    borderRadius: 14,
+    padding: 14,
+    marginRight: 10,
     alignItems: 'center',
     backgroundColor: '#fafafa',
   },
   moveJarOptionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   moveJarOptionLabel: {
     fontSize: 13,
