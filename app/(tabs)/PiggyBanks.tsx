@@ -217,6 +217,8 @@ interface EnvelopeState {
   customJars?: JarMeta[];
   jarTargets?: Record<EnvelopeKey, number>;
   readyInvestments?: ReadyInvestment[];
+  jarPriorities?: Record<EnvelopeKey, number>; // 1-10 priority score
+  editedIncome?: number; // User-edited income amount
 }
 
 const defaultState: EnvelopeState = {
@@ -229,6 +231,8 @@ const defaultState: EnvelopeState = {
   customJars: [],
   jarTargets: { ...DEFAULT_TARGETS },
   readyInvestments: [],
+  jarPriorities: {},
+  editedIncome: undefined,
 };
 
 const hydrateState = (incoming?: Partial<EnvelopeState>): EnvelopeState => {
@@ -304,6 +308,8 @@ export default function PiggyBanks({
   const [targetValue, setTargetValue] = useState('');
   const [moveJarModal, setMoveJarModal] = useState<{ from: EnvelopeKey; to: EnvelopeKey | null } | null>(null);
   const [moveAmount, setMoveAmount] = useState('');
+  const [editingIncome, setEditingIncome] = useState(false);
+  const [tempIncome, setTempIncome] = useState('');
 
   const key = useMemo(() => storageKey(userId), [userId]);
   const customJars = useMemo(() => state.customJars || [], [state.customJars]);
@@ -322,14 +328,74 @@ export default function PiggyBanks({
     [combinedJars]
   );
 
-  // Change from percentage-based to money-based allocations
-  const allocationsMoney = useMemo(() => {
-    return combinedJars.reduce((acc, jar) => {
-      const pct = state.allocationsPct[jar.key] || 0;
-      acc[jar.key] = Math.floor((effectiveIncome * pct) / 100);
+  // AI Algorithm: Calculate priority-based allocation
+  const calculatePriorityAllocation = useMemo(() => {
+    if (effectiveIncome <= 0) return {};
+    
+    // Get priorities (default based on jar type, or user-set)
+    const priorities = combinedJars.reduce((acc, jar) => {
+      const userPriority = state.jarPriorities?.[jar.key];
+      if (userPriority !== undefined) {
+        acc[jar.key] = userPriority;
+      } else {
+        // Default priorities based on bucket type
+        const bucketPriority: Record<JarBucket, number> = {
+          'needs-fixed': 9,    // Highest priority
+          'needs-variable': 7,
+          'savings': 6,
+          'invest': 5,
+          'wants': 4,          // Lowest priority
+        };
+        acc[jar.key] = bucketPriority[jar.bucket] || 5;
+      }
       return acc;
     }, {} as Record<EnvelopeKey, number>);
-  }, [combinedJars, state.allocationsPct, effectiveIncome]);
+
+    // Calculate weighted allocation
+    const totalPriority = Object.values(priorities).reduce((sum, p) => sum + p, 0);
+    const allocations: Record<EnvelopeKey, number> = {};
+    
+    combinedJars.forEach((jar) => {
+      const priority = priorities[jar.key] || 5;
+      const weight = priority / totalPriority;
+      allocations[jar.key] = Math.floor(effectiveIncome * weight);
+    });
+
+    // Distribute remainder to highest priority jars
+    const allocated = Object.values(allocations).reduce((sum, v) => sum + v, 0);
+    const remainder = effectiveIncome - allocated;
+    
+    if (remainder > 0) {
+      const sortedByPriority = combinedJars
+        .map(jar => ({ jar, priority: priorities[jar.key] || 5 }))
+        .sort((a, b) => b.priority - a.priority);
+      
+      let remaining = remainder;
+      for (const { jar } of sortedByPriority) {
+        if (remaining <= 0) break;
+        allocations[jar.key] += 1;
+        remaining -= 1;
+      }
+    }
+
+    return allocations;
+  }, [combinedJars, effectiveIncome, state.jarPriorities]);
+
+  // Current allocations (money-based)
+  const allocationsMoney = useMemo(() => {
+    // If user has manually set allocations, use those, otherwise use AI calculation
+    const hasManualAllocations = Object.values(state.allocationsPct || {}).some(p => p > 0);
+    
+    if (hasManualAllocations) {
+      return combinedJars.reduce((acc, jar) => {
+        const pct = state.allocationsPct[jar.key] || 0;
+        acc[jar.key] = Math.floor((effectiveIncome * pct) / 100);
+        return acc;
+      }, {} as Record<EnvelopeKey, number>);
+    }
+    
+    return calculatePriorityAllocation;
+  }, [combinedJars, state.allocationsPct, effectiveIncome, calculatePriorityAllocation]);
   
   const totalAllocated = useMemo(() => {
     return Object.values(allocationsMoney).reduce((acc, v) => acc + v, 0);
@@ -399,11 +465,15 @@ export default function PiggyBanks({
   };
 
   const effectiveIncome = useMemo(() => {
+    // User can edit income, otherwise use calculated from transactions
+    if (state.editedIncome !== undefined && state.editedIncome > 0) {
+      return state.editedIncome;
+    }
     // Only show if there are transactions today
     if (todayNetIncome > 0) return todayNetIncome;
     if (todayIncome > 0) return todayIncome;
     return 0; // Don't show default if no transactions today
-  }, [todayIncome, todayNetIncome]);
+  }, [todayIncome, todayNetIncome, state.editedIncome]);
   
   const hasTodayTransactions = useMemo(() => {
     if (!transactions || transactions.length === 0) return false;
@@ -443,9 +513,50 @@ export default function PiggyBanks({
     setPendingAllocations(allocationsMoney);
   };
   
-  const updateAllocationMoney = (jarKey: EnvelopeKey, amount: number) => {
+  // Auto-balance allocations when user adjusts one
+  const updateAllocationMoney = (jarKey: EnvelopeKey, newAmount: number) => {
+    const clampedAmount = Math.max(0, Math.min(effectiveIncome, newAmount));
+    const currentAmount = allocationsMoney[jarKey] || 0;
+    const difference = clampedAmount - currentAmount;
+    
+    if (Math.abs(difference) < 1) return; // No significant change
+    
     const newAllocations = { ...allocationsMoney };
-    newAllocations[jarKey] = Math.max(0, Math.min(effectiveIncome, amount));
+    newAllocations[jarKey] = clampedAmount;
+    
+    // Auto-balance: reduce from other jars proportionally
+    const otherJars = combinedJars.filter(j => j.key !== jarKey);
+    const totalOtherAllocated = otherJars.reduce((sum, j) => sum + (newAllocations[j.key] || 0), 0);
+    const newTotalOther = totalAllocated - clampedAmount;
+    
+    if (difference > 0 && newTotalOther < totalOtherAllocated) {
+      // Need to reduce from others
+      const reductionNeeded = totalOtherAllocated - newTotalOther;
+      const sortedByPriority = otherJars
+        .map(j => ({ jar: j, amount: newAllocations[j.key] || 0 }))
+        .sort((a, b) => a.amount - b.amount); // Reduce from smallest first
+      
+      let remaining = reductionNeeded;
+      for (const { jar, amount } of sortedByPriority) {
+        if (remaining <= 0) break;
+        const reduce = Math.min(amount, remaining);
+        newAllocations[jar.key] = Math.max(0, amount - reduce);
+        remaining -= reduce;
+      }
+    } else if (difference < 0 && newTotalOther > totalOtherAllocated) {
+      // Can increase others proportionally
+      const increaseAvailable = newTotalOther - totalOtherAllocated;
+      const totalOtherPriority = otherJars.reduce((sum, j) => {
+        const priority = state.jarPriorities?.[j.key] || 5;
+        return sum + priority;
+      }, 0);
+      
+      otherJars.forEach(jar => {
+        const priority = state.jarPriorities?.[jar.key] || 5;
+        const weight = totalOtherPriority > 0 ? priority / totalOtherPriority : 1 / otherJars.length;
+        newAllocations[jar.key] = (newAllocations[jar.key] || 0) + Math.floor(increaseAvailable * weight);
+      });
+    }
     
     // Update percentage allocations based on money
     const next = {
@@ -454,10 +565,27 @@ export default function PiggyBanks({
     };
     
     if (effectiveIncome > 0) {
-      next.allocationsPct[jarKey] = Math.round((newAllocations[jarKey] / effectiveIncome) * 100);
+      combinedJars.forEach(jar => {
+        next.allocationsPct[jar.key] = Math.round(((newAllocations[jar.key] || 0) / effectiveIncome) * 100);
+      });
     }
     
     persist(next);
+  };
+  
+  const saveEditedIncome = async () => {
+    const amount = parseFloat(tempIncome);
+    if (isNaN(amount) || amount < 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    const next = {
+      ...state,
+      editedIncome: amount,
+    };
+    await persist(next);
+    setEditingIncome(false);
+    setTempIncome('');
   };
 
   const confirmAllocation = async () => {
@@ -636,7 +764,7 @@ export default function PiggyBanks({
           />
         </View>
         <View style={styles.jarCardActions}>
-          {isCustomJar && balance > 0 && (
+          {balance > 0 && (
             <TouchableOpacity 
               style={[styles.jarActionButton, styles.jarMoveButton]} 
               onPress={() => setMoveJarModal({ from: jar.key, to: null })}
@@ -689,23 +817,59 @@ export default function PiggyBanks({
 
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
-      {hasTodayTransactions && effectiveIncome > 0 && (
+      {(hasTodayTransactions || state.editedIncome) && effectiveIncome > 0 && (
         <View style={styles.summaryCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>Net earned today</Text>
-            <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
-            <View style={styles.summaryMetaRow}>
-              <View style={styles.metaItem}>
-                <Icon name="arrow-down" size={14} color="#34C759" />
-                <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
-              </View>
-              {todayNetIncome < todayIncome && (
-                <View style={styles.metaItem}>
-                  <Icon name="arrow-up" size={14} color="#FF3B30" />
-                  <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, todayIncome - todayNetIncome).toFixed(0)} spent</Text>
-                </View>
-              )}
+            <View style={styles.summaryHeaderRow}>
+              <Text style={styles.summaryLabel}>Net earned today</Text>
+              <TouchableOpacity onPress={() => {
+                setEditingIncome(true);
+                setTempIncome(String(effectiveIncome));
+              }}>
+                <Icon name="edit-2" size={16} color="#007AFF" />
+              </TouchableOpacity>
             </View>
+            {editingIncome ? (
+              <View style={styles.incomeEditContainer}>
+                <View style={styles.incomeEditRow}>
+                  <Text style={styles.currencySymbol}>₹</Text>
+                  <TextInput
+                    value={tempIncome}
+                    onChangeText={setTempIncome}
+                    keyboardType="numeric"
+                    style={styles.incomeEditInput}
+                    autoFocus
+                  />
+                  <TouchableOpacity style={styles.incomeEditSave} onPress={saveEditedIncome}>
+                    <Icon name="check" size={18} color="white" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.incomeEditCancel} onPress={() => {
+                    setEditingIncome(false);
+                    setTempIncome('');
+                  }}>
+                    <Icon name="x" size={18} color="#666" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
+                {!state.editedIncome && (
+                  <View style={styles.summaryMetaRow}>
+                    <View style={styles.metaItem}>
+                      <Icon name="arrow-down" size={14} color="#34C759" />
+                      <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
+                    </View>
+                    {todayNetIncome < todayIncome && (
+                      <View style={styles.metaItem}>
+                        <Icon name="arrow-up" size={14} color="#FF3B30" />
+                        <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, todayIncome - todayNetIncome).toFixed(0)} spent</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
+            )}
           </View>
         </View>
       )}
@@ -754,26 +918,41 @@ export default function PiggyBanks({
         </TouchableOpacity>
       </View>
 
-      {hasTodayTransactions && effectiveIncome > 0 && (
+      {(hasTodayTransactions || state.editedIncome) && effectiveIncome > 0 && (
         <View style={styles.incomeCard}>
-          <Text style={styles.sectionTitle}>Allocation Plan</Text>
-          <Text style={styles.allocDescription}>Set how much money (₹{effectiveIncome.toFixed(0)}) goes to each jar based on your priority</Text>
+          <View style={styles.allocHeaderRow}>
+            <View>
+              <Text style={styles.sectionTitle}>Allocation Plan</Text>
+              <Text style={styles.allocDescription}>AI suggests allocation based on priority. Adjust with slider or enter amount directly.</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.resetAllocButton}
+              onPress={() => {
+                // Reset to AI allocation
+                const next = {
+                  ...state,
+                  allocationsPct: {},
+                };
+                persist(next);
+              }}
+            >
+              <Icon name="refresh-cw" size={14} color="#007AFF" />
+              <Text style={styles.resetAllocText}>Reset</Text>
+            </TouchableOpacity>
+          </View>
           
           <View style={styles.allocSummaryBox}>
             <View style={styles.allocSummaryRow}>
               <Text style={styles.allocSummaryLabel}>Total Allocated</Text>
-              <Text style={[styles.allocSummaryText, { color: remainingAllocation >= 0 ? '#34C759' : '#FF3B30' }]}>
+              <Text style={[styles.allocSummaryText, { color: Math.abs(remainingAllocation) < 1 ? '#34C759' : remainingAllocation > 0 ? '#FF9500' : '#FF3B30' }]}>
                 ₹{totalAllocated.toFixed(0)} / ₹{effectiveIncome.toFixed(0)}
               </Text>
             </View>
-            {remainingAllocation > 0 && (
-              <Text style={styles.allocHint}>
-                ₹{remainingAllocation.toFixed(0)} remaining to allocate
-              </Text>
-            )}
-            {remainingAllocation < 0 && (
-              <Text style={[styles.allocHint, { color: '#FF3B30' }]}>
-                Over by ₹{Math.abs(remainingAllocation).toFixed(0)}
+            {Math.abs(remainingAllocation) >= 1 && (
+              <Text style={[styles.allocHint, { color: remainingAllocation > 0 ? '#FF9500' : '#FF3B30' }]}>
+                {remainingAllocation > 0 
+                  ? `₹${remainingAllocation.toFixed(0)} remaining to allocate`
+                  : `Over by ₹${Math.abs(remainingAllocation).toFixed(0)}`}
               </Text>
             )}
           </View>
@@ -781,7 +960,7 @@ export default function PiggyBanks({
           <View style={styles.allocGrid}>
             {combinedJars.map(({ key, label, color, icon }) => {
               const amount = allocationsMoney[key] || 0;
-              const sliderValue = effectiveIncome > 0 ? (amount / effectiveIncome) * 100 : 0;
+              const sliderValue = effectiveIncome > 0 ? Math.min(100, Math.max(0, (amount / effectiveIncome) * 100)) : 0;
               return (
                 <View key={key} style={styles.allocItem}>
                   <View style={styles.allocItemHeader}>
@@ -796,11 +975,36 @@ export default function PiggyBanks({
                         style={[
                           styles.allocSliderFill,
                           {
-                            width: `${Math.min(100, Math.max(0, sliderValue))}%`,
+                            width: `${sliderValue}%`,
                             backgroundColor: color,
                           },
                         ]}
                       />
+                    </View>
+                    <View style={styles.allocSliderControls}>
+                      <TouchableOpacity
+                        style={styles.sliderButton}
+                        onPress={() => {
+                          const newAmount = Math.max(0, amount - Math.max(10, Math.floor(effectiveIncome * 0.05)));
+                          updateAllocationMoney(key, newAmount);
+                        }}
+                      >
+                        <Icon name="minus" size={14} color={color} />
+                      </TouchableOpacity>
+                      <View style={styles.sliderValueContainer}>
+                        <Text style={[styles.sliderValueText, { color }]}>
+                          {sliderValue.toFixed(0)}%
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.sliderButton}
+                        onPress={() => {
+                          const newAmount = Math.min(effectiveIncome, amount + Math.max(10, Math.floor(effectiveIncome * 0.05)));
+                          updateAllocationMoney(key, newAmount);
+                        }}
+                      >
+                        <Icon name="plus" size={14} color={color} />
+                      </TouchableOpacity>
                     </View>
                   </View>
                   <View style={styles.allocInputContainer}>
@@ -1087,6 +1291,12 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
     fontSize: 12,
   },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   summaryMetaRow: {
     marginTop: 8,
     gap: 8,
@@ -1094,6 +1304,56 @@ const styles = StyleSheet.create({
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  incomeEditContainer: {
+    marginTop: 8,
+  },
+  incomeEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  incomeEditInput: {
+    flex: 1,
+    borderWidth: 2,
+    borderColor: '#007AFF',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  incomeEditSave: {
+    backgroundColor: '#34C759',
+    borderRadius: 8,
+    padding: 8,
+  },
+  incomeEditCancel: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+    padding: 8,
+  },
+  allocHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  resetAllocButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  resetAllocText: {
+    color: '#007AFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   riskBadge: {
     alignItems: 'flex-end',
@@ -1234,14 +1494,39 @@ const styles = StyleSheet.create({
     marginVertical: 10,
   },
   allocSliderTrack: {
-    height: 8,
+    height: 10,
     backgroundColor: '#e5e7eb',
-    borderRadius: 4,
+    borderRadius: 5,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   allocSliderFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 5,
+  },
+  allocSliderControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  sliderButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  sliderValueContainer: {
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  sliderValueText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   allocInputContainer: {
     flexDirection: 'row',
