@@ -1,6 +1,6 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -11,7 +11,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { RiskLevel } from './RiskProfile';
 
 export type EnvelopeKey = string;
 
@@ -267,7 +266,8 @@ interface PiggyBanksProps {
   userId: string | number;
   todayIncome?: number;
   todayNetIncome?: number;
-  riskLevel?: RiskLevel;
+  cashBalance?: number;
+  transactions?: any[];
 }
 
 const storageKey = (userId: string | number) => `mt_piggy_${userId}`;
@@ -287,13 +287,11 @@ export default function PiggyBanks({
   userId,
   todayIncome = 0,
   todayNetIncome = 0,
-  riskLevel = 'moderate',
+  cashBalance = 0,
+  transactions = [],
 }: PiggyBanksProps) {
   const [state, setState] = useState<EnvelopeState>(defaultState);
   const [pendingAllocations, setPendingAllocations] = useState<Record<EnvelopeKey, number> | null>(null);
-  const [fromEnv, setFromEnv] = useState<EnvelopeKey>('other');
-  const [toEnv, setToEnv] = useState<EnvelopeKey>('investments');
-  const [transferAmount, setTransferAmount] = useState('');
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarMode, setCalendarMode] = useState<'investment' | 'emi'>('investment');
   const [addJarVisible, setAddJarVisible] = useState(false);
@@ -304,6 +302,8 @@ export default function PiggyBanks({
   const [addJarDescription, setAddJarDescription] = useState('');
   const [targetJar, setTargetJar] = useState<JarMeta | null>(null);
   const [targetValue, setTargetValue] = useState('');
+  const [moveJarModal, setMoveJarModal] = useState<{ from: EnvelopeKey; to: EnvelopeKey | null } | null>(null);
+  const [moveAmount, setMoveAmount] = useState('');
 
   const key = useMemo(() => storageKey(userId), [userId]);
   const customJars = useMemo(() => state.customJars || [], [state.customJars]);
@@ -322,11 +322,20 @@ export default function PiggyBanks({
     [combinedJars]
   );
 
-  const totalAllocPct = useMemo(() => {
-    return (Object.values(state.allocationsPct || {}) as number[]).reduce((acc, v) => acc + Math.max(0, v || 0), 0);
-  }, [state.allocationsPct]);
-  const isAllocPerfect = totalAllocPct === 100;
-  const isAllocOver = totalAllocPct > 100;
+  // Change from percentage-based to money-based allocations
+  const allocationsMoney = useMemo(() => {
+    return combinedJars.reduce((acc, jar) => {
+      const pct = state.allocationsPct[jar.key] || 0;
+      acc[jar.key] = Math.floor((effectiveIncome * pct) / 100);
+      return acc;
+    }, {} as Record<EnvelopeKey, number>);
+  }, [combinedJars, state.allocationsPct, effectiveIncome]);
+  
+  const totalAllocated = useMemo(() => {
+    return Object.values(allocationsMoney).reduce((acc, v) => acc + v, 0);
+  }, [allocationsMoney]);
+  
+  const remainingAllocation = effectiveIncome - totalAllocated;
 
   useEffect(() => {
     (async () => {
@@ -390,10 +399,26 @@ export default function PiggyBanks({
   };
 
   const effectiveIncome = useMemo(() => {
+    // Only show if there are transactions today
     if (todayNetIncome > 0) return todayNetIncome;
     if (todayIncome > 0) return todayIncome;
-    return state.dailyIncome;
-  }, [state.dailyIncome, todayIncome, todayNetIncome]);
+    return 0; // Don't show default if no transactions today
+  }, [todayIncome, todayNetIncome]);
+  
+  const hasTodayTransactions = useMemo(() => {
+    if (!transactions || transactions.length === 0) return false;
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = today.getMonth();
+    const dd = today.getDate();
+    const start = new Date(yyyy, mm, dd, 0, 0, 0).getTime();
+    const end = new Date(yyyy, mm, dd, 23, 59, 59).getTime();
+    
+    return transactions.some((t) => {
+      const created = new Date(t.created_at).getTime();
+      return created >= start && created <= end;
+    });
+  }, [transactions]);
 
   const bucketSections = useMemo(() => {
     const totalBalance = Object.values(state.balances).reduce((acc, val) => acc + val, 0);
@@ -414,27 +439,25 @@ export default function PiggyBanks({
   }, [combinedJars, state.allocationsPct, state.balances]);
 
   const proposeTodayAllocation = () => {
-    const allocations = combinedJars.reduce<Record<EnvelopeKey, number>>((acc, jar) => {
-      acc[jar.key] = 0;
-      return acc;
-    }, {});
-
-    const totalPct = (Object.values(state.allocationsPct) as number[]).reduce((acc, v) => acc + Math.max(0, v || 0), 0);
-    const normalizationFactor = totalPct > 100 ? 100 / totalPct : 1;
-
-    combinedJars.forEach(({ key }) => {
-      const pct = Math.max(0, state.allocationsPct[key] || 0) * normalizationFactor;
-      allocations[key] = Math.floor((effectiveIncome * pct) / 100);
-    });
-
-    const sum = Object.values(allocations).reduce((acc, v) => acc + v, 0);
-    const remainder = Math.max(0, effectiveIncome - sum);
-    const savingsBucket = combinedJars.find(jar => jar.bucket === 'savings');
-    if (savingsBucket) {
-      allocations[savingsBucket.key] = (allocations[savingsBucket.key] || 0) + remainder;
+    // Use current money allocations directly
+    setPendingAllocations(allocationsMoney);
+  };
+  
+  const updateAllocationMoney = (jarKey: EnvelopeKey, amount: number) => {
+    const newAllocations = { ...allocationsMoney };
+    newAllocations[jarKey] = Math.max(0, Math.min(effectiveIncome, amount));
+    
+    // Update percentage allocations based on money
+    const next = {
+      ...state,
+      allocationsPct: { ...state.allocationsPct },
+    };
+    
+    if (effectiveIncome > 0) {
+      next.allocationsPct[jarKey] = Math.round((newAllocations[jarKey] / effectiveIncome) * 100);
     }
-
-    setPendingAllocations(allocations);
+    
+    persist(next);
   };
 
   const confirmAllocation = async () => {
@@ -447,19 +470,24 @@ export default function PiggyBanks({
     setPendingAllocations(null);
   };
 
-  const handleMove = async () => {
-    const amt = parseFloat(transferAmount);
+  const handleMoveBetweenJars = async () => {
+    if (!moveJarModal) return;
+    const amt = parseFloat(moveAmount);
     if (!amt || amt <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
-    if (fromEnv === toEnv) {
+    if (!moveJarModal.to) {
+      Alert.alert('Error', 'Please select a destination jar');
+      return;
+    }
+    if (moveJarModal.from === moveJarModal.to) {
       Alert.alert('Error', 'Please select different jars');
       return;
     }
-    const fromBalance = state.balances[fromEnv] || 0;
+    const fromBalance = state.balances[moveJarModal.from] || 0;
     if (fromBalance < amt) {
-      const fromLabel = jarMetaMap[fromEnv]?.label || 'selected jar';
+      const fromLabel = jarMetaMap[moveJarModal.from]?.label || 'selected jar';
       Alert.alert('Error', `Insufficient balance in ${fromLabel}. Available: ₹${fromBalance.toFixed(0)}`);
       return;
     }
@@ -468,14 +496,15 @@ export default function PiggyBanks({
       ...state,
       balances: {
         ...state.balances,
-        [fromEnv]: fromBalance - amt,
-        [toEnv]: (state.balances[toEnv] || 0) + amt,
+        [moveJarModal.from]: fromBalance - amt,
+        [moveJarModal.to]: (state.balances[moveJarModal.to] || 0) + amt,
       },
     };
     await persist(next);
-    setTransferAmount('');
-    const fromLabel = jarMetaMap[fromEnv]?.label || 'Jar';
-    const toLabel = jarMetaMap[toEnv]?.label || 'Jar';
+    setMoveAmount('');
+    setMoveJarModal(null);
+    const fromLabel = jarMetaMap[moveJarModal.from]?.label || 'Jar';
+    const toLabel = jarMetaMap[moveJarModal.to]?.label || 'Jar';
     Alert.alert('Success', `₹${amt.toFixed(0)} moved from ${fromLabel} to ${toLabel}`);
   };
 
@@ -494,10 +523,6 @@ export default function PiggyBanks({
     setCalendarVisible(false);
   };
 
-  const dailyDifference = useMemo(() => {
-    if (todayIncome <= 0) return 0;
-    return todayIncome - effectiveIncome;
-  }, [effectiveIncome, todayIncome]);
 
   const readyJarCount = state.readyInvestments?.length || 0;
 
@@ -573,20 +598,32 @@ export default function PiggyBanks({
     const targetAmount = state.jarTargets?.[jar.key] ?? jar.defaultTarget ?? 0;
     const progress = targetAmount > 0 ? Math.min(100, (balance / targetAmount) * 100) : 0;
     const isReady = readyJarSet.has(jar.key);
+    const isCustomJar = jar.key.startsWith('custom-');
+    
     return (
       <View key={jar.key} style={styles.jarCard}>
         <View style={styles.jarCardHeader}>
           <View style={[styles.jarCardIcon, { backgroundColor: `${jar.color}20` }]}>
-            <Icon name={jar.icon as any} size={18} color={jar.color} />
+            <Icon name={jar.icon as any} size={20} color={jar.color} />
           </View>
-          <Text style={styles.jarCardTitle}>{jar.label}</Text>
-          {isReady && <Text style={styles.jarReadyBadge}>Ready</Text>}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.jarCardTitle}>{jar.label}</Text>
+            <Text style={styles.jarCardDescription}>{jar.description}</Text>
+          </View>
+          {isReady && (
+            <View style={styles.jarReadyBadgeContainer}>
+              <Text style={styles.jarReadyBadge}>Ready</Text>
+            </View>
+          )}
         </View>
-        <Text style={styles.jarCardDescription}>{jar.description}</Text>
-        <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
-        <Text style={styles.jarCardTarget}>
-          {targetAmount ? `Target ₹${targetAmount.toLocaleString('en-IN')}` : 'Set a target to stay focused'}
-        </Text>
+        <View style={styles.jarAmountSection}>
+          <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+          {targetAmount > 0 && (
+            <Text style={styles.jarCardTarget}>
+              Target: ₹{targetAmount.toLocaleString('en-IN')} ({progress.toFixed(0)}%)
+            </Text>
+          )}
+        </View>
         <View style={styles.jarProgressBackground}>
           <View
             style={[
@@ -599,13 +636,18 @@ export default function PiggyBanks({
           />
         </View>
         <View style={styles.jarCardActions}>
-          <TouchableOpacity style={styles.jarActionButton} onPress={() => setToEnv(jar.key)}>
-            <Icon name="arrow-up-circle" size={14} color="#007AFF" />
-            <Text style={styles.jarActionText}>Add funds</Text>
-          </TouchableOpacity>
+          {isCustomJar && balance > 0 && (
+            <TouchableOpacity 
+              style={[styles.jarActionButton, styles.jarMoveButton]} 
+              onPress={() => setMoveJarModal({ from: jar.key, to: null })}
+            >
+              <Icon name="arrow-right-circle" size={16} color="#007AFF" />
+              <Text style={styles.jarActionText}>Move</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.jarActionButton} onPress={() => startEditTarget(jar)}>
-            <Icon name="edit-2" size={14} color="#4B5563" />
-            <Text style={styles.jarActionText}>Set target</Text>
+            <Icon name="edit-2" size={16} color="#4B5563" />
+            <Text style={styles.jarActionText}>Target</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -647,28 +689,26 @@ export default function PiggyBanks({
 
   return (
     <ScrollView style={styles.wrapper} showsVerticalScrollIndicator={false}>
-      <View style={styles.summaryCard}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.summaryLabel}>Net earned today</Text>
-          <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
-          <View style={styles.summaryMetaRow}>
-            <View style={styles.metaItem}>
-              <Icon name="arrow-down" size={14} color="#34C759" />
-              <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
-            </View>
-            <View style={styles.metaItem}>
-              <Icon name="arrow-up" size={14} color="#FF3B30" />
-              <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, dailyDifference).toFixed(0)} spent</Text>
+      {hasTodayTransactions && effectiveIncome > 0 && (
+        <View style={styles.summaryCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.summaryLabel}>Net earned today</Text>
+            <Text style={styles.summaryValue}>₹{effectiveIncome.toFixed(0)}</Text>
+            <View style={styles.summaryMetaRow}>
+              <View style={styles.metaItem}>
+                <Icon name="arrow-down" size={14} color="#34C759" />
+                <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} received</Text>
+              </View>
+              {todayNetIncome < todayIncome && (
+                <View style={styles.metaItem}>
+                  <Icon name="arrow-up" size={14} color="#FF3B30" />
+                  <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{Math.max(0, todayIncome - todayNetIncome).toFixed(0)} spent</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
-        <View style={styles.riskBadge}>
-          <Text style={styles.riskLabel}>Risk Profile</Text>
-          <View style={[styles.riskTag, styles[`risk-${riskLevel}`]]}>
-            <Text style={styles.riskTagText}>{riskLevel.toUpperCase()}</Text>
-          </View>
-        </View>
-      </View>
+      )}
 
       {readyJarCount > 0 && (
         <View style={styles.readyInvestCard}>
@@ -714,195 +754,105 @@ export default function PiggyBanks({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.incomeCard}>
-        <Text style={styles.sectionTitle}>Allocation Plan</Text>
-        <Text style={styles.allocDescription}>Set how much of your daily income (₹{effectiveIncome.toFixed(0)}) goes to each jar</Text>
-        
-        <View style={styles.allocSummaryBox}>
-          <View style={styles.allocSummaryRow}>
-            <Text style={styles.allocSummaryLabel}>Total Allocation</Text>
-            <View style={[
-              styles.allocSummaryPill,
-              isAllocPerfect ? styles.allocOk : isAllocOver ? styles.allocOver : styles.allocUnder
-            ]}>
-              <Text style={styles.allocSummaryText}>{totalAllocPct}%</Text>
+      {hasTodayTransactions && effectiveIncome > 0 && (
+        <View style={styles.incomeCard}>
+          <Text style={styles.sectionTitle}>Allocation Plan</Text>
+          <Text style={styles.allocDescription}>Set how much money (₹{effectiveIncome.toFixed(0)}) goes to each jar based on your priority</Text>
+          
+          <View style={styles.allocSummaryBox}>
+            <View style={styles.allocSummaryRow}>
+              <Text style={styles.allocSummaryLabel}>Total Allocated</Text>
+              <Text style={[styles.allocSummaryText, { color: remainingAllocation >= 0 ? '#34C759' : '#FF3B30' }]}>
+                ₹{totalAllocated.toFixed(0)} / ₹{effectiveIncome.toFixed(0)}
+              </Text>
             </View>
-          </View>
-          {!isAllocPerfect && (
-            <Text style={styles.allocHint}>
-              {isAllocOver ? `Reduce by ${(totalAllocPct - 100).toFixed(0)}%` : `Add ${(100 - totalAllocPct).toFixed(0)}% more`}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.allocGrid}>
-          {combinedJars.map(({ key, label, color, icon }) => {
-            const pct = state.allocationsPct[key] ?? 0;
-            const amount = Math.floor((effectiveIncome * pct) / 100);
-            return (
-              <View key={key} style={styles.allocItem}>
-                <View style={styles.allocItemHeader}>
-                  <View style={[styles.allocIconContainer, { backgroundColor: `${color}15` }]}>
-                    <Icon name={icon as any} size={18} color={color} />
-                  </View>
-                  <Text style={styles.allocItemLabel} numberOfLines={1}>{label}</Text>
-                </View>
-                <View style={styles.allocInputContainer}>
-                  <TextInput
-                    value={String(pct)}
-                    onChangeText={(value) => {
-                      const next = {
-                        ...state,
-                        allocationsPct: {
-                          ...state.allocationsPct,
-                          [key]: Math.max(0, Math.min(100, parseInt(value || '0', 10))),
-                        },
-                      };
-                      persist(next);
-                    }}
-                    keyboardType="numeric"
-                    style={[styles.allocInput, { borderColor: color }]}
-                    placeholder="0"
-                  />
-                  <Text style={styles.allocPercent}>%</Text>
-                </View>
-                {pct > 0 && (
-                  <Text style={[styles.allocAmount, { color }]}>₹{amount.toLocaleString('en-IN')}</Text>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
-          <Icon name="zap" size={18} color="white" />
-          <Text style={styles.primaryButtonText}>Allocate Today's Income</Text>
-        </TouchableOpacity>
-        {pendingAllocations && (
-          <View style={styles.pendingCard}>
-            <Text style={styles.pendingTitle}>Today's Allocation</Text>
-            <View style={styles.pendingList}>
-              {combinedJars
-                .filter(({ key }) => (pendingAllocations[key] || 0) > 0)
-                .map(({ key, label, color }) => (
-                  <View key={key} style={styles.pendingRow}>
-                    <View style={styles.pendingRowLeft}>
-                      <View style={[styles.pendingDot, { backgroundColor: color }]} />
-                      <Text style={styles.pendingLabel}>{label}</Text>
-                    </View>
-                    <Text style={[styles.pendingValue, { color }]}>₹{(pendingAllocations[key] || 0).toLocaleString('en-IN')}</Text>
-                  </View>
-                ))}
-            </View>
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759', marginTop: 16 }]} onPress={confirmAllocation}>
-              <Text style={styles.primaryButtonText}>Confirm & Add to Jars</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
-              <Text style={styles.linkButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
-
-      {bucketOrder.map(bucket => renderJarSection(bucket))}
-
-      <View style={styles.transferCard}>
-        <Text style={styles.sectionTitle}>Move between jars</Text>
-        
-        <View style={styles.transferContainer}>
-          <View style={styles.transferFrom}>
-            <Text style={styles.transferLabel}>From</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {combinedJars.map(({ key, label, color, icon }) => {
-                const isSelected = fromEnv === key;
-                const balance = state.balances[key] || 0;
-                return (
-                  <TouchableOpacity
-                    key={`from-${key}`}
-                    style={[
-                      styles.jarOption,
-                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
-                    ]}
-                    onPress={() => setFromEnv(key)}
-                  >
-                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
-                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
-                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <View style={styles.transferArrow}>
-            <Icon name="arrow-down" size={24} color="#007AFF" />
-          </View>
-
-          <View style={styles.transferTo}>
-            <Text style={styles.transferLabel}>To</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
-              {combinedJars.map(({ key, label, color, icon }) => {
-                const isSelected = toEnv === key;
-                const balance = state.balances[key] || 0;
-                return (
-                  <TouchableOpacity
-                    key={`to-${key}`}
-                    style={[
-                      styles.jarOption,
-                      isSelected && { borderColor: color, backgroundColor: `${color}15` },
-                    ]}
-                    onPress={() => setToEnv(key)}
-                  >
-                    <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
-                    <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
-                    <Text style={[styles.jarOptionBalance, isSelected && { color }]}>₹{balance.toFixed(0)}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <View style={styles.amountRow}>
-            <View style={styles.amountInputContainer}>
-              <Text style={styles.currencySymbol}>₹</Text>
-              <TextInput
-                value={transferAmount}
-                onChangeText={setTransferAmount}
-                placeholder="Enter amount"
-                keyboardType="numeric"
-                style={styles.amountInput}
-                placeholderTextColor="#8e8e93"
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  const avail = state.balances[fromEnv] || 0;
-                  setTransferAmount(String(Math.max(0, Math.floor(avail))));
-                }}
-                style={styles.maxButton}
-              >
-                <Text style={styles.maxButtonText}>Max</Text>
-              </TouchableOpacity>
-            </View>
-            {fromEnv && (
-              <Text style={styles.availableText}>
-                Available: ₹{(state.balances[fromEnv] || 0).toFixed(0)}
+            {remainingAllocation > 0 && (
+              <Text style={styles.allocHint}>
+                ₹{remainingAllocation.toFixed(0)} remaining to allocate
+              </Text>
+            )}
+            {remainingAllocation < 0 && (
+              <Text style={[styles.allocHint, { color: '#FF3B30' }]}>
+                Over by ₹{Math.abs(remainingAllocation).toFixed(0)}
               </Text>
             )}
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.moveButton,
-              (!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv) && styles.moveButtonDisabled,
-            ]}
-            onPress={handleMove}
-            disabled={!fromEnv || !toEnv || !transferAmount || fromEnv === toEnv}
-          >
-            <Icon name="arrow-right" size={18} color="white" />
-            <Text style={styles.moveButtonText}>Transfer Now</Text>
+          <View style={styles.allocGrid}>
+            {combinedJars.map(({ key, label, color, icon }) => {
+              const amount = allocationsMoney[key] || 0;
+              const sliderValue = effectiveIncome > 0 ? (amount / effectiveIncome) * 100 : 0;
+              return (
+                <View key={key} style={styles.allocItem}>
+                  <View style={styles.allocItemHeader}>
+                    <View style={[styles.allocIconContainer, { backgroundColor: `${color}15` }]}>
+                      <Icon name={icon as any} size={18} color={color} />
+                    </View>
+                    <Text style={styles.allocItemLabel} numberOfLines={1}>{label}</Text>
+                  </View>
+                  <View style={styles.allocSliderContainer}>
+                    <View style={styles.allocSliderTrack}>
+                      <View
+                        style={[
+                          styles.allocSliderFill,
+                          {
+                            width: `${Math.min(100, Math.max(0, sliderValue))}%`,
+                            backgroundColor: color,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.allocInputContainer}>
+                    <Text style={styles.currencySymbol}>₹</Text>
+                    <TextInput
+                      value={String(amount)}
+                      onChangeText={(value) => {
+                        const numValue = Math.max(0, Math.min(effectiveIncome, parseInt(value || '0', 10)));
+                        updateAllocationMoney(key, numValue);
+                      }}
+                      keyboardType="numeric"
+                      style={[styles.allocInputMoney, { borderColor: color }]}
+                      placeholder="0"
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity style={styles.primaryButton} onPress={proposeTodayAllocation}>
+            <Icon name="zap" size={18} color="white" />
+            <Text style={styles.primaryButtonText}>Allocate Today's Income</Text>
           </TouchableOpacity>
+          {pendingAllocations && (
+            <View style={styles.pendingCard}>
+              <Text style={styles.pendingTitle}>Today's Allocation</Text>
+              <View style={styles.pendingList}>
+                {combinedJars
+                  .filter(({ key }) => (pendingAllocations[key] || 0) > 0)
+                  .map(({ key, label, color }) => (
+                    <View key={key} style={styles.pendingRow}>
+                      <View style={styles.pendingRowLeft}>
+                        <View style={[styles.pendingDot, { backgroundColor: color }]} />
+                        <Text style={styles.pendingLabel}>{label}</Text>
+                      </View>
+                      <Text style={[styles.pendingValue, { color }]}>₹{(pendingAllocations[key] || 0).toLocaleString('en-IN')}</Text>
+                    </View>
+                  ))}
+              </View>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: '#34C759', marginTop: 16 }]} onPress={confirmAllocation}>
+                <Text style={styles.primaryButtonText}>Confirm & Add to Jars</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.linkButton} onPress={() => setPendingAllocations(null)}>
+                <Text style={styles.linkButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      </View>
+      )}
+
+      {bucketOrder.map(bucket => renderJarSection(bucket))}
 
       <Modal visible={addJarVisible} animationType="slide" transparent onRequestClose={() => setAddJarVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -1023,6 +973,82 @@ export default function PiggyBanks({
                 );
               })}
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!moveJarModal} animationType="slide" transparent onRequestClose={() => setMoveJarModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Move Money</Text>
+            {moveJarModal && (
+              <>
+                <Text style={styles.modalLabel}>From: {jarMetaMap[moveJarModal.from]?.label}</Text>
+                <Text style={styles.modalSubtext}>
+                  Available: ₹{(state.balances[moveJarModal.from] || 0).toFixed(0)}
+                </Text>
+                
+                <Text style={styles.modalLabel}>To</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.jarSelector}>
+                  {combinedJars
+                    .filter(jar => jar.key !== moveJarModal.from)
+                    .map(({ key, label, color, icon }) => {
+                      const isSelected = moveJarModal.to === key;
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          style={[
+                            styles.jarOption,
+                            isSelected && { borderColor: color, backgroundColor: `${color}15` },
+                          ]}
+                          onPress={() => setMoveJarModal({ ...moveJarModal, to: key })}
+                        >
+                          <Icon name={icon as any} size={20} color={isSelected ? color : '#8e8e93'} />
+                          <Text style={[styles.jarOptionLabel, isSelected && { color }]}>{label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </ScrollView>
+
+                <Text style={styles.modalLabel}>Amount</Text>
+                <View style={styles.amountInputContainer}>
+                  <Text style={styles.currencySymbol}>₹</Text>
+                  <TextInput
+                    value={moveAmount}
+                    onChangeText={setMoveAmount}
+                    placeholder="Enter amount"
+                    keyboardType="numeric"
+                    style={styles.amountInput}
+                    placeholderTextColor="#8e8e93"
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      const avail = state.balances[moveJarModal.from] || 0;
+                      setMoveAmount(String(Math.max(0, Math.floor(avail))));
+                    }}
+                    style={styles.maxButton}
+                  >
+                    <Text style={styles.maxButtonText}>Max</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.modalButtonRow}>
+                  <TouchableOpacity style={styles.modalSecondaryBtn} onPress={() => setMoveJarModal(null)}>
+                    <Text style={styles.modalSecondaryText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.modalPrimaryBtn,
+                      (!moveJarModal.to || !moveAmount || moveJarModal.from === moveJarModal.to) && styles.modalPrimaryBtnDisabled,
+                    ]}
+                    onPress={handleMoveBetweenJars}
+                    disabled={!moveJarModal.to || !moveAmount || moveJarModal.from === moveJarModal.to}
+                  >
+                    <Text style={styles.modalPrimaryText}>Move</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -1204,10 +1230,40 @@ const styles = StyleSheet.create({
     color: '#1c1c1e',
     flex: 1,
   },
+  allocSliderContainer: {
+    marginVertical: 10,
+  },
+  allocSliderTrack: {
+    height: 8,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  allocSliderFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
   allocInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginTop: 8,
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    marginRight: 6,
+  },
+  allocInputMoney: {
+    borderWidth: 2,
+    borderRadius: 8,
+    flex: 1,
+    textAlign: 'center',
+    paddingVertical: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1c1c1e',
+    backgroundColor: 'white',
   },
   allocInput: {
     borderWidth: 2,
@@ -1507,13 +1563,33 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   jarCard: {
-    width: 220,
-    backgroundColor: '#f9fafb',
+    width: 240,
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 14,
+    padding: 16,
     marginRight: 12,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  jarAmountSection: {
+    marginVertical: 10,
+  },
+  jarReadyBadgeContainer: {
+    backgroundColor: '#e6f8ec',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  jarMoveButton: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   jarCardHeader: {
     flexDirection: 'row',
@@ -1850,6 +1926,44 @@ const styles = StyleSheet.create({
   modalPrimaryText: {
     color: 'white',
     fontWeight: '700',
+  },
+  modalPrimaryBtnDisabled: {
+    backgroundColor: '#c7c7cc',
+    opacity: 0.6,
+  },
+  modalSubtext: {
+    fontSize: 14,
+    color: '#6c6c70',
+    marginBottom: 12,
+  },
+  amountInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#e5e5ea',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    backgroundColor: '#fafafa',
+    marginBottom: 12,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    paddingVertical: 14,
+    color: '#1c1c1e',
+  },
+  maxButton: {
+    marginLeft: 8,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  maxButtonText: {
+    color: '#007AFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
 });
 
