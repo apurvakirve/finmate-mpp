@@ -64,6 +64,9 @@ interface SpendingAnalysis {
     count: number;
     percentage: number;
   }>;
+  upcomingBillsEstimate: number;
+  overspendingCategories: string[];
+  totalSaved: number;
 }
 
 interface TransactionAnalysisProps {
@@ -138,7 +141,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   // Analyze spending patterns
   const spendingAnalysis: SpendingAnalysis = useMemo(() => {
     if (!transactions.length) {
-      return {
+        return {
         totalSpent: 0,
         totalReceived: 0,
         netFlow: 0,
@@ -152,7 +155,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         topSpendingCategories: [],
         dailySpending: [],
         spendingInsights: ['No transaction data available for analysis.'],
-        categoryBreakdown: []
+        categoryBreakdown: [],
+        upcomingBillsEstimate: 0,
+        overspendingCategories: [],
+        totalSaved: 0
       };
     }
 
@@ -345,6 +351,31 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       }
     }
 
+    // Calculate upcoming bills estimate based on recurring fixed categories
+    // Categories that typically have monthly bills: utilities, insurance, emis
+    const recurringCategories = ['utilities', 'insurance', 'emis', 'rent'];
+    const monthlyAverageForBills = recurringCategories.reduce((sum, cat) => {
+      const catData = categoryBreakdownMap[cat];
+      if (catData && catData.spent > 0) {
+        // Estimate monthly based on timeRange
+        const multiplier = timeRange === 'week' ? 4.33 : timeRange === 'month' ? 1 : 1 / 12;
+        return sum + (catData.spent * multiplier);
+      }
+      return sum;
+    }, 0);
+    
+    const upcomingBillsEstimate = Math.round(monthlyAverageForBills);
+
+    // Calculate total saved (net positive flow, but also consider it as income - expenses)
+    const totalSaved = Math.max(0, netFlow);
+
+    // Identify overspending categories (categories where spending exceeds 30% of income)
+    const incomeThreshold = totalReceived || totalSpent; // Use total spent if no income
+    const overspendingThreshold = incomeThreshold * 0.3;
+    const overspendingCategories = topSpendingCategories
+      .filter(cat => cat.amount > overspendingThreshold)
+      .map(cat => cat.category);
+
     return {
       totalSpent,
       totalReceived,
@@ -359,7 +390,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       topSpendingCategories,
       dailySpending,
       spendingInsights,
-      categoryBreakdown
+      categoryBreakdown,
+      upcomingBillsEstimate,
+      overspendingCategories,
+      totalSaved
     };
   }, [transactions, currentUser.id, timeRange]);
 
@@ -426,43 +460,114 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <View>
-            {/* Key Metrics */}
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricCard}>
-                <View style={styles.metricIconContainer}>
-                  <Icon name="trending-down" size={20} color="#FF3B30" />
+            {/* Mini Dashboard */}
+            <View style={styles.dashboardCard}>
+              <Text style={styles.dashboardTitle}>Financial Overview</Text>
+              <Text style={styles.dashboardSubtitle}>
+                {timeRange === 'week' ? 'This Week' : timeRange === 'month' ? 'This Month' : 'This Year'}
+              </Text>
+              
+              <View style={styles.dashboardGrid}>
+                {/* Total Income */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E8F5E9' }]}>
+                    <Icon name="arrow-down" size={24} color="#34C759" />
+                  </View>
+                  <Text style={styles.dashboardMetricValue}>
+                    ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Income</Text>
                 </View>
-                <Text style={styles.metricValue}>
-                  ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.metricLabel}>Total Spent</Text>
+
+                {/* Total Spent */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                    <Icon name="arrow-up" size={24} color="#FF3B30" />
+                  </View>
+                  <Text style={styles.dashboardMetricValue}>
+                    ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Spent</Text>
+                </View>
+
+                {/* Total Saved */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                    <Icon name="shield" size={24} color="#007AFF" />
+                  </View>
+                  <Text style={[styles.dashboardMetricValue, { color: '#007AFF' }]}>
+                    ₹{spendingAnalysis.totalSaved.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Saved</Text>
+                </View>
+
+                {/* Upcoming Bills */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                    <Icon name="alert-circle" size={24} color="#FF9500" />
+                  </View>
+                  <Text style={[styles.dashboardMetricValue, { color: '#FF9500' }]}>
+                    ₹{spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Upcoming Bills</Text>
+                </View>
               </View>
-              <View style={styles.metricCard}>
-                <View style={styles.metricIconContainer}>
-                  <Icon name="trending-up" size={20} color="#34C759" />
+
+              {/* Spending Nature / Overspending Areas */}
+              {spendingAnalysis.overspendingCategories.length > 0 && (
+                <View style={styles.overspendingSection}>
+                  <View style={styles.overspendingHeader}>
+                    <Icon name="alert-triangle" size={18} color="#FF3B30" />
+                    <Text style={[styles.overspendingTitle, { marginLeft: 8 }]}>Overspending Areas</Text>
+                  </View>
+                  <View style={styles.overspendingChips}>
+                    {spendingAnalysis.overspendingCategories.map((category, index) => {
+                      const categoryData = spendingAnalysis.topSpendingCategories.find(c => c.category === category);
+                      if (!categoryData) return null;
+                      return (
+                        <View key={index} style={[styles.overspendingChip, { marginRight: 8, marginBottom: 8 }]}>
+                          <Text style={styles.overspendingChipText}>{category}</Text>
+                          <Text style={styles.overspendingChipPercent}>
+                            {categoryData.percentage.toFixed(0)}%
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
                 </View>
-                <Text style={styles.metricValue}>
-                  ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.metricLabel}>Total Received</Text>
-              </View>
-              <View style={[styles.metricCard, styles.metricCardWide]}>
-                <View style={styles.metricIconContainer}>
-                  <Icon 
-                    name={spendingAnalysis.netFlow >= 0 ? "arrow-up" : "arrow-down"} 
-                    size={20} 
-                    color={spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30'} 
-                  />
+              )}
+
+              {/* Spending Nature Summary */}
+              <View style={styles.spendingNatureSection}>
+                <Text style={styles.spendingNatureTitle}>Spending Nature</Text>
+                <View style={styles.spendingNatureCard}>
+                  <View style={styles.spendingNatureRow}>
+                    <Text style={styles.spendingNatureLabel}>Pattern</Text>
+                    <View style={[
+                      styles.spendingNatureBadge,
+                      spendingAnalysis.spendingPattern === 'high' && styles.spendingNatureBadgeHigh,
+                      spendingAnalysis.spendingPattern === 'moderate' && styles.spendingNatureBadgeModerate,
+                      spendingAnalysis.spendingPattern === 'low' && styles.spendingNatureBadgeLow,
+                    ]}>
+                      <Text style={styles.spendingNatureBadgeText}>
+                        {spendingAnalysis.spendingPattern.charAt(0).toUpperCase() + spendingAnalysis.spendingPattern.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  {spendingAnalysis.topSpendingCategories.length > 0 && (
+                    <View style={styles.topCategoriesPreview}>
+                      <Text style={styles.topCategoriesLabel}>Top Categories:</Text>
+                      <View style={styles.topCategoriesChips}>
+                        {spendingAnalysis.topSpendingCategories.slice(0, 3).map((category, index) => (
+                          <View key={index} style={[styles.categoryChip, { marginRight: 8, marginBottom: 8 }]}>
+                            <View style={[styles.categoryChipDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30'][index] }]} />
+                            <Text style={styles.categoryChipText}>{category.category}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
                 </View>
-                <Text style={[
-                  styles.metricValue,
-                  { color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }
-                ]}>
-                  ₹{Math.abs(spendingAnalysis.netFlow).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.metricLabel}>
-                  {spendingAnalysis.netFlow >= 0 ? 'Net Savings' : 'Net Spending'}
-                </Text>
               </View>
             </View>
 
@@ -814,6 +919,190 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     fontWeight: '500',
+  },
+  // Dashboard Styles
+  dashboardCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  dashboardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  dashboardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  dashboardMetricCard: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  dashboardIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  dashboardMetricValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  dashboardMetricLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  // Overspending Styles
+  overspendingSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  overspendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  overspendingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+  overspendingChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  overspendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  overspendingChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#C62828',
+    marginRight: 6,
+  },
+  overspendingChipPercent: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+  // Spending Nature Styles
+  spendingNatureSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  spendingNatureTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  spendingNatureCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  spendingNatureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  spendingNatureLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  spendingNatureBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  spendingNatureBadgeHigh: {
+    backgroundColor: '#FFEBEE',
+  },
+  spendingNatureBadgeModerate: {
+    backgroundColor: '#FFF3E0',
+  },
+  spendingNatureBadgeLow: {
+    backgroundColor: '#E8F5E9',
+  },
+  spendingNatureBadgeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+  },
+  topCategoriesPreview: {
+    marginTop: 8,
+  },
+  topCategoriesLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  topCategoriesChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  categoryChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
   },
 });
 
