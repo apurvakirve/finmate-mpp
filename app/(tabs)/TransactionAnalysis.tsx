@@ -447,6 +447,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     );
   }
 
+  // Debug: Check if we have data
+  console.log('TransactionAnalysis - Transactions:', transactions.length);
+  console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
