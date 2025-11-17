@@ -2,6 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,7 +10,33 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { supabase } from '../../lib/supabase';
+
+const screenWidth = Dimensions.get('window').width;
+
+// Chart configuration
+const chartConfig = {
+  backgroundColor: '#ffffff',
+  backgroundGradientFrom: '#ffffff',
+  backgroundGradientTo: '#ffffff',
+  decimalPlaces: 0,
+  color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(60, 60, 67, ${opacity})`,
+  style: {
+    borderRadius: 16,
+  },
+  propsForDots: {
+    r: '4',
+    strokeWidth: '2',
+    stroke: '#007AFF',
+  },
+  propsForBackgroundLines: {
+    strokeDasharray: '',
+    stroke: '#e5e5e5',
+    strokeWidth: 1,
+  },
+};
 
 interface Transaction {
   id: string;
@@ -64,6 +91,11 @@ interface SpendingAnalysis {
     count: number;
     percentage: number;
   }>;
+  upcomingBillsEstimate: number;
+  overspendingCategories: string[];
+  totalSaved: number;
+  savingsRate: number;
+  weeklySpendingData: number[];
 }
 
 interface TransactionAnalysisProps {
@@ -138,7 +170,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   // Analyze spending patterns
   const spendingAnalysis: SpendingAnalysis = useMemo(() => {
     if (!transactions.length) {
-      return {
+        return {
         totalSpent: 0,
         totalReceived: 0,
         netFlow: 0,
@@ -152,7 +184,12 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         topSpendingCategories: [],
         dailySpending: [],
         spendingInsights: ['No transaction data available for analysis.'],
-        categoryBreakdown: []
+        categoryBreakdown: [],
+        upcomingBillsEstimate: 0,
+        overspendingCategories: [],
+        totalSaved: 0,
+        savingsRate: 0,
+        weeklySpendingData: []
       };
     }
 
@@ -345,6 +382,37 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       }
     }
 
+    // Calculate upcoming bills estimate based on recurring fixed categories
+    // Categories that typically have monthly bills: utilities, insurance, emis
+    const recurringCategories = ['utilities', 'insurance', 'emis', 'rent'];
+    const monthlyAverageForBills = recurringCategories.reduce((sum, cat) => {
+      const catData = categoryBreakdownMap[cat];
+      if (catData && catData.spent > 0) {
+        // Estimate monthly based on timeRange
+        const multiplier = timeRange === 'week' ? 4.33 : timeRange === 'month' ? 1 : 1 / 12;
+        return sum + (catData.spent * multiplier);
+      }
+      return sum;
+    }, 0);
+    
+    const upcomingBillsEstimate = Math.round(monthlyAverageForBills);
+
+    // Calculate total saved (net positive flow, but also consider it as income - expenses)
+    const totalSaved = Math.max(0, netFlow);
+
+    // Identify overspending categories (categories where spending exceeds 30% of income)
+    const incomeThreshold = totalReceived || totalSpent; // Use total spent if no income
+    const overspendingThreshold = incomeThreshold * 0.3;
+    const overspendingCategories = topSpendingCategories
+      .filter(cat => cat.amount > overspendingThreshold)
+      .map(cat => cat.category);
+
+    // Calculate savings rate
+    const savingsRate = totalReceived > 0 ? (totalSaved / totalReceived) * 100 : 0;
+
+    // Prepare weekly spending data for charts
+    const weeklySpendingData = dailySpending.map(item => item.amount);
+
     return {
       totalSpent,
       totalReceived,
@@ -359,7 +427,12 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       topSpendingCategories,
       dailySpending,
       spendingInsights,
-      categoryBreakdown
+      categoryBreakdown,
+      upcomingBillsEstimate,
+      overspendingCategories,
+      totalSaved,
+      savingsRate,
+      weeklySpendingData
     };
   }, [transactions, currentUser.id, timeRange]);
 
@@ -373,6 +446,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       </SafeAreaView>
     );
   }
+
+  // Debug: Check if we have data
+  console.log('TransactionAnalysis - Transactions:', transactions.length);
+  console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -426,43 +503,301 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <View>
-            {/* Key Metrics */}
-            <View style={styles.metricsGrid}>
-              <View style={styles.metricCard}>
-                <View style={styles.metricIconContainer}>
-                  <Icon name="trending-down" size={20} color="#FF3B30" />
+            {/* Mini Dashboard */}
+            <View style={styles.dashboardCard}>
+              <Text style={styles.dashboardTitle}>Financial Overview</Text>
+              <Text style={styles.dashboardSubtitle}>
+                {timeRange === 'week' ? 'This Week' : timeRange === 'month' ? 'This Month' : 'This Year'}
+              </Text>
+              
+              <View style={styles.dashboardGrid}>
+                {/* Total Income */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E8F5E9' }]}>
+                    <Icon name="arrow-down" size={24} color="#34C759" />
+                  </View>
+                  <Text style={styles.dashboardMetricValue}>
+                    ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Income</Text>
                 </View>
-                <Text style={styles.metricValue}>
-                  ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.metricLabel}>Total Spent</Text>
-              </View>
-              <View style={styles.metricCard}>
-                <View style={styles.metricIconContainer}>
-                  <Icon name="trending-up" size={20} color="#34C759" />
+
+                {/* Total Spent */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                    <Icon name="arrow-up" size={24} color="#FF3B30" />
+                  </View>
+                  <Text style={styles.dashboardMetricValue}>
+                    ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Spent</Text>
                 </View>
-                <Text style={styles.metricValue}>
-                  ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.metricLabel}>Total Received</Text>
+
+                {/* Total Saved */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                    <Icon name="shield" size={24} color="#007AFF" />
+                  </View>
+                  <Text style={[styles.dashboardMetricValue, { color: '#007AFF' }]}>
+                    ₹{spendingAnalysis.totalSaved.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Total Saved</Text>
+                </View>
+
+                {/* Upcoming Bills */}
+                <View style={styles.dashboardMetricCard}>
+                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                    <Icon name="alert-circle" size={24} color="#FF9500" />
+                  </View>
+                  <Text style={[styles.dashboardMetricValue, { color: '#FF9500' }]}>
+                    ₹{spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.dashboardMetricLabel}>Upcoming Bills</Text>
+                </View>
               </View>
-              <View style={[styles.metricCard, styles.metricCardWide]}>
-                <View style={styles.metricIconContainer}>
-                  <Icon 
-                    name={spendingAnalysis.netFlow >= 0 ? "arrow-up" : "arrow-down"} 
-                    size={20} 
-                    color={spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30'} 
+
+              {/* Spending Nature / Overspending Areas */}
+              {spendingAnalysis.overspendingCategories.length > 0 && (
+                <View style={styles.overspendingSection}>
+                  <View style={styles.overspendingHeader}>
+                    <Icon name="alert-triangle" size={18} color="#FF3B30" />
+                    <Text style={[styles.overspendingTitle, { marginLeft: 8 }]}>Overspending Areas</Text>
+                  </View>
+                  <View style={styles.overspendingChips}>
+                    {spendingAnalysis.overspendingCategories.map((category, index) => {
+                      const categoryData = spendingAnalysis.topSpendingCategories.find(c => c.category === category);
+                      if (!categoryData) return null;
+                      return (
+                        <View key={index} style={[styles.overspendingChip, { marginRight: 8, marginBottom: 8 }]}>
+                          <Text style={styles.overspendingChipText}>{category}</Text>
+                          <Text style={styles.overspendingChipPercent}>
+                            {categoryData.percentage.toFixed(0)}%
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Spending Nature Summary */}
+              <View style={styles.spendingNatureSection}>
+                <Text style={styles.spendingNatureTitle}>Spending Nature</Text>
+                <View style={styles.spendingNatureCard}>
+                  <View style={styles.spendingNatureRow}>
+                    <Text style={styles.spendingNatureLabel}>Pattern</Text>
+                    <View style={[
+                      styles.spendingNatureBadge,
+                      spendingAnalysis.spendingPattern === 'high' && styles.spendingNatureBadgeHigh,
+                      spendingAnalysis.spendingPattern === 'moderate' && styles.spendingNatureBadgeModerate,
+                      spendingAnalysis.spendingPattern === 'low' && styles.spendingNatureBadgeLow,
+                    ]}>
+                      <Text style={styles.spendingNatureBadgeText}>
+                        {spendingAnalysis.spendingPattern.charAt(0).toUpperCase() + spendingAnalysis.spendingPattern.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  {spendingAnalysis.topSpendingCategories.length > 0 && (
+                    <View style={styles.topCategoriesPreview}>
+                      <Text style={styles.topCategoriesLabel}>Top Categories:</Text>
+                      <View style={styles.topCategoriesChips}>
+                        {spendingAnalysis.topSpendingCategories.slice(0, 3).map((category, index) => (
+                          <View key={index} style={[styles.categoryChip, { marginRight: 8, marginBottom: 8 }]}>
+                            <View style={[styles.categoryChipDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30'][index] }]} />
+                            <Text style={styles.categoryChipText}>{category.category}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* Spending Trend Chart */}
+            {spendingAnalysis.dailySpending.length > 0 && timeRange === 'week' && (
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>Daily Spending Trend</Text>
+                <LineChart
+                  data={{
+                    labels: spendingAnalysis.dailySpending.map(item => {
+                      const parts = item.day.split(' ');
+                      return parts.length > 1 ? parts[0] : item.day.substring(0, 3);
+                    }),
+                    datasets: [
+                      {
+                        data: spendingAnalysis.weeklySpendingData.length > 0 
+                          ? spendingAnalysis.weeklySpendingData 
+                          : [0],
+                        color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                        strokeWidth: 2,
+                      },
+                    ],
+                  }}
+                  width={screenWidth - 80}
+                  height={220}
+                  chartConfig={{
+                    ...chartConfig,
+                    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                  }}
+                  bezier
+                  style={styles.chart}
+                />
+              </View>
+            )}
+
+            {/* Monthly Spending Trend */}
+            {spendingAnalysis.monthlySpending.length > 0 && timeRange === 'year' && (
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>Monthly Spending Trend</Text>
+                <BarChart
+                  data={{
+                    labels: spendingAnalysis.monthlySpending.map(item => item.month),
+                    datasets: [
+                      {
+                        data: spendingAnalysis.monthlySpending.map(item => item.spent),
+                      },
+                    ],
+                  }}
+                  width={screenWidth - 80}
+                  height={220}
+                  chartConfig={{
+                    ...chartConfig,
+                    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                    barPercentage: 0.7,
+                  }}
+                  style={styles.chart}
+                  showValuesOnTopOfBars
+                  withInnerLines={false}
+                  fromZero
+                />
+              </View>
+            )}
+
+            {/* Category Breakdown Pie Chart */}
+            {spendingAnalysis.topSpendingCategories.length > 0 && (
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>Spending by Category</Text>
+                <View style={styles.pieChartContainer}>
+                  <PieChart
+                    data={spendingAnalysis.topSpendingCategories.slice(0, 6).map((cat, index) => ({
+                      name: cat.category.length > 10 ? cat.category.substring(0, 10) : cat.category,
+                      amount: cat.amount,
+                      color: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6', '#AF52DE'][index],
+                      legendFontColor: '#333',
+                      legendFontSize: 12,
+                    }))}
+                    width={screenWidth - 80}
+                    height={220}
+                    chartConfig={chartConfig}
+                    accessor="amount"
+                    backgroundColor="transparent"
+                    paddingLeft="15"
+                    style={styles.chart}
+                    absolute
                   />
                 </View>
-                <Text style={[
-                  styles.metricValue,
-                  { color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }
-                ]}>
-                  ₹{Math.abs(spendingAnalysis.netFlow).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </View>
+            )}
+
+            {/* Income vs Expenses Comparison */}
+            {spendingAnalysis.totalReceived > 0 && spendingAnalysis.totalSpent > 0 && (
+              <View style={styles.chartCard}>
+                <Text style={styles.chartTitle}>Income vs Expenses</Text>
+                <View style={styles.comparisonBars}>
+                  <View style={styles.comparisonBarContainer}>
+                    <View style={styles.comparisonBarLabel}>
+                      <Icon name="arrow-down" size={16} color="#34C759" />
+                      <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Income</Text>
+                    </View>
+                    <View style={styles.comparisonBarWrapper}>
+                      <View 
+                        style={[
+                          styles.comparisonBar, 
+                          { 
+                            width: '100%', 
+                            backgroundColor: '#34C759',
+                            maxWidth: '100%'
+                          }
+                        ]} 
+                      >
+                        <Text style={styles.comparisonBarValue}>
+                          ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.comparisonBarContainer}>
+                    <View style={styles.comparisonBarLabel}>
+                      <Icon name="arrow-up" size={16} color="#FF3B30" />
+                      <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Expenses</Text>
+                    </View>
+                    <View style={styles.comparisonBarWrapper}>
+                      <View 
+                        style={[
+                          styles.comparisonBar, 
+                          { 
+                            width: `${Math.min(100, (spendingAnalysis.totalSpent / spendingAnalysis.totalReceived) * 100)}%`, 
+                            backgroundColor: '#FF3B30'
+                          }
+                        ]} 
+                      >
+                        <Text style={styles.comparisonBarValue}>
+                          ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.comparisonSummary}>
+                    <Text style={styles.comparisonSummaryText}>
+                      {spendingAnalysis.netFlow >= 0 ? 'You saved' : 'You overspent'}{' '}
+                      <Text style={{ fontWeight: 'bold', color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }}>
+                        ₹{Math.abs(spendingAnalysis.netFlow).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Savings Rate & Additional Stats */}
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                  <Icon name="trending-up" size={20} color="#007AFF" />
+                </View>
+                <Text style={styles.statValue}>
+                  {spendingAnalysis.savingsRate >= 0 ? '+' : ''}{spendingAnalysis.savingsRate.toFixed(1)}%
                 </Text>
-                <Text style={styles.metricLabel}>
-                  {spendingAnalysis.netFlow >= 0 ? 'Net Savings' : 'Net Spending'}
+                <Text style={styles.statLabel}>Savings Rate</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                  <Icon name="activity" size={20} color="#FF9500" />
+                </View>
+                <Text style={styles.statValue}>{spendingAnalysis.transactionCount}</Text>
+                <Text style={styles.statLabel}>Transactions</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: '#F3E5F5' }]}>
+                  <Icon name="credit-card" size={20} color="#5856D6" />
+                </View>
+                <Text style={styles.statValue}>
+                  ₹{spendingAnalysis.averageTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </Text>
+                <Text style={styles.statLabel}>Avg Transaction</Text>
+              </View>
+              
+              <View style={styles.statCard}>
+                <View style={[styles.statIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                  <Icon name="maximize-2" size={20} color="#FF3B30" />
+                </View>
+                <Text style={styles.statValue}>
+                  ₹{spendingAnalysis.largestTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </Text>
+                <Text style={styles.statLabel}>Largest Expense</Text>
               </View>
             </View>
 
@@ -750,10 +1085,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
   },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
   categoryItem: {
     backgroundColor: 'white',
     padding: 18,
@@ -814,6 +1145,307 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 8,
     fontWeight: '500',
+  },
+  // Dashboard Styles
+  dashboardCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  dashboardTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  dashboardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  dashboardMetricCard: {
+    width: '48%',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  dashboardIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  dashboardMetricValue: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 4,
+  },
+  dashboardMetricLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  // Overspending Styles
+  overspendingSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  overspendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  overspendingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+  overspendingChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  overspendingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+  },
+  overspendingChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#C62828',
+    marginRight: 6,
+  },
+  overspendingChipPercent: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#FF3B30',
+  },
+  // Spending Nature Styles
+  spendingNatureSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+  },
+  spendingNatureTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 12,
+  },
+  spendingNatureCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  spendingNatureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  spendingNatureLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  spendingNatureBadge: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  spendingNatureBadgeHigh: {
+    backgroundColor: '#FFEBEE',
+  },
+  spendingNatureBadgeModerate: {
+    backgroundColor: '#FFF3E0',
+  },
+  spendingNatureBadgeLow: {
+    backgroundColor: '#E8F5E9',
+  },
+  spendingNatureBadgeText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+  },
+  topCategoriesPreview: {
+    marginTop: 8,
+  },
+  topCategoriesLabel: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  topCategoriesChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  categoryChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1a1a1a',
+  },
+  // Chart Styles
+  chartCard: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 16,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  pieChartContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Stats Grid Styles
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  statCard: {
+    width: '48%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  statIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1a1a1a',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  // Comparison Bar Styles
+  comparisonBars: {
+    marginTop: 8,
+  },
+  comparisonBarContainer: {
+    marginBottom: 20,
+  },
+  comparisonBarLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  comparisonBarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  comparisonBarWrapper: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  comparisonBar: {
+    height: '100%',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 80,
+  },
+  comparisonBarValue: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+  },
+  comparisonSummary: {
+    marginTop: 8,
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  comparisonSummaryText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
   },
 });
 
