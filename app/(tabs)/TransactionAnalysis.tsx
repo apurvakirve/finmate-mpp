@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import FinanceBot from '../../components/FinanceBot';
 import { supabase } from '../../lib/supabase';
 
 const screenWidth = Dimensions.get('window').width;
@@ -120,6 +121,8 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
   const [activeTab, setActiveTab] = useState<'overview' | 'categories'>(initialTab);
+  const [showBot, setShowBot] = useState(false);
+  const [botAlert, setBotAlert] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTransactions();
@@ -451,11 +454,78 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   console.log('TransactionAnalysis - Transactions:', transactions.length);
   console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
 
+  // Generate alerts based on spending data
+  useEffect(() => {
+    if (!loading && spendingAnalysis) {
+      const alerts: string[] = [];
+      
+      // Check for overspending
+      if (spendingAnalysis.overspendingCategories.length > 0) {
+        alerts.push(`⚠️ Overspending detected in: ${spendingAnalysis.overspendingCategories.join(', ')}. Consider reviewing these categories.`);
+      }
+      
+      // Check savings rate
+      if (spendingAnalysis.savingsRate < 10 && spendingAnalysis.totalReceived > 0) {
+        alerts.push(`💡 Your savings rate is ${spendingAnalysis.savingsRate.toFixed(1)}%. Experts recommend saving at least 20% of income.`);
+      }
+      
+      // Check upcoming bills
+      if (spendingAnalysis.upcomingBillsEstimate > spendingAnalysis.totalSaved && spendingAnalysis.upcomingBillsEstimate > 0) {
+        alerts.push(`📅 Upcoming bills (₹${spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN')}) may exceed your savings. Plan ahead!`);
+      }
+      
+      // Check spending pattern
+      if (spendingAnalysis.spendingPattern === 'high') {
+        alerts.push(`📊 Your spending pattern is high. Consider reviewing your expenses to improve savings.`);
+      }
+      
+      if (alerts.length > 0 && !botAlert) {
+        setBotAlert(alerts[0]);
+      }
+    }
+  }, [loading, spendingAnalysis]);
+
+  const getBotUserData = () => {
+    return {
+      totalIncome: spendingAnalysis.totalReceived,
+      totalSpent: spendingAnalysis.totalSpent,
+      totalSaved: spendingAnalysis.totalSaved,
+      savingsRate: spendingAnalysis.savingsRate,
+      topCategories: spendingAnalysis.topSpendingCategories,
+      overspendingCategories: spendingAnalysis.overspendingCategories,
+      upcomingBills: spendingAnalysis.upcomingBillsEstimate,
+      transactionCount: spendingAnalysis.transactionCount,
+      spendingPattern: spendingAnalysis.spendingPattern,
+    };
+  };
+
   return (
     <SafeAreaView style={styles.container}>
+      {/* Finance Bot */}
+      <FinanceBot
+        userId={currentUser.id}
+        userSpendingData={getBotUserData()}
+        isVisible={showBot}
+        onClose={() => {
+          setShowBot(false);
+          setBotAlert(null);
+        }}
+        showAsAlert={!!botAlert}
+        alertMessage={botAlert || undefined}
+      />
+
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Spending Analysis</Text>
+        <View style={styles.headerTop}>
+          <Text style={styles.title}>Spending Analysis</Text>
+          <TouchableOpacity
+            style={styles.botButton}
+            onPress={() => setShowBot(true)}
+          >
+            <Icon name="message-circle" size={22} color="#007AFF" />
+            {botAlert && <View style={styles.alertBadge} />}
+          </TouchableOpacity>
+        </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.timeFilter}>
           {(['week', 'month', 'year'] as const).map(range => (
             <TouchableOpacity
@@ -903,11 +973,35 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 15,
+    flex: 1,
+  },
+  botButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E3F2FD',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  alertBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF3B30',
   },
   timeFilter: {
     marginTop: 1,
