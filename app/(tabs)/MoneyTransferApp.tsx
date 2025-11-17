@@ -2,26 +2,26 @@ import { Feather as Icon } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  FlatList,
-  Modal,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    FlatList,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import FinanceBot from '../../components/FinanceBot';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
-import InvestmentsTab from './InvestmentsTab';
 import EnhancedInvestments from './EnhancedInvestments';
 import PiggyBanks from './PiggyBanks';
 import SignupForm from './SignupForm';
@@ -60,6 +60,8 @@ export default function MoneyTransferApp() {
   const [cashAction, setCashAction] = useState<'add' | 'spend'>('spend');
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [currentLang, setCurrentLang] = useState<Language>('en');
+  const [showBot, setShowBot] = useState(false);
+  const [botAlert, setBotAlert] = useState<string | null>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -165,6 +167,47 @@ export default function MoneyTransferApp() {
     currentUserRef.current = currentUser;
     usersRef.current = users;
   }, [currentUser, users]);
+
+  // Generate alerts based on transactions
+  useEffect(() => {
+    if (currentUser && transactions.length > 0) {
+      const totalSpent = transactions
+        .filter((t: any) => t.from_user_id === currentUser.id)
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      
+      const totalReceived = transactions
+        .filter((t: any) => t.to_user_id === currentUser.id)
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+      const netFlow = totalReceived - totalSpent;
+      const savingsRate = totalReceived > 0 ? (Math.max(0, netFlow) / totalReceived) * 100 : 0;
+
+      const alerts: string[] = [];
+      
+      // Low savings rate alert
+      if (savingsRate < 10 && totalReceived > 0) {
+        alerts.push(`💡 Your savings rate is ${savingsRate.toFixed(1)}%. Try to save at least 20% of your income.`);
+      }
+      
+      // Negative flow alert
+      if (netFlow < 0) {
+        alerts.push(`⚠️ You've spent ₹${Math.abs(netFlow).toLocaleString('en-IN')} more than you received this month. Consider reviewing your expenses.`);
+      }
+      
+      // High transaction count
+      if (transactions.length > 50) {
+        alerts.push(`📊 You have ${transactions.length} transactions. Consider consolidating or reviewing your spending patterns.`);
+      }
+
+      if (alerts.length > 0 && !botAlert) {
+        setBotAlert(alerts[0]);
+        // Auto-show bot after 3 seconds
+        setTimeout(() => {
+          setShowBot(true);
+        }, 3000);
+      }
+    }
+  }, [currentUser, transactions]);
 
   // Load language on mount
   useEffect(() => {
@@ -1351,10 +1394,43 @@ export default function MoneyTransferApp() {
       {activeTab === 'investments' && (
         <EnhancedInvestments userId={currentUser.id} />
       )}
+
+      {/* Finance Bot - Available on all tabs */}
+      {currentUser && (
+        <FinanceBot
+          userId={currentUser.id}
+          userSpendingData={{
+            totalIncome: transactions
+              .filter((t: any) => t.to_user_id === currentUser.id)
+              .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+            totalSpent: transactions
+              .filter((t: any) => t.from_user_id === currentUser.id)
+              .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+            transactionCount: transactions.length,
+          }}
+          isVisible={showBot}
+          onClose={() => {
+            setShowBot(false);
+            setBotAlert(null);
+          }}
+          showAsAlert={!!botAlert}
+          alertMessage={botAlert || undefined}
+        />
+      )}
       </Animated.View>
 
       {/* Bottom Tabs */}
       <View style={styles.bottomTabContainer}>
+        {/* Floating Bot Button */}
+        {currentUser && (
+          <TouchableOpacity
+            style={styles.floatingBotButton}
+            onPress={() => setShowBot(true)}
+          >
+            <Icon name="message-circle" size={24} color="white" />
+            {botAlert && <View style={styles.floatingBotBadge} />}
+          </TouchableOpacity>
+        )}
         <TouchableOpacity
           style={styles.bottomTab}
           onPress={() => setActiveTab('transfer')}
@@ -2197,18 +2273,32 @@ langTextActive: {
     fontWeight: 'bold',
     color: '#333',
   },
-  infoBanner: {
-    flexDirection: 'row',
+  floatingBotButton: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 35 : 15,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#007AFF',
     alignItems: 'center',
-    backgroundColor: '#eaf4ff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 1000,
   },
-  infoBannerText: {
-    marginLeft: 10,
-    color: '#0a66c2',
-    flex: 1,
-    fontWeight: '600',
+  floatingBotBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FF3B30',
+    borderWidth: 2,
+    borderColor: 'white',
   },
 }); 
