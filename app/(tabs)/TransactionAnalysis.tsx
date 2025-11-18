@@ -1,19 +1,19 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
-import { supabase } from '../../lib/supabase';
 import FinanceBot from '../../components/FinanceBot';
 import FinanceToast from '../../components/FinanceToast';
+import { supabase } from '../../lib/supabase';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -118,70 +118,84 @@ const CATEGORY_CONFIG = {
 };
 
 export default function TransactionAnalysis({ currentUser, initialTab = 'overview' }: TransactionAnalysisProps) {
+  // State hooks - must be called unconditionally at the top level
+  // State hooks - must be called unconditionally at the top level
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
-  const [activeTab, setActiveTab] = useState<'overview' | 'categories'>(initialTab === 'coach' ? 'overview' : initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'coach'>(initialTab as 'overview' | 'categories' | 'coach');
   const [showBot, setShowBot] = useState(false);
   const [botAlert, setBotAlert] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
   const [showToast, setShowToast] = useState(false);
+  
+  // Calculate derived state
+  const showCoachTab = activeTab === 'coach';
+  const showOverviewTab = activeTab === 'overview';
+  const showCategoriesTab = activeTab === 'categories';
 
+  // Ensure the activeTab is in sync with initialTab
   useEffect(() => {
-    fetchTransactions();
-  }, [currentUser, timeRange]);
-
-  useEffect(() => {
-    if (initialTab === 'coach') {
-      setActiveTab('overview');
-    } else if (initialTab === 'overview' || initialTab === 'categories') {
-      setActiveTab(initialTab);
+    if (initialTab && ['overview', 'categories', 'coach'].includes(initialTab)) {
+      setActiveTab(initialTab as 'overview' | 'categories' | 'coach');
     }
   }, [initialTab]);
 
-  const fetchTransactions = async () => {
-    try {
-      setLoading(true);
-      
-      let query = supabase
-        .from('transactions')
-        .select('*')
-        .or(`from_user_id.eq.${currentUser.id},to_user_id.eq.${currentUser.id}`)
-        .order('created_at', { ascending: false });
+  // Fetch transactions when currentUser or timeRange changes
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        setLoading(true);
+        
+        if (!currentUser?.id) {
+          console.error('No current user found');
+          setLoading(false);
+          return;
+        }
 
-      const now = new Date();
-      let startDate = new Date();
-      
-      switch (timeRange) {
-        case 'week':
-          startDate.setDate(now.getDate() - 7);
-          break;
-        case 'month':
-          startDate.setMonth(now.getMonth() - 1);
-          break;
-        case 'year':
-          startDate.setFullYear(now.getFullYear() - 1);
-          break;
+        let query = supabase
+          .from('transactions')
+          .select('*')
+          .or(`from_user_id.eq.${currentUser.id},to_user_id.eq.${currentUser.id}`)
+          .order('created_at', { ascending: false });
+
+        const now = new Date();
+        let startDate = new Date();
+        
+        switch (timeRange) {
+          case 'week':
+            startDate.setDate(now.getDate() - 7);
+            break;
+          case 'month':
+            startDate.setMonth(now.getMonth() - 1);
+            break;
+          case 'year':
+            startDate.setFullYear(now.getFullYear() - 1);
+            break;
+        }
+        
+        query = query.gte('created_at', startDate.toISOString());
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setTransactions(data || []);
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      } finally {
+        setLoading(false);
       }
-      
-      query = query.gte('created_at', startDate.toISOString());
+    };
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setTransactions(data || []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchTransactions();
+  }, [currentUser, timeRange]);
 
   // Analyze spending patterns
   const spendingAnalysis: SpendingAnalysis = useMemo(() => {
-    if (!transactions.length) {
-        return {
+    // Ensure transactions is an array and has data
+    if (!Array.isArray(transactions) || transactions.length === 0) {
+      return {
         totalSpent: 0,
         totalReceived: 0,
         netFlow: 0,
@@ -204,20 +218,29 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       };
     }
 
-    const userTransactions = transactions.filter(t => 
-      t.from_user_id === currentUser.id || t.to_user_id === currentUser.id
-    );
+    // Ensure transactions have required fields and valid amounts
+    const userTransactions = transactions.filter(t => {
+      const hasValidIds = t && 
+                         (t.from_user_id === currentUser?.id || t.to_user_id === currentUser?.id);
+      const hasValidAmount = t.amount !== undefined && t.amount !== null && !isNaN(Number(t.amount));
+      return hasValidIds && hasValidAmount;
+    });
 
     // Calculate basic metrics
-    const sentTransactions = userTransactions.filter(t => t.from_user_id === currentUser.id);
-    const receivedTransactions = userTransactions.filter(t => t.to_user_id === currentUser.id);
+    const sentTransactions = userTransactions.filter(t => t && t.from_user_id === currentUser?.id);
+    const receivedTransactions = userTransactions.filter(t => t && t.to_user_id === currentUser?.id);
 
-    const totalSpent = sentTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalReceived = receivedTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const totalSpent = sentTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const totalReceived = receivedTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const netFlow = totalReceived - totalSpent;
     const transactionCount = userTransactions.length;
     const averageTransaction = transactionCount > 0 ? (totalSpent + totalReceived) / transactionCount : 0;
-    const largestTransaction = Math.max(...userTransactions.map(t => t.amount));
+    
+    // Safely calculate largest transaction
+    const amounts = userTransactions
+      .map(t => Number(t.amount) || 0)
+      .filter(amount => !isNaN(amount));
+    const largestTransaction = amounts.length > 0 ? Math.max(...amounts) : 0;
 
     // Categorize spending using transaction_type
     const spendingByCategory: { [key: string]: number } = {};
@@ -231,11 +254,13 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     });
 
     sentTransactions.forEach(transaction => {
-      const amount = transaction.amount;
-      const recipient = transaction.to_name;
-      const date = new Date(transaction.created_at);
+      const amount = Number(transaction.amount) || 0;
+      const recipient = transaction.to_name || 'Unknown';
+      const date = transaction.created_at ? new Date(transaction.created_at) : new Date();
       const dayKey = date.toISOString().split('T')[0];
-      const category = transaction.transaction_type || 'other';
+      const category = (transaction.transaction_type && typeof transaction.transaction_type === 'string') 
+        ? transaction.transaction_type.toLowerCase() 
+        : 'other';
       
       // Track daily spending
       dailySpendingMap[dayKey] = (dailySpendingMap[dayKey] || 0) + amount;
@@ -259,9 +284,11 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     });
 
     receivedTransactions.forEach(transaction => {
-      const sender = transaction.from_name;
-      const amount = transaction.amount;
-      const category = transaction.transaction_type || 'other';
+      const sender = transaction.from_name || 'Unknown';
+      const amount = Number(transaction.amount) || 0;
+      const category = (transaction.transaction_type && typeof transaction.transaction_type === 'string')
+        ? transaction.transaction_type.toLowerCase()
+        : 'other';
 
       // Update category breakdown for received transactions
       if (!categoryBreakdownMap[category]) {
@@ -277,15 +304,22 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       contactMap[sender].count += 1;
     });
 
-    // Convert category breakdown to array
+    // Convert category breakdown to array with validation
     const categoryBreakdown = Object.entries(categoryBreakdownMap)
-      .map(([category, data]) => ({
-        category,
-        spent: data.spent,
-        received: data.received,
-        count: data.count,
-        percentage: totalSpent > 0 ? (data.spent / totalSpent) * 100 : 0
-      }))
+      .map(([category, data]) => {
+        const spent = Number(data.spent) || 0;
+        const received = Number(data.received) || 0;
+        const count = Number(data.count) || 0;
+        const percentage = totalSpent > 0 ? (spent / totalSpent) * 100 : 0;
+        
+        return {
+          category,
+          spent,
+          received,
+          count,
+          percentage
+        };
+      })
       .sort((a, b) => b.spent - a.spent);
 
     // Convert contact map to array and sort
@@ -445,7 +479,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       savingsRate,
       weeklySpendingData
     };
-  }, [transactions, currentUser.id, timeRange]);
+  }, [transactions, currentUser?.id, timeRange]);
 
 
 
@@ -644,7 +678,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       {/* Navigation Tabs */}
       <View style={styles.tabContainer}>
-        {(['overview', 'categories'] as const).map(tab => (
+        {(['overview', 'categories', 'coach'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -657,7 +691,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
               styles.tabText,
               activeTab === tab && styles.activeTabText
             ]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'coach' ? 'Coach' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -665,8 +699,40 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       <View style={{ flex: 1 }}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
+        {/* Coach Tab - Using showCoachTab variable for conditional rendering */}
+        {showCoachTab ? (
+          <View style={styles.coachContainer}>
+            <Text style={styles.coachTitle}>Financial Coach</Text>
+            <Text style={styles.coachSubtitle}>Get personalized financial advice</Text>
+            
+            <TouchableOpacity 
+              style={styles.coachButton}
+              onPress={() => setShowBot(true)}
+            >
+              <Icon name="message-circle" size={20} color="white" style={styles.coachButtonIcon} />
+              <Text style={styles.coachButtonText}>Chat with Financial Coach</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.coachTips}>
+              <Text style={styles.coachTipsTitle}>Quick Tips</Text>
+              <View style={styles.tipItem}>
+                <Icon name="trending-up" size={16} color="#4CAF50" />
+                <Text style={styles.tipText}>Save at least 20% of your income</Text>
+              </View>
+              <View style={styles.tipItem}>
+                <Icon name="alert-triangle" size={16} color="#FFA000" />
+                <Text style={styles.tipText}>High-interest debt should be your priority</Text>
+              </View>
+              <View style={styles.tipItem}>
+                <Icon name="bar-chart-2" size={16} color="#2196F3" />
+                <Text style={styles.tipText}>Diversify your investments</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Overview Tab - Using showOverviewTab variable for conditional rendering */}
+        {showOverviewTab && (
           <View>
             {/* Mini Dashboard */}
             <View style={styles.dashboardCard}>
@@ -835,6 +901,8 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                   showValuesOnTopOfBars
                   withInnerLines={false}
                   fromZero
+                  yAxisLabel="₹"
+                  yAxisSuffix=""
                 />
               </View>
             )}
@@ -1000,8 +1068,8 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           </View>
         )}
 
-        {/* Categories Tab */}
-        {activeTab === 'categories' && (
+        {/* Categories Tab - Using showCategoriesTab variable for conditional rendering */}
+        {showCategoriesTab && (
           <View>
             <Text style={styles.sectionTitle}>Spending by Category</Text>
             {spendingAnalysis.categoryBreakdown
@@ -1017,7 +1085,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                         </View>
                         <View style={styles.categoryTextContainer}>
                           <Text style={styles.categoryName}>{config.label}</Text>
-                          <Text style={styles.categoryCount}>{category.count} transactions</Text>
+                          <Text style={styles.transactionCount}>{category.count} transactions</Text>
                         </View>
                       </View>
                       <Text style={styles.categoryAmount}>₹{category.spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
@@ -1047,6 +1115,66 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 }
 
 const styles = StyleSheet.create({
+  // Coach Tab Styles
+  coachContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    margin: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  coachTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#1a1a1a',
+  },
+  coachSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  coachButton: {
+    flexDirection: 'row',
+    backgroundColor: '#007AFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  coachButtonIcon: {
+    marginRight: 8,
+  },
+  coachButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  coachTips: {
+    marginTop: 16,
+  },
+  coachTipsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#1a1a1a',
+  },
+  tipItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  tipText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#444',
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
@@ -1306,6 +1434,12 @@ const styles = StyleSheet.create({
   },
   categoryTextContainer: {
     flex: 1,
+    marginLeft: 10,
+  },
+  transactionCount: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
   categoryName: {
     fontSize: 16,

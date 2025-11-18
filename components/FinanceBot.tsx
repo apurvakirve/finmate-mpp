@@ -2,7 +2,6 @@ import { Feather as Icon } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Modal,
@@ -68,7 +67,7 @@ export default function FinanceBot({
         friction: 8,
       }).start();
       
-      // Add welcome message
+      // Add welcome message only if no messages exist
       if (messages.length === 0) {
         const welcomeMsg: Message = {
           id: Date.now().toString(),
@@ -169,77 +168,126 @@ export default function FinanceBot({
       context += `- Overspending Areas: ${overspendingCategories.join(', ')}\n`;
     }
     
-    context += '\nProvide helpful, concise financial advice based on this data. Keep responses under 200 words unless the user asks for detailed analysis.';
-    
     return context;
   };
 
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
-
+    
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputText.trim(),
+      text: inputText,
       isUser: true,
       timestamp: new Date(),
     };
-
+    
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
-
+    
     try {
-      const context = buildContextPrompt();
-      const prompt = `You are a helpful financial assistant. Answer the user's question about their finances. ${context}\n\nUser Question: ${userMessage.text}\n\nProvide a helpful, friendly response:`;
-
+      // Prepare the prompt with context
+      const prompt = `You are a helpful financial assistant. The user has the following financial data:
+      - Total Income: ${userSpendingData?.totalIncome || 0}
+      - Total Spent: ${userSpendingData?.totalSpent || 0}
+      - Savings Rate: ${userSpendingData?.savingsRate || 0}%
+      - Transaction Count: ${userSpendingData?.transactionCount || 0}
+      
+      User Question: ${inputText}
+      
+      Please provide a helpful and concise response.`;
+      
+      // Call Gemini API with updated parameters
       const response = await fetch(GEMINI_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
+          model: 'gemini-2.0-flash',
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ],
           generationConfig: {
             temperature: 0.7,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 1024,
+            maxOutputTokens: 500,
+            topP: 0.8,
+            topK: 40
           },
-        }),
+          safetySettings: [
+            {
+              category: 'HARM_CATEGORY_HARASSMENT',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_HATE_SPEECH',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              threshold: 'BLOCK_NONE'
+            }
+          ]
+        })
       });
-
+      
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorData)}`);
       }
-
+      
       const data = await response.json();
-      const botResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 
-                         'I apologize, but I couldn\'t process that request. Could you please rephrase your question?';
-
-      const botMessage: Message = {
+      
+      // Handle different response formats from Gemini API
+      let aiText = "I'm sorry, I couldn't process that request at the moment. Could you try rephrasing your question?";
+      
+      // Try different response formats
+      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        aiText = data.candidates[0].content.parts[0].text;
+      } else if (data.choices?.[0]?.message?.content) {
+        aiText = data.choices[0].message.content;
+      } else if (data.results?.[0]?.text) {
+        aiText = data.results[0].text;
+      } else if (data.text) {
+        aiText = data.text;
+      } else {
+        console.warn('Unexpected API response format:', data);
+      }
+      
+      const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: botResponse,
+        text: aiText,
         isUser: false,
         timestamp: new Date(),
       };
-
-      setMessages(prev => [...prev, botMessage]);
+      
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error('Error calling Gemini API:', error);
+      console.error('Error in handleSend:', error);
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'I apologize, but I encountered an error. Please try again in a moment. If the issue persists, check your internet connection.',
+        text: "I'm having trouble connecting to the server. Please check your internet connection and try again.",
         isUser: false,
         timestamp: new Date(),
       };
+      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSend = async () => {
+    await sendMessage();
   };
 
   const slideStyle = {
@@ -338,7 +386,7 @@ export default function FinanceBot({
               >
                 {!message.isUser && (
                   <View style={styles.botMessageIcon}>
-                    <Icon name="bot" size={16} color="#007AFF" />
+                    <Icon name="message-circle" size={16} color="#007AFF" />
                   </View>
                 )}
                 <View
@@ -361,7 +409,7 @@ export default function FinanceBot({
             {isLoading && (
               <View style={[styles.messageContainer, styles.botMessage]}>
                 <View style={styles.botMessageIcon}>
-                  <Icon name="bot" size={16} color="#007AFF" />
+                  <Icon name="message-circle" size={16} color="#007AFF" />
                 </View>
                 <View style={[styles.messageBubble, styles.botBubble]}>
                   <ActivityIndicator size="small" color="#007AFF" />

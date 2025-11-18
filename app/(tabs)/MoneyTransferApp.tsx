@@ -19,7 +19,9 @@ import {
     View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import CoachTab from '../../components/CoachTab';
 import FinanceBot from '../../components/FinanceBot';
+import FinanceToast from '../../components/FinanceToast';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
 import EnhancedInvestments from './EnhancedInvestments';
@@ -1473,9 +1475,12 @@ export default function MoneyTransferApp() {
         <TransactionAnalysis currentUser={currentUser} />
       )}
 
-      {/* Coach Tab Content (shows Coach directly) */}
+      {/* Coach Tab Content */}
       {activeTab === 'coach' && (
-        <TransactionAnalysis currentUser={currentUser} initialTab="coach" />
+        <CoachTab 
+          currentUser={currentUser} 
+          onOpenChat={() => setShowBot(true)} 
+        />
       )}
 
       {/* Investments Tab */}

@@ -2,15 +2,15 @@ import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  Modal,
-  PanResponder,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    Modal,
+    PanResponder,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 export type EnvelopeKey = string;
@@ -1761,8 +1761,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 14,
   },
-
-  // --- Schedule row
   scheduleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1789,8 +1787,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 12,
   },
-
-  // --- Buckets & jars
   jarSection: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
@@ -1846,8 +1842,6 @@ const styles = StyleSheet.create({
   bucketBalance: {
     color: '#6B7280',
   },
-
-  // --- Jar cards
   jarCardsScroll: {
     marginTop: 8,
   },
