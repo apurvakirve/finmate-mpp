@@ -11,8 +11,9 @@ import {
   View
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
-import FinanceBot from '../../components/FinanceBot';
 import { supabase } from '../../lib/supabase';
+import FinanceBot from '../../components/FinanceBot';
+import FinanceToast from '../../components/FinanceToast';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -101,7 +102,7 @@ interface SpendingAnalysis {
 
 interface TransactionAnalysisProps {
   currentUser: any;
-  initialTab?: 'overview' | 'categories';
+  initialTab?: 'overview' | 'categories' | 'coach';
 }
 
 // Category colors and icons
@@ -120,16 +121,23 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
-  const [activeTab, setActiveTab] = useState<'overview' | 'categories'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'categories'>(initialTab === 'coach' ? 'overview' : initialTab);
   const [showBot, setShowBot] = useState(false);
   const [botAlert, setBotAlert] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     fetchTransactions();
   }, [currentUser, timeRange]);
 
   useEffect(() => {
-    setActiveTab(initialTab);
+    if (initialTab === 'coach') {
+      setActiveTab('overview');
+    } else if (initialTab === 'overview' || initialTab === 'categories') {
+      setActiveTab(initialTab);
+    }
   }, [initialTab]);
 
   const fetchTransactions = async () => {
@@ -454,36 +462,111 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   console.log('TransactionAnalysis - Transactions:', transactions.length);
   console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
 
-  // Generate alerts based on spending data
+  // Generate alerts and toast notifications based on spending data
   useEffect(() => {
-    if (!loading && spendingAnalysis) {
-      const alerts: string[] = [];
+    if (!loading && spendingAnalysis && transactions.length > 0) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+      // Calculate today's spending
+      const todaySpending = transactions
+        .filter((t: Transaction) => {
+          const txDate = new Date(t.created_at);
+          return txDate >= today && t.from_user_id === currentUser.id;
+        })
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+      // Calculate this week's spending
+      const weekSpending = transactions
+        .filter((t: Transaction) => {
+          const txDate = new Date(t.created_at);
+          return txDate >= weekAgo && t.from_user_id === currentUser.id;
+        })
+        .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+      // Calculate average daily spending
+      const avgDailySpending = spendingAnalysis.totalSpent / (timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 365);
+
+      // Generate contextual alerts
+      const alerts: Array<{ message: string; type: 'info' | 'warning' | 'success' | 'error' }> = [];
       
+      // Today's spending alert
+      if (todaySpending > avgDailySpending * 1.5 && todaySpending > 0) {
+        alerts.push({
+          message: `💰 You've spent ₹${todaySpending.toLocaleString('en-IN')} today - ${((todaySpending / avgDailySpending - 1) * 100).toFixed(0)}% more than average. Make sure to save some!`,
+          type: 'warning'
+        });
+      }
+
+      // This week's spending alert
+      if (weekSpending > spendingAnalysis.totalSpent * 0.3 && weekSpending > 0) {
+        const weekIncrease = timeRange === 'week' ? 'this week' : 'recently';
+        alerts.push({
+          message: `📊 You've spent ₹${weekSpending.toLocaleString('en-IN')} ${weekIncrease}. Consider reducing expenses to meet your savings goals.`,
+          type: 'warning'
+        });
+      }
+
       // Check for overspending
       if (spendingAnalysis.overspendingCategories.length > 0) {
-        alerts.push(`⚠️ Overspending detected in: ${spendingAnalysis.overspendingCategories.join(', ')}. Consider reviewing these categories.`);
+        alerts.push({
+          message: `⚠️ Overspending detected in: ${spendingAnalysis.overspendingCategories.join(', ')}. Review these categories.`,
+          type: 'error'
+        });
       }
       
       // Check savings rate
       if (spendingAnalysis.savingsRate < 10 && spendingAnalysis.totalReceived > 0) {
-        alerts.push(`💡 Your savings rate is ${spendingAnalysis.savingsRate.toFixed(1)}%. Experts recommend saving at least 20% of income.`);
+        alerts.push({
+          message: `💡 Your savings rate is ${spendingAnalysis.savingsRate.toFixed(1)}%. Aim for at least 20% to build wealth!`,
+          type: 'warning'
+        });
       }
       
       // Check upcoming bills
       if (spendingAnalysis.upcomingBillsEstimate > spendingAnalysis.totalSaved && spendingAnalysis.upcomingBillsEstimate > 0) {
-        alerts.push(`📅 Upcoming bills (₹${spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN')}) may exceed your savings. Plan ahead!`);
+        alerts.push({
+          message: `📅 Upcoming bills (₹${spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN')}) may exceed your savings. Plan ahead!`,
+          type: 'warning'
+        });
       }
       
       // Check spending pattern
       if (spendingAnalysis.spendingPattern === 'high') {
-        alerts.push(`📊 Your spending pattern is high. Consider reviewing your expenses to improve savings.`);
+        alerts.push({
+          message: `📊 High spending pattern detected. Review your expenses to improve savings this ${timeRange}.`,
+          type: 'warning'
+        });
       }
-      
-      if (alerts.length > 0 && !botAlert) {
-        setBotAlert(alerts[0]);
+
+      // Positive reinforcement
+      if (spendingAnalysis.savingsRate >= 20 && spendingAnalysis.totalReceived > 0) {
+        alerts.push({
+          message: `🎉 Great job! You're saving ${spendingAnalysis.savingsRate.toFixed(1)}% of your income. Keep it up!`,
+          type: 'success'
+        });
+      }
+
+      // Show toast notifications (one at a time, rotating)
+      if (alerts.length > 0) {
+        const firstAlert = alerts[0];
+        if (!toastMessage) {
+          setToastMessage(firstAlert.message);
+          setToastType(firstAlert.type);
+          setShowToast(true);
+          
+          // Set bot alert for persistent notification
+          if (!botAlert) {
+            setBotAlert(firstAlert.message);
+          }
+        }
       }
     }
-  }, [loading, spendingAnalysis]);
+  }, [loading, spendingAnalysis, transactions, timeRange]);
 
   const getBotUserData = () => {
     return {
@@ -501,6 +584,18 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Finance Toast Notification */}
+      <FinanceToast
+        message={toastMessage || ''}
+        type={toastType}
+        isVisible={showToast}
+        onDismiss={() => {
+          setShowToast(false);
+          setToastMessage(null);
+        }}
+        duration={6000}
+      />
+
       {/* Finance Bot */}
       <FinanceBot
         userId={currentUser.id}

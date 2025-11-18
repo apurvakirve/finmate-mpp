@@ -62,6 +62,9 @@ export default function MoneyTransferApp() {
   const [currentLang, setCurrentLang] = useState<Language>('en');
   const [showBot, setShowBot] = useState(false);
   const [botAlert, setBotAlert] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
+  const [showToast, setShowToast] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -168,9 +171,40 @@ export default function MoneyTransferApp() {
     usersRef.current = users;
   }, [currentUser, users]);
 
-  // Generate alerts based on transactions
+  // Generate alerts and toast notifications based on transactions
   useEffect(() => {
     if (currentUser && transactions.length > 0) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+      // Calculate today's spending
+      const todaySpending = transactions
+        .filter((t: any) => {
+          const txDate = new Date(t.created_at);
+          return txDate >= today && t.from_user_id === currentUser.id;
+        })
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+      // Calculate this week's spending
+      const weekSpending = transactions
+        .filter((t: any) => {
+          const txDate = new Date(t.created_at);
+          return txDate >= weekAgo && t.from_user_id === currentUser.id;
+        })
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+      // Calculate this month's spending
+      const monthSpending = transactions
+        .filter((t: any) => {
+          const txDate = new Date(t.created_at);
+          return txDate >= monthAgo && t.from_user_id === currentUser.id;
+        })
+        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
       const totalSpent = transactions
         .filter((t: any) => t.from_user_id === currentUser.id)
         .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
@@ -181,30 +215,70 @@ export default function MoneyTransferApp() {
 
       const netFlow = totalReceived - totalSpent;
       const savingsRate = totalReceived > 0 ? (Math.max(0, netFlow) / totalReceived) * 100 : 0;
+      const avgDailySpending = monthSpending / 30;
+      const avgWeeklySpending = monthSpending / 4.33;
 
-      const alerts: string[] = [];
+      const alerts: Array<{ message: string; type: 'info' | 'warning' | 'success' | 'error' }> = [];
+
+      // Today's spending alert
+      if (todaySpending > avgDailySpending * 1.5 && todaySpending > 0) {
+        alerts.push({
+          message: `💰 You've spent ₹${todaySpending.toLocaleString('en-IN')} today - ${((todaySpending / avgDailySpending - 1) * 100).toFixed(0)}% more than average. Make sure to save some!`,
+          type: 'warning'
+        });
+      }
+
+      // This week's spending alert
+      if (weekSpending > avgWeeklySpending * 1.2 && weekSpending > 0) {
+        alerts.push({
+          message: `📊 You've spent ₹${weekSpending.toLocaleString('en-IN')} this week - more than usual. Try to save some for the rest of the week!`,
+          type: 'warning'
+        });
+      }
       
       // Low savings rate alert
       if (savingsRate < 10 && totalReceived > 0) {
-        alerts.push(`💡 Your savings rate is ${savingsRate.toFixed(1)}%. Try to save at least 20% of your income.`);
+        alerts.push({
+          message: `💡 Your savings rate is ${savingsRate.toFixed(1)}%. Try to save at least 20% of your income.`,
+          type: 'warning'
+        });
       }
       
       // Negative flow alert
       if (netFlow < 0) {
-        alerts.push(`⚠️ You've spent ₹${Math.abs(netFlow).toLocaleString('en-IN')} more than you received this month. Consider reviewing your expenses.`);
+        alerts.push({
+          message: `⚠️ You've spent ₹${Math.abs(netFlow).toLocaleString('en-IN')} more than you received this month. Consider reviewing your expenses.`,
+          type: 'error'
+        });
       }
       
       // High transaction count
       if (transactions.length > 50) {
-        alerts.push(`📊 You have ${transactions.length} transactions. Consider consolidating or reviewing your spending patterns.`);
+        alerts.push({
+          message: `📊 You have ${transactions.length} transactions. Consider consolidating or reviewing your spending patterns.`,
+          type: 'info'
+        });
       }
 
-      if (alerts.length > 0 && !botAlert) {
-        setBotAlert(alerts[0]);
-        // Auto-show bot after 3 seconds
-        setTimeout(() => {
-          setShowBot(true);
-        }, 3000);
+      // Positive reinforcement
+      if (savingsRate >= 20 && totalReceived > 0) {
+        alerts.push({
+          message: `🎉 Excellent! You're saving ${savingsRate.toFixed(1)}% of your income. Keep it up!`,
+          type: 'success'
+        });
+      }
+
+      // Show toast notifications (one at a time)
+      if (alerts.length > 0 && !toastMessage) {
+        const firstAlert = alerts[0];
+        setToastMessage(firstAlert.message);
+        setToastType(firstAlert.type);
+        setShowToast(true);
+        
+        // Set bot alert for persistent notification
+        if (!botAlert) {
+          setBotAlert(firstAlert.message);
+        }
       }
     }
   }, [currentUser, transactions]);
@@ -1255,6 +1329,20 @@ export default function MoneyTransferApp() {
   // Main app screen with tabs
   return (
     <SafeAreaView style={styles.mainContainer}>
+      {/* Finance Toast Notification */}
+      {currentUser && (
+        <FinanceToast
+          message={toastMessage || ''}
+          type={toastType}
+          isVisible={showToast}
+          onDismiss={() => {
+            setShowToast(false);
+            setToastMessage(null);
+          }}
+          duration={6000}
+        />
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <View>
