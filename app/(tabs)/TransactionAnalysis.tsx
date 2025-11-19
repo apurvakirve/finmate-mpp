@@ -1,14 +1,14 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Dimensions,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import FinanceBot from '../../components/FinanceBot';
@@ -129,7 +129,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
   const [showToast, setShowToast] = useState(false);
-  
+
   // Calculate derived state
   const showCoachTab = activeTab === 'coach';
   const showOverviewTab = activeTab === 'overview';
@@ -147,7 +147,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     const fetchTransactions = async () => {
       try {
         setLoading(true);
-        
+
         if (!currentUser?.id) {
           console.error('No current user found');
           setLoading(false);
@@ -162,7 +162,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
         const now = new Date();
         let startDate = new Date();
-        
+
         switch (timeRange) {
           case 'week':
             startDate.setDate(now.getDate() - 7);
@@ -174,7 +174,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
             startDate.setFullYear(now.getFullYear() - 1);
             break;
         }
-        
+
         query = query.gte('created_at', startDate.toISOString());
 
         const { data, error } = await query;
@@ -220,8 +220,8 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
     // Ensure transactions have required fields and valid amounts
     const userTransactions = transactions.filter(t => {
-      const hasValidIds = t && 
-                         (t.from_user_id === currentUser?.id || t.to_user_id === currentUser?.id);
+      const hasValidIds = t &&
+        (t.from_user_id === currentUser?.id || t.to_user_id === currentUser?.id);
       const hasValidAmount = t.amount !== undefined && t.amount !== null && !isNaN(Number(t.amount));
       return hasValidIds && hasValidAmount;
     });
@@ -235,7 +235,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     const netFlow = totalReceived - totalSpent;
     const transactionCount = userTransactions.length;
     const averageTransaction = transactionCount > 0 ? (totalSpent + totalReceived) / transactionCount : 0;
-    
+
     // Safely calculate largest transaction
     const amounts = userTransactions
       .map(t => Number(t.amount) || 0)
@@ -258,10 +258,10 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       const recipient = transaction.to_name || 'Unknown';
       const date = transaction.created_at ? new Date(transaction.created_at) : new Date();
       const dayKey = date.toISOString().split('T')[0];
-      const category = (transaction.transaction_type && typeof transaction.transaction_type === 'string') 
-        ? transaction.transaction_type.toLowerCase() 
+      const category = (transaction.transaction_type && typeof transaction.transaction_type === 'string')
+        ? transaction.transaction_type.toLowerCase()
         : 'other';
-      
+
       // Track daily spending
       dailySpendingMap[dayKey] = (dailySpendingMap[dayKey] || 0) + amount;
 
@@ -311,7 +311,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         const received = Number(data.received) || 0;
         const count = Number(data.count) || 0;
         const percentage = totalSpent > 0 ? (spent / totalSpent) * 100 : 0;
-        
+
         return {
           category,
           spent,
@@ -338,7 +338,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     userTransactions.forEach(transaction => {
       const date = new Date(transaction.created_at);
       const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-      
+
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { spent: 0, received: 0 };
       }
@@ -370,11 +370,11 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
     // Determine spending pattern - FIXED: Better calculation
     let spendingPattern: 'high' | 'moderate' | 'low' = 'low';
-    const daysInRange = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : timeRange === 'year' ? 365 : 
-                       Math.max(1, Math.ceil((new Date().getTime() - new Date(Math.min(...userTransactions.map(t => new Date(t.created_at).getTime()))).getTime()) / (1000 * 60 * 60 * 24)));
-    
+    const daysInRange = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : timeRange === 'year' ? 365 :
+      Math.max(1, Math.ceil((new Date().getTime() - new Date(Math.min(...userTransactions.map(t => new Date(t.created_at).getTime()))).getTime()) / (1000 * 60 * 60 * 24)));
+
     const dailyAverageSpending = totalSpent / daysInRange;
-    
+
     if (dailyAverageSpending > 100) spendingPattern = 'high';
     else if (dailyAverageSpending > 30) spendingPattern = 'moderate';
     else spendingPattern = 'low';
@@ -391,7 +391,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
     // Generate spending insights
     const spendingInsights: string[] = [];
-    
+
     if (totalSpent > 0) {
       // Spending pattern insight
       spendingInsights.push(`Your spending pattern is ${spendingPattern}. You spend an average of ₹${dailyAverageSpending.toFixed(2)} per day.`);
@@ -439,7 +439,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       }
       return sum;
     }, 0);
-    
+
     const upcomingBillsEstimate = Math.round(monthlyAverageForBills);
 
     // Calculate total saved (net positive flow, but also consider it as income - expenses)
@@ -481,21 +481,6 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     };
   }, [transactions, currentUser?.id, timeRange]);
 
-
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Analyzing your spending patterns...</Text>
-      </SafeAreaView>
-    );
-  }
-
-  // Debug: Check if we have data
-  console.log('TransactionAnalysis - Transactions:', transactions.length);
-  console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
-
   // Generate alerts and toast notifications based on spending data
   useEffect(() => {
     if (!loading && spendingAnalysis && transactions.length > 0) {
@@ -527,7 +512,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       // Generate contextual alerts
       const alerts: Array<{ message: string; type: 'info' | 'warning' | 'success' | 'error' }> = [];
-      
+
       // Today's spending alert
       if (todaySpending > avgDailySpending * 1.5 && todaySpending > 0) {
         alerts.push({
@@ -552,7 +537,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           type: 'error'
         });
       }
-      
+
       // Check savings rate
       if (spendingAnalysis.savingsRate < 10 && spendingAnalysis.totalReceived > 0) {
         alerts.push({
@@ -560,7 +545,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           type: 'warning'
         });
       }
-      
+
       // Check upcoming bills
       if (spendingAnalysis.upcomingBillsEstimate > spendingAnalysis.totalSaved && spendingAnalysis.upcomingBillsEstimate > 0) {
         alerts.push({
@@ -568,7 +553,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           type: 'warning'
         });
       }
-      
+
       // Check spending pattern
       if (spendingAnalysis.spendingPattern === 'high') {
         alerts.push({
@@ -592,7 +577,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
           setToastMessage(firstAlert.message);
           setToastType(firstAlert.type);
           setShowToast(true);
-          
+
           // Set bot alert for persistent notification
           if (!botAlert) {
             setBotAlert(firstAlert.message);
@@ -601,6 +586,19 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       }
     }
   }, [loading, spendingAnalysis, transactions, timeRange]);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.center}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Analyzing your spending patterns...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // Debug: Check if we have data
+  console.log('TransactionAnalysis - Transactions:', transactions.length);
+  console.log('TransactionAnalysis - Spending Analysis:', spendingAnalysis);
 
   const getBotUserData = () => {
     return {
@@ -699,416 +697,416 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       <View style={{ flex: 1 }}>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Coach Tab - Using showCoachTab variable for conditional rendering */}
-        {showCoachTab ? (
-          <View style={styles.coachContainer}>
-            <Text style={styles.coachTitle}>Financial Coach</Text>
-            <Text style={styles.coachSubtitle}>Get personalized financial advice</Text>
-            
-            <TouchableOpacity 
-              style={styles.coachButton}
-              onPress={() => setShowBot(true)}
-            >
-              <Icon name="message-circle" size={20} color="white" style={styles.coachButtonIcon} />
-              <Text style={styles.coachButtonText}>Chat with Financial Coach</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.coachTips}>
-              <Text style={styles.coachTipsTitle}>Quick Tips</Text>
-              <View style={styles.tipItem}>
-                <Icon name="trending-up" size={16} color="#4CAF50" />
-                <Text style={styles.tipText}>Save at least 20% of your income</Text>
-              </View>
-              <View style={styles.tipItem}>
-                <Icon name="alert-triangle" size={16} color="#FFA000" />
-                <Text style={styles.tipText}>High-interest debt should be your priority</Text>
-              </View>
-              <View style={styles.tipItem}>
-                <Icon name="bar-chart-2" size={16} color="#2196F3" />
-                <Text style={styles.tipText}>Diversify your investments</Text>
+          {/* Coach Tab - Using showCoachTab variable for conditional rendering */}
+          {showCoachTab ? (
+            <View style={styles.coachContainer}>
+              <Text style={styles.coachTitle}>Financial Coach</Text>
+              <Text style={styles.coachSubtitle}>Get personalized financial advice</Text>
+
+              <TouchableOpacity
+                style={styles.coachButton}
+                onPress={() => setShowBot(true)}
+              >
+                <Icon name="message-circle" size={20} color="white" style={styles.coachButtonIcon} />
+                <Text style={styles.coachButtonText}>Chat with Financial Coach</Text>
+              </TouchableOpacity>
+
+              <View style={styles.coachTips}>
+                <Text style={styles.coachTipsTitle}>Quick Tips</Text>
+                <View style={styles.tipItem}>
+                  <Icon name="trending-up" size={16} color="#4CAF50" />
+                  <Text style={styles.tipText}>Save at least 20% of your income</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Icon name="alert-triangle" size={16} color="#FFA000" />
+                  <Text style={styles.tipText}>High-interest debt should be your priority</Text>
+                </View>
+                <View style={styles.tipItem}>
+                  <Icon name="bar-chart-2" size={16} color="#2196F3" />
+                  <Text style={styles.tipText}>Diversify your investments</Text>
+                </View>
               </View>
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        {/* Overview Tab - Using showOverviewTab variable for conditional rendering */}
-        {showOverviewTab && (
-          <View>
-            {/* Mini Dashboard */}
-            <View style={styles.dashboardCard}>
-              <Text style={styles.dashboardTitle}>Financial Overview</Text>
-              <Text style={styles.dashboardSubtitle}>
-                {timeRange === 'week' ? 'This Week' : timeRange === 'month' ? 'This Month' : 'This Year'}
-              </Text>
-              
-              <View style={styles.dashboardGrid}>
-                {/* Total Income */}
-                <View style={styles.dashboardMetricCard}>
-                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E8F5E9' }]}>
-                    <Icon name="arrow-down" size={24} color="#34C759" />
+          {/* Overview Tab - Using showOverviewTab variable for conditional rendering */}
+          {showOverviewTab && (
+            <View>
+              {/* Mini Dashboard */}
+              <View style={styles.dashboardCard}>
+                <Text style={styles.dashboardTitle}>Financial Overview</Text>
+                <Text style={styles.dashboardSubtitle}>
+                  {timeRange === 'week' ? 'This Week' : timeRange === 'month' ? 'This Month' : 'This Year'}
+                </Text>
+
+                <View style={styles.dashboardGrid}>
+                  {/* Total Income */}
+                  <View style={styles.dashboardMetricCard}>
+                    <View style={[styles.dashboardIconContainer, { backgroundColor: '#E8F5E9' }]}>
+                      <Icon name="arrow-down" size={24} color="#34C759" />
+                    </View>
+                    <Text style={styles.dashboardMetricValue}>
+                      ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </Text>
+                    <Text style={styles.dashboardMetricLabel}>Total Income</Text>
                   </View>
-                  <Text style={styles.dashboardMetricValue}>
-                    ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </Text>
-                  <Text style={styles.dashboardMetricLabel}>Total Income</Text>
+
+                  {/* Total Spent */}
+                  <View style={styles.dashboardMetricCard}>
+                    <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                      <Icon name="arrow-up" size={24} color="#FF3B30" />
+                    </View>
+                    <Text style={styles.dashboardMetricValue}>
+                      ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </Text>
+                    <Text style={styles.dashboardMetricLabel}>Total Spent</Text>
+                  </View>
+
+                  {/* Total Saved */}
+                  <View style={styles.dashboardMetricCard}>
+                    <View style={[styles.dashboardIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                      <Icon name="shield" size={24} color="#007AFF" />
+                    </View>
+                    <Text style={[styles.dashboardMetricValue, { color: '#007AFF' }]}>
+                      ₹{spendingAnalysis.totalSaved.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </Text>
+                    <Text style={styles.dashboardMetricLabel}>Total Saved</Text>
+                  </View>
+
+                  {/* Upcoming Bills */}
+                  <View style={styles.dashboardMetricCard}>
+                    <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                      <Icon name="alert-circle" size={24} color="#FF9500" />
+                    </View>
+                    <Text style={[styles.dashboardMetricValue, { color: '#FF9500' }]}>
+                      ₹{spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                    </Text>
+                    <Text style={styles.dashboardMetricLabel}>Upcoming Bills</Text>
+                  </View>
                 </View>
 
-                {/* Total Spent */}
-                <View style={styles.dashboardMetricCard}>
-                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFEBEE' }]}>
-                    <Icon name="arrow-up" size={24} color="#FF3B30" />
+                {/* Spending Nature / Overspending Areas */}
+                {spendingAnalysis.overspendingCategories.length > 0 && (
+                  <View style={styles.overspendingSection}>
+                    <View style={styles.overspendingHeader}>
+                      <Icon name="alert-triangle" size={18} color="#FF3B30" />
+                      <Text style={[styles.overspendingTitle, { marginLeft: 8 }]}>Overspending Areas</Text>
+                    </View>
+                    <View style={styles.overspendingChips}>
+                      {spendingAnalysis.overspendingCategories.map((category, index) => {
+                        const categoryData = spendingAnalysis.topSpendingCategories.find(c => c.category === category);
+                        if (!categoryData) return null;
+                        return (
+                          <View key={index} style={[styles.overspendingChip, { marginRight: 8, marginBottom: 8 }]}>
+                            <Text style={styles.overspendingChipText}>{category}</Text>
+                            <Text style={styles.overspendingChipPercent}>
+                              {categoryData.percentage.toFixed(0)}%
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
                   </View>
-                  <Text style={styles.dashboardMetricValue}>
-                    ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </Text>
-                  <Text style={styles.dashboardMetricLabel}>Total Spent</Text>
-                </View>
+                )}
 
-                {/* Total Saved */}
-                <View style={styles.dashboardMetricCard}>
-                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#E3F2FD' }]}>
-                    <Icon name="shield" size={24} color="#007AFF" />
+                {/* Spending Nature Summary */}
+                <View style={styles.spendingNatureSection}>
+                  <Text style={styles.spendingNatureTitle}>Spending Nature</Text>
+                  <View style={styles.spendingNatureCard}>
+                    <View style={styles.spendingNatureRow}>
+                      <Text style={styles.spendingNatureLabel}>Pattern</Text>
+                      <View style={[
+                        styles.spendingNatureBadge,
+                        spendingAnalysis.spendingPattern === 'high' && styles.spendingNatureBadgeHigh,
+                        spendingAnalysis.spendingPattern === 'moderate' && styles.spendingNatureBadgeModerate,
+                        spendingAnalysis.spendingPattern === 'low' && styles.spendingNatureBadgeLow,
+                      ]}>
+                        <Text style={styles.spendingNatureBadgeText}>
+                          {spendingAnalysis.spendingPattern.charAt(0).toUpperCase() + spendingAnalysis.spendingPattern.slice(1)}
+                        </Text>
+                      </View>
+                    </View>
+                    {spendingAnalysis.topSpendingCategories.length > 0 && (
+                      <View style={styles.topCategoriesPreview}>
+                        <Text style={styles.topCategoriesLabel}>Top Categories:</Text>
+                        <View style={styles.topCategoriesChips}>
+                          {spendingAnalysis.topSpendingCategories.slice(0, 3).map((category, index) => (
+                            <View key={index} style={[styles.categoryChip, { marginRight: 8, marginBottom: 8 }]}>
+                              <View style={[styles.categoryChipDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30'][index] }]} />
+                              <Text style={styles.categoryChipText}>{category.category}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
                   </View>
-                  <Text style={[styles.dashboardMetricValue, { color: '#007AFF' }]}>
-                    ₹{spendingAnalysis.totalSaved.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </Text>
-                  <Text style={styles.dashboardMetricLabel}>Total Saved</Text>
-                </View>
-
-                {/* Upcoming Bills */}
-                <View style={styles.dashboardMetricCard}>
-                  <View style={[styles.dashboardIconContainer, { backgroundColor: '#FFF3E0' }]}>
-                    <Icon name="alert-circle" size={24} color="#FF9500" />
-                  </View>
-                  <Text style={[styles.dashboardMetricValue, { color: '#FF9500' }]}>
-                    ₹{spendingAnalysis.upcomingBillsEstimate.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                  </Text>
-                  <Text style={styles.dashboardMetricLabel}>Upcoming Bills</Text>
                 </View>
               </View>
 
-              {/* Spending Nature / Overspending Areas */}
-              {spendingAnalysis.overspendingCategories.length > 0 && (
-                <View style={styles.overspendingSection}>
-                  <View style={styles.overspendingHeader}>
-                    <Icon name="alert-triangle" size={18} color="#FF3B30" />
-                    <Text style={[styles.overspendingTitle, { marginLeft: 8 }]}>Overspending Areas</Text>
-                  </View>
-                  <View style={styles.overspendingChips}>
-                    {spendingAnalysis.overspendingCategories.map((category, index) => {
-                      const categoryData = spendingAnalysis.topSpendingCategories.find(c => c.category === category);
-                      if (!categoryData) return null;
-                      return (
-                        <View key={index} style={[styles.overspendingChip, { marginRight: 8, marginBottom: 8 }]}>
-                          <Text style={styles.overspendingChipText}>{category}</Text>
-                          <Text style={styles.overspendingChipPercent}>
-                            {categoryData.percentage.toFixed(0)}%
-                          </Text>
-                        </View>
-                      );
-                    })}
+              {/* Spending Trend Chart */}
+              {spendingAnalysis.dailySpending.length > 0 && timeRange === 'week' && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Daily Spending Trend</Text>
+                  <LineChart
+                    data={{
+                      labels: spendingAnalysis.dailySpending.map(item => {
+                        const parts = item.day.split(' ');
+                        return parts.length > 1 ? parts[0] : item.day.substring(0, 3);
+                      }),
+                      datasets: [
+                        {
+                          data: spendingAnalysis.weeklySpendingData.length > 0
+                            ? spendingAnalysis.weeklySpendingData
+                            : [0],
+                          color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                          strokeWidth: 2,
+                        },
+                      ],
+                    }}
+                    width={screenWidth - 80}
+                    height={220}
+                    chartConfig={{
+                      ...chartConfig,
+                      color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                    }}
+                    bezier
+                    style={styles.chart}
+                  />
+                </View>
+              )}
+
+              {/* Monthly Spending Trend */}
+              {spendingAnalysis.monthlySpending.length > 0 && timeRange === 'year' && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Monthly Spending Trend</Text>
+                  <BarChart
+                    data={{
+                      labels: spendingAnalysis.monthlySpending.map(item => item.month),
+                      datasets: [
+                        {
+                          data: spendingAnalysis.monthlySpending.map(item => item.spent),
+                        },
+                      ],
+                    }}
+                    width={screenWidth - 80}
+                    height={220}
+                    chartConfig={{
+                      ...chartConfig,
+                      color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
+                      barPercentage: 0.7,
+                    }}
+                    style={styles.chart}
+                    showValuesOnTopOfBars
+                    withInnerLines={false}
+                    fromZero
+                    yAxisLabel="₹"
+                    yAxisSuffix=""
+                  />
+                </View>
+              )}
+
+              {/* Category Breakdown Pie Chart */}
+              {spendingAnalysis.topSpendingCategories.length > 0 && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Spending by Category</Text>
+                  <View style={styles.pieChartContainer}>
+                    <PieChart
+                      data={spendingAnalysis.topSpendingCategories.slice(0, 6).map((cat, index) => ({
+                        name: cat.category.length > 10 ? cat.category.substring(0, 10) : cat.category,
+                        amount: cat.amount,
+                        color: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6', '#AF52DE'][index],
+                        legendFontColor: '#333',
+                        legendFontSize: 12,
+                      }))}
+                      width={screenWidth - 80}
+                      height={220}
+                      chartConfig={chartConfig}
+                      accessor="amount"
+                      backgroundColor="transparent"
+                      paddingLeft="15"
+                      style={styles.chart}
+                      absolute
+                    />
                   </View>
                 </View>
               )}
 
-              {/* Spending Nature Summary */}
-              <View style={styles.spendingNatureSection}>
-                <Text style={styles.spendingNatureTitle}>Spending Nature</Text>
-                <View style={styles.spendingNatureCard}>
-                  <View style={styles.spendingNatureRow}>
-                    <Text style={styles.spendingNatureLabel}>Pattern</Text>
-                    <View style={[
-                      styles.spendingNatureBadge,
-                      spendingAnalysis.spendingPattern === 'high' && styles.spendingNatureBadgeHigh,
-                      spendingAnalysis.spendingPattern === 'moderate' && styles.spendingNatureBadgeModerate,
-                      spendingAnalysis.spendingPattern === 'low' && styles.spendingNatureBadgeLow,
-                    ]}>
-                      <Text style={styles.spendingNatureBadgeText}>
-                        {spendingAnalysis.spendingPattern.charAt(0).toUpperCase() + spendingAnalysis.spendingPattern.slice(1)}
+              {/* Income vs Expenses Comparison */}
+              {spendingAnalysis.totalReceived > 0 && spendingAnalysis.totalSpent > 0 && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Income vs Expenses</Text>
+                  <View style={styles.comparisonBars}>
+                    <View style={styles.comparisonBarContainer}>
+                      <View style={styles.comparisonBarLabel}>
+                        <Icon name="arrow-down" size={16} color="#34C759" />
+                        <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Income</Text>
+                      </View>
+                      <View style={styles.comparisonBarWrapper}>
+                        <View
+                          style={[
+                            styles.comparisonBar,
+                            {
+                              width: '100%',
+                              backgroundColor: '#34C759',
+                              maxWidth: '100%'
+                            }
+                          ]}
+                        >
+                          <Text style={styles.comparisonBarValue}>
+                            ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.comparisonBarContainer}>
+                      <View style={styles.comparisonBarLabel}>
+                        <Icon name="arrow-up" size={16} color="#FF3B30" />
+                        <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Expenses</Text>
+                      </View>
+                      <View style={styles.comparisonBarWrapper}>
+                        <View
+                          style={[
+                            styles.comparisonBar,
+                            {
+                              width: `${Math.min(100, (spendingAnalysis.totalSpent / spendingAnalysis.totalReceived) * 100)}%`,
+                              backgroundColor: '#FF3B30'
+                            }
+                          ]}
+                        >
+                          <Text style={styles.comparisonBarValue}>
+                            ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    <View style={styles.comparisonSummary}>
+                      <Text style={styles.comparisonSummaryText}>
+                        {spendingAnalysis.netFlow >= 0 ? 'You saved' : 'You overspent'}{' '}
+                        <Text style={{ fontWeight: 'bold', color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }}>
+                          ₹{Math.abs(spendingAnalysis.netFlow).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </Text>
                       </Text>
                     </View>
                   </View>
-                  {spendingAnalysis.topSpendingCategories.length > 0 && (
-                    <View style={styles.topCategoriesPreview}>
-                      <Text style={styles.topCategoriesLabel}>Top Categories:</Text>
-                      <View style={styles.topCategoriesChips}>
-                        {spendingAnalysis.topSpendingCategories.slice(0, 3).map((category, index) => (
-                          <View key={index} style={[styles.categoryChip, { marginRight: 8, marginBottom: 8 }]}>
-                            <View style={[styles.categoryChipDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30'][index] }]} />
-                            <Text style={styles.categoryChipText}>{category.category}</Text>
+                </View>
+              )}
+
+              {/* Savings Rate & Additional Stats */}
+              <View style={styles.statsGrid}>
+                <View style={styles.statCard}>
+                  <View style={[styles.statIconContainer, { backgroundColor: '#E3F2FD' }]}>
+                    <Icon name="trending-up" size={20} color="#007AFF" />
+                  </View>
+                  <Text style={styles.statValue}>
+                    {spendingAnalysis.savingsRate >= 0 ? '+' : ''}{spendingAnalysis.savingsRate.toFixed(1)}%
+                  </Text>
+                  <Text style={styles.statLabel}>Savings Rate</Text>
+                </View>
+
+                <View style={styles.statCard}>
+                  <View style={[styles.statIconContainer, { backgroundColor: '#FFF3E0' }]}>
+                    <Icon name="activity" size={20} color="#FF9500" />
+                  </View>
+                  <Text style={styles.statValue}>{spendingAnalysis.transactionCount}</Text>
+                  <Text style={styles.statLabel}>Transactions</Text>
+                </View>
+
+                <View style={styles.statCard}>
+                  <View style={[styles.statIconContainer, { backgroundColor: '#F3E5F5' }]}>
+                    <Icon name="credit-card" size={20} color="#5856D6" />
+                  </View>
+                  <Text style={styles.statValue}>
+                    ₹{spendingAnalysis.averageTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.statLabel}>Avg Transaction</Text>
+                </View>
+
+                <View style={styles.statCard}>
+                  <View style={[styles.statIconContainer, { backgroundColor: '#FFEBEE' }]}>
+                    <Icon name="maximize-2" size={20} color="#FF3B30" />
+                  </View>
+                  <Text style={styles.statValue}>
+                    ₹{spendingAnalysis.largestTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </Text>
+                  <Text style={styles.statLabel}>Largest Expense</Text>
+                </View>
+              </View>
+
+              {/* Top Categories Summary */}
+              {spendingAnalysis.topSpendingCategories.length > 0 && (
+                <View style={styles.topCategoriesCard}>
+                  <Text style={styles.sectionTitle}>Top Spending Categories</Text>
+                  {spendingAnalysis.topSpendingCategories.slice(0, 5).map((category, index) => (
+                    <View key={index} style={styles.topCategoryRow}>
+                      <View style={styles.topCategoryLeft}>
+                        <View style={[styles.topCategoryDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6'][index] }]} />
+                        <Text style={styles.topCategoryName}>{category.category}</Text>
+                      </View>
+                      <View style={styles.topCategoryRight}>
+                        <Text style={styles.topCategoryAmount}>₹{category.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+                        <Text style={styles.topCategoryPercent}>{category.percentage.toFixed(0)}%</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+
+              {/* Spending Insights */}
+              {spendingAnalysis.spendingInsights.length > 0 && (
+                <View style={styles.insightsContainer}>
+                  <Text style={styles.sectionTitle}>Key Insights</Text>
+                  {spendingAnalysis.spendingInsights.slice(0, 3).map((insight, index) => (
+                    <View key={index} style={styles.insightItem}>
+                      <Icon name="info" size={16} color="#007AFF" />
+                      <Text style={styles.insightText}>{insight}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* Categories Tab - Using showCategoriesTab variable for conditional rendering */}
+          {showCategoriesTab && (
+            <View>
+              <Text style={styles.sectionTitle}>Spending by Category</Text>
+              {spendingAnalysis.categoryBreakdown
+                .filter(category => category.spent > 0)
+                .map((category, index) => {
+                  const config = CATEGORY_CONFIG[category.category as keyof typeof CATEGORY_CONFIG] || CATEGORY_CONFIG.other;
+                  return (
+                    <View key={category.category} style={styles.categoryItem}>
+                      <View style={styles.categoryHeader}>
+                        <View style={styles.categoryTitle}>
+                          <View style={[styles.categoryIconContainer, { backgroundColor: `${config.color}15` }]}>
+                            <Icon name={config.icon as any} size={20} color={config.color} />
                           </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            {/* Spending Trend Chart */}
-            {spendingAnalysis.dailySpending.length > 0 && timeRange === 'week' && (
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Daily Spending Trend</Text>
-                <LineChart
-                  data={{
-                    labels: spendingAnalysis.dailySpending.map(item => {
-                      const parts = item.day.split(' ');
-                      return parts.length > 1 ? parts[0] : item.day.substring(0, 3);
-                    }),
-                    datasets: [
-                      {
-                        data: spendingAnalysis.weeklySpendingData.length > 0 
-                          ? spendingAnalysis.weeklySpendingData 
-                          : [0],
-                        color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-                        strokeWidth: 2,
-                      },
-                    ],
-                  }}
-                  width={screenWidth - 80}
-                  height={220}
-                  chartConfig={{
-                    ...chartConfig,
-                    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-                  }}
-                  bezier
-                  style={styles.chart}
-                />
-              </View>
-            )}
-
-            {/* Monthly Spending Trend */}
-            {spendingAnalysis.monthlySpending.length > 0 && timeRange === 'year' && (
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Monthly Spending Trend</Text>
-                <BarChart
-                  data={{
-                    labels: spendingAnalysis.monthlySpending.map(item => item.month),
-                    datasets: [
-                      {
-                        data: spendingAnalysis.monthlySpending.map(item => item.spent),
-                      },
-                    ],
-                  }}
-                  width={screenWidth - 80}
-                  height={220}
-                  chartConfig={{
-                    ...chartConfig,
-                    color: (opacity = 1) => `rgba(255, 59, 48, ${opacity})`,
-                    barPercentage: 0.7,
-                  }}
-                  style={styles.chart}
-                  showValuesOnTopOfBars
-                  withInnerLines={false}
-                  fromZero
-                  yAxisLabel="₹"
-                  yAxisSuffix=""
-                />
-              </View>
-            )}
-
-            {/* Category Breakdown Pie Chart */}
-            {spendingAnalysis.topSpendingCategories.length > 0 && (
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Spending by Category</Text>
-                <View style={styles.pieChartContainer}>
-                  <PieChart
-                    data={spendingAnalysis.topSpendingCategories.slice(0, 6).map((cat, index) => ({
-                      name: cat.category.length > 10 ? cat.category.substring(0, 10) : cat.category,
-                      amount: cat.amount,
-                      color: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6', '#AF52DE'][index],
-                      legendFontColor: '#333',
-                      legendFontSize: 12,
-                    }))}
-                    width={screenWidth - 80}
-                    height={220}
-                    chartConfig={chartConfig}
-                    accessor="amount"
-                    backgroundColor="transparent"
-                    paddingLeft="15"
-                    style={styles.chart}
-                    absolute
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* Income vs Expenses Comparison */}
-            {spendingAnalysis.totalReceived > 0 && spendingAnalysis.totalSpent > 0 && (
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Income vs Expenses</Text>
-                <View style={styles.comparisonBars}>
-                  <View style={styles.comparisonBarContainer}>
-                    <View style={styles.comparisonBarLabel}>
-                      <Icon name="arrow-down" size={16} color="#34C759" />
-                      <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Income</Text>
-                    </View>
-                    <View style={styles.comparisonBarWrapper}>
-                      <View 
-                        style={[
-                          styles.comparisonBar, 
-                          { 
-                            width: '100%', 
-                            backgroundColor: '#34C759',
-                            maxWidth: '100%'
-                          }
-                        ]} 
-                      >
-                        <Text style={styles.comparisonBarValue}>
-                          ₹{spendingAnalysis.totalReceived.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.comparisonBarContainer}>
-                    <View style={styles.comparisonBarLabel}>
-                      <Icon name="arrow-up" size={16} color="#FF3B30" />
-                      <Text style={[styles.comparisonBarText, { marginLeft: 6 }]}>Expenses</Text>
-                    </View>
-                    <View style={styles.comparisonBarWrapper}>
-                      <View 
-                        style={[
-                          styles.comparisonBar, 
-                          { 
-                            width: `${Math.min(100, (spendingAnalysis.totalSpent / spendingAnalysis.totalReceived) * 100)}%`, 
-                            backgroundColor: '#FF3B30'
-                          }
-                        ]} 
-                      >
-                        <Text style={styles.comparisonBarValue}>
-                          ₹{spendingAnalysis.totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.comparisonSummary}>
-                    <Text style={styles.comparisonSummaryText}>
-                      {spendingAnalysis.netFlow >= 0 ? 'You saved' : 'You overspent'}{' '}
-                      <Text style={{ fontWeight: 'bold', color: spendingAnalysis.netFlow >= 0 ? '#34C759' : '#FF3B30' }}>
-                        ₹{Math.abs(spendingAnalysis.netFlow).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                      </Text>
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Savings Rate & Additional Stats */}
-            <View style={styles.statsGrid}>
-              <View style={styles.statCard}>
-                <View style={[styles.statIconContainer, { backgroundColor: '#E3F2FD' }]}>
-                  <Icon name="trending-up" size={20} color="#007AFF" />
-                </View>
-                <Text style={styles.statValue}>
-                  {spendingAnalysis.savingsRate >= 0 ? '+' : ''}{spendingAnalysis.savingsRate.toFixed(1)}%
-                </Text>
-                <Text style={styles.statLabel}>Savings Rate</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <View style={[styles.statIconContainer, { backgroundColor: '#FFF3E0' }]}>
-                  <Icon name="activity" size={20} color="#FF9500" />
-                </View>
-                <Text style={styles.statValue}>{spendingAnalysis.transactionCount}</Text>
-                <Text style={styles.statLabel}>Transactions</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <View style={[styles.statIconContainer, { backgroundColor: '#F3E5F5' }]}>
-                  <Icon name="credit-card" size={20} color="#5856D6" />
-                </View>
-                <Text style={styles.statValue}>
-                  ₹{spendingAnalysis.averageTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.statLabel}>Avg Transaction</Text>
-              </View>
-              
-              <View style={styles.statCard}>
-                <View style={[styles.statIconContainer, { backgroundColor: '#FFEBEE' }]}>
-                  <Icon name="maximize-2" size={20} color="#FF3B30" />
-                </View>
-                <Text style={styles.statValue}>
-                  ₹{spendingAnalysis.largestTransaction.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </Text>
-                <Text style={styles.statLabel}>Largest Expense</Text>
-              </View>
-            </View>
-
-            {/* Top Categories Summary */}
-            {spendingAnalysis.topSpendingCategories.length > 0 && (
-              <View style={styles.topCategoriesCard}>
-                <Text style={styles.sectionTitle}>Top Spending Categories</Text>
-                {spendingAnalysis.topSpendingCategories.slice(0, 5).map((category, index) => (
-                  <View key={index} style={styles.topCategoryRow}>
-                    <View style={styles.topCategoryLeft}>
-                      <View style={[styles.topCategoryDot, { backgroundColor: ['#007AFF', '#34C759', '#FF3B30', '#FF9500', '#5856D6'][index] }]} />
-                      <Text style={styles.topCategoryName}>{category.category}</Text>
-                    </View>
-                    <View style={styles.topCategoryRight}>
-                      <Text style={styles.topCategoryAmount}>₹{category.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
-                      <Text style={styles.topCategoryPercent}>{category.percentage.toFixed(0)}%</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Spending Insights */}
-            {spendingAnalysis.spendingInsights.length > 0 && (
-              <View style={styles.insightsContainer}>
-                <Text style={styles.sectionTitle}>Key Insights</Text>
-                {spendingAnalysis.spendingInsights.slice(0, 3).map((insight, index) => (
-                  <View key={index} style={styles.insightItem}>
-                    <Icon name="info" size={16} color="#007AFF" />
-                    <Text style={styles.insightText}>{insight}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Categories Tab - Using showCategoriesTab variable for conditional rendering */}
-        {showCategoriesTab && (
-          <View>
-            <Text style={styles.sectionTitle}>Spending by Category</Text>
-            {spendingAnalysis.categoryBreakdown
-              .filter(category => category.spent > 0)
-              .map((category, index) => {
-                const config = CATEGORY_CONFIG[category.category as keyof typeof CATEGORY_CONFIG] || CATEGORY_CONFIG.other;
-                return (
-                  <View key={category.category} style={styles.categoryItem}>
-                    <View style={styles.categoryHeader}>
-                      <View style={styles.categoryTitle}>
-                        <View style={[styles.categoryIconContainer, { backgroundColor: `${config.color}15` }]}>
-                          <Icon name={config.icon as any} size={20} color={config.color} />
+                          <View style={styles.categoryTextContainer}>
+                            <Text style={styles.categoryName}>{config.label}</Text>
+                            <Text style={styles.transactionCount}>{category.count} transactions</Text>
+                          </View>
                         </View>
-                        <View style={styles.categoryTextContainer}>
-                          <Text style={styles.categoryName}>{config.label}</Text>
-                          <Text style={styles.transactionCount}>{category.count} transactions</Text>
-                        </View>
+                        <Text style={styles.categoryAmount}>₹{category.spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
                       </View>
-                      <Text style={styles.categoryAmount}>₹{category.spent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+                      <View style={styles.progressBar}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              width: `${Math.min(category.percentage, 100)}%`,
+                              backgroundColor: config.color
+                            }
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.categoryPercentage}>{category.percentage.toFixed(1)}% of total spending</Text>
                     </View>
-                    <View style={styles.progressBar}>
-                      <View 
-                        style={[
-                          styles.progressFill,
-                          { 
-                            width: `${Math.min(category.percentage, 100)}%`,
-                            backgroundColor: config.color
-                          }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={styles.categoryPercentage}>{category.percentage.toFixed(1)}% of total spending</Text>
-                  </View>
-                );
-              })}
-          </View>
-        )}
+                  );
+                })}
+            </View>
+          )}
 
-      </ScrollView>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -1249,7 +1247,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     backgroundColor: 'white',
-     paddingHorizontal: 10,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -1276,7 +1274,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20, 
+    padding: 20,
   },
   metricsGrid: {
     flexDirection: 'row',

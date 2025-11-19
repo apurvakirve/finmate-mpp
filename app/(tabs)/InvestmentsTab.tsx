@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, RefreshControl } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather as Icon } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import RiskProfile, { computeRiskScore, riskProfileStorageKey, type RiskLevel } from './RiskProfile';
 
 interface FundRecommendation {
@@ -56,7 +56,7 @@ async function getRiskLevel(userId: string | number): Promise<RiskLevel> {
       const profile = JSON.parse(raw);
       return computeRiskScore(profile).level;
     }
-  } catch {}
+  } catch { }
   return 'moderate';
 }
 
@@ -200,7 +200,7 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
                       labels: chartData.map((item, idx) => (idx % 6 === 0 ? item.date.split('-').reverse().slice(0, 2).join('/') : '')),
                       datasets: [{ data: chartData.map(item => parseFloat(item.nav)) }],
                     }}
-                    width={Math.min(320, styles.chartWidth)}
+                    width={320}
                     height={180}
                     chartConfig={chartConfig}
                     bezier
@@ -346,7 +346,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignSelf: 'center',
   },
-  chartWidth: 320,
   sipBox: {
     flexDirection: 'row',
     alignItems: 'center',
