@@ -1,4 +1,5 @@
 import { Feather as Icon } from '@expo/vector-icons';
+import { GoogleGenAI } from "@google/genai";
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,8 +15,11 @@ import {
   View
 } from 'react-native';
 
-const GEMINI_API_KEY = 'AIzaSyALqrXNJHYiaVo8ylUTOq1oh-f8JBIlBso';
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
+// Get API key from environment variable
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+
+// Initialize Google Gen AI client
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 interface Message {
   id: string;
@@ -23,7 +27,6 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
 }
-
 interface FinanceBotProps {
   userId?: string | number;
   userSpendingData?: {
@@ -66,7 +69,7 @@ export default function FinanceBot({
         tension: 65,
         friction: 8,
       }).start();
-      
+
       // Add welcome message only if no messages exist
       if (messages.length === 0) {
         const welcomeMsg: Message = {
@@ -102,13 +105,13 @@ export default function FinanceBot({
   const getWelcomeMessage = () => {
     if (userSpendingData) {
       const { totalSpent, totalSaved, savingsRate, spendingPattern } = userSpendingData;
-      
+
       let message = "👋 Hi! I'm your Finance Assistant. I can help you with:\n\n";
       message += "• Spending analysis\n";
       message += "• Budget advice\n";
       message += "• Savings tips\n";
       message += "• Financial planning\n\n";
-      
+
       if (totalSpent && totalSpent > 0) {
         message += `📊 Quick Overview:\n`;
         message += `• Total Spent: ₹${totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 })}\n`;
@@ -122,17 +125,17 @@ export default function FinanceBot({
           message += `• Spending Pattern: ${spendingPattern.charAt(0).toUpperCase() + spendingPattern.slice(1)}\n`;
         }
       }
-      
+
       message += "\n💬 Ask me anything about your finances!";
       return message;
     }
-    
+
     return "👋 Hi! I'm your Finance Assistant. I can help you with spending analysis, budget advice, savings tips, and financial planning. Ask me anything!";
   };
 
   const buildContextPrompt = () => {
     if (!userSpendingData) return '';
-    
+
     const {
       totalIncome = 0,
       totalSpent = 0,
@@ -152,39 +155,52 @@ export default function FinanceBot({
     context += `- Savings Rate: ${savingsRate.toFixed(1)}%\n`;
     context += `- Spending Pattern: ${spendingPattern}\n`;
     context += `- Transaction Count: ${transactionCount}\n`;
-    
+
     if (upcomingBills > 0) {
       context += `- Upcoming Bills: ₹${upcomingBills.toLocaleString('en-IN', { maximumFractionDigits: 0 })}\n`;
     }
-    
+
     if (topCategories.length > 0) {
       context += `- Top Spending Categories:\n`;
       topCategories.forEach((cat, idx) => {
         context += `  ${idx + 1}. ${cat.category}: ₹${cat.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })} (${cat.percentage.toFixed(1)}%)\n`;
       });
     }
-    
+
     if (overspendingCategories.length > 0) {
       context += `- Overspending Areas: ${overspendingCategories.join(', ')}\n`;
     }
-    
+
     return context;
   };
 
   const sendMessage = async () => {
     if (!inputText.trim() || isLoading) return;
-    
+
     const userMessage: Message = {
       id: Date.now().toString(),
       text: inputText,
       isUser: true,
       timestamp: new Date(),
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
     setIsLoading(true);
-    
+
+    // Check if API key is configured
+    if (!GEMINI_API_KEY) {
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "⚠️ Chatbot is not configured. Please add your Gemini API key to the .env file.\n\nSteps:\n1. Get a free API key from https://aistudio.google.com/app/apikey\n2. Copy .env.example to .env\n3. Add your API key to EXPO_PUBLIC_GEMINI_API_KEY\n4. Restart the server",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Prepare the prompt with context
       const prompt = `You are a helpful financial assistant. The user has the following financial data:
@@ -196,90 +212,49 @@ export default function FinanceBot({
       User Question: ${inputText}
       
       Please provide a helpful and concise response.`;
-      
-      // Call Gemini API with updated parameters
-      const response = await fetch(GEMINI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gemini-2.0-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 500,
-            topP: 0.8,
-            topK: 40
-          },
-          safetySettings: [
-            {
-              category: 'HARM_CATEGORY_HARASSMENT',
-              threshold: 'BLOCK_NONE'
-            },
-            {
-              category: 'HARM_CATEGORY_HATE_SPEECH',
-              threshold: 'BLOCK_NONE'
-            },
-            {
-              category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-              threshold: 'BLOCK_NONE'
-            },
-            {
-              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-              threshold: 'BLOCK_NONE'
-            }
-          ]
-        })
+
+      // Call Gemini API using the SDK
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }]
+          }
+        ],
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: 500,
+          topP: 0.8,
+          topK: 40
+        }
       });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('API Error:', errorData);
-        throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorData)}`);
-      }
-      
-      const data = await response.json();
-      
-      // Handle different response formats from Gemini API
-      let aiText = "I'm sorry, I couldn't process that request at the moment. Could you try rephrasing your question?";
-      
-      // Try different response formats
-      if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        aiText = data.candidates[0].content.parts[0].text;
-      } else if (data.choices?.[0]?.message?.content) {
-        aiText = data.choices[0].message.content;
-      } else if (data.results?.[0]?.text) {
-        aiText = data.results[0].text;
-      } else if (data.text) {
-        aiText = data.text;
-      } else {
-        console.warn('Unexpected API response format:', data);
-      }
-      
+
+      const aiText = response.text || "I'm sorry, I couldn't process that request.";
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: aiText,
         isUser: false,
         timestamp: new Date(),
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error in handleSend:', error);
-      
+
+      // Check for quota exceeded error specifically
+      const isQuotaError = error.message?.includes('429') || error.toString().includes('Quota exceeded');
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "I'm having trouble connecting to the server. Please check your internet connection and try again.",
+        text: isQuotaError
+          ? "⚠️ API Quota Exceeded. The free tier limit has been reached. Please try again later or use a different API key."
+          : "I'm having trouble connecting to the server. Please check your internet connection and try again.",
         isUser: false,
         timestamp: new Date(),
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
