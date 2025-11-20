@@ -98,6 +98,10 @@ interface SpendingAnalysis {
   totalSaved: number;
   savingsRate: number;
   weeklySpendingData: number[];
+  incomeVolatility: number; // Standard deviation of income
+  isGigWorker: boolean; // Flag if income is irregular
+  incomeFrequency: 'weekly' | 'monthly' | 'irregular';
+  safeToSpendDaily: number;
 }
 
 interface TransactionAnalysisProps {
@@ -214,7 +218,11 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
         overspendingCategories: [],
         totalSaved: 0,
         savingsRate: 0,
-        weeklySpendingData: []
+        weeklySpendingData: [],
+        incomeVolatility: 0,
+        isGigWorker: false,
+        incomeFrequency: 'monthly',
+        safeToSpendDaily: 0
       };
     }
 
@@ -458,6 +466,50 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
     // Prepare weekly spending data for charts
     const weeklySpendingData = dailySpending.map(item => item.amount);
 
+    // Calculate income volatility and patterns
+    const incomeTransactions = receivedTransactions.map(t => ({
+      amount: Number(t.amount) || 0,
+      date: new Date(t.created_at).getTime()
+    })).sort((a, b) => a.date - b.date);
+
+    let incomeVolatility = 0;
+    let isGigWorker = false;
+    let incomeFrequency: 'weekly' | 'monthly' | 'irregular' = 'monthly';
+    let safeToSpendDaily = 0;
+
+    if (incomeTransactions.length > 1) {
+      // Calculate mean income
+      const meanIncome = totalReceived / incomeTransactions.length;
+
+      // Calculate variance and standard deviation (volatility)
+      const variance = incomeTransactions.reduce((sum, t) => sum + Math.pow(t.amount - meanIncome, 2), 0) / incomeTransactions.length;
+      incomeVolatility = Math.sqrt(variance);
+
+      // Determine frequency based on intervals
+      const intervals = [];
+      for (let i = 1; i < incomeTransactions.length; i++) {
+        intervals.push((incomeTransactions[i].date - incomeTransactions[i - 1].date) / (1000 * 60 * 60 * 24)); // days
+      }
+
+      const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+
+      if (avgInterval < 10) incomeFrequency = 'weekly';
+      else if (avgInterval > 25 && avgInterval < 35) incomeFrequency = 'monthly';
+      else incomeFrequency = 'irregular';
+
+      // Gig worker detection: High volatility OR irregular frequency OR many small deposits
+      // Coefficient of variation (CV) = standard deviation / mean
+      const cv = meanIncome > 0 ? incomeVolatility / meanIncome : 0;
+
+      isGigWorker = (cv > 0.5 || incomeFrequency === 'irregular' || incomeFrequency === 'weekly');
+    }
+
+    // Calculate safe-to-spend daily amount
+    // (Total Income - Bills - Savings Goal) / Days
+    // Simple heuristic: 70% of net flow / days remaining, or based on average daily income
+    const daysRemaining = 30; // Simplified for now
+    safeToSpendDaily = Math.max(0, (totalReceived - upcomingBillsEstimate) * 0.7 / 30);
+
     return {
       totalSpent,
       totalReceived,
@@ -477,7 +529,11 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
       overspendingCategories,
       totalSaved,
       savingsRate,
-      weeklySpendingData
+      weeklySpendingData,
+      incomeVolatility,
+      isGigWorker,
+      incomeFrequency,
+      safeToSpendDaily
     };
   }, [transactions, currentUser?.id, timeRange]);
 

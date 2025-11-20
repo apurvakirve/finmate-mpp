@@ -4,19 +4,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Animated,
-    FlatList,
-    Modal,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  FlatList,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import CoachTab from '../../components/CoachTab';
@@ -24,13 +24,12 @@ import FinanceBot from '../../components/FinanceBot';
 import FinanceToast from '../../components/FinanceToast';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
-import Card from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { Colors } from '../../constants/theme';
 import EnhancedInvestments from './EnhancedInvestments';
 import PiggyBanks from './PiggyBanks';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
+import QRCategorySelector from '../../components/QRCategorySelector';
+import SpendingBreakdownChart from '../../components/SpendingBreakdownChart';
 // Add transaction types constant
 const TRANSACTION_TYPES = [
   { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
@@ -82,8 +81,8 @@ export default function MoneyTransferApp() {
           let monthlyIncome = 0;
           if (currentUser?.metadata) {
             try {
-              const metadata = typeof currentUser.metadata === 'string' 
-                ? JSON.parse(currentUser.metadata) 
+              const metadata = typeof currentUser.metadata === 'string'
+                ? JSON.parse(currentUser.metadata)
                 : currentUser.metadata;
               monthlyIncome = parseFloat(metadata.monthlyIncome) || 0;
             } catch (e) {
@@ -213,7 +212,7 @@ export default function MoneyTransferApp() {
       const totalSpent = transactions
         .filter((t: any) => t.from_user_id === currentUser.id)
         .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-      
+
       const totalReceived = transactions
         .filter((t: any) => t.to_user_id === currentUser.id)
         .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
@@ -240,7 +239,7 @@ export default function MoneyTransferApp() {
           type: 'warning'
         });
       }
-      
+
       // Low savings rate alert
       if (savingsRate < 10 && totalReceived > 0) {
         alerts.push({
@@ -248,7 +247,7 @@ export default function MoneyTransferApp() {
           type: 'warning'
         });
       }
-      
+
       // Negative flow alert
       if (netFlow < 0) {
         alerts.push({
@@ -256,7 +255,7 @@ export default function MoneyTransferApp() {
           type: 'error'
         });
       }
-      
+
       // High transaction count
       if (transactions.length > 50) {
         alerts.push({
@@ -279,7 +278,7 @@ export default function MoneyTransferApp() {
         setToastMessage(firstAlert.message);
         setToastType(firstAlert.type);
         setShowToast(true);
-        
+
         // Set bot alert for persistent notification
         if (!botAlert) {
           setBotAlert(firstAlert.message);
@@ -321,11 +320,11 @@ export default function MoneyTransferApp() {
     // Users changes
     const userSubscription = supabase
       .channel('users')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'users' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'users' },
         (payload: any) => {
           fetchUsers();
-          
+
           if (currentUserRef.current && payload.new && payload.new.id === currentUserRef.current.id) {
             setCurrentUser(payload.new);
           }
@@ -336,8 +335,8 @@ export default function MoneyTransferApp() {
     // Transactions changes
     const transactionSubscription = supabase
       .channel('transactions')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'transactions' }, 
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
         () => {
           fetchTransactions();
         }
@@ -356,12 +355,12 @@ export default function MoneyTransferApp() {
         .from('users')
         .select('*')
         .order('name');
-      
+
       if (error) throw error;
-      
+
       const newUsers = data || [];
       setUsers(newUsers);
-      
+
       if (currentUserRef.current) {
         const updatedCurrentUser = newUsers.find((user: any) => user.id === currentUserRef.current.id);
         if (updatedCurrentUser && updatedCurrentUser.balance !== currentUserRef.current.balance) {
@@ -381,7 +380,7 @@ export default function MoneyTransferApp() {
         .or(`from_user_id.eq.${currentUserRef.current?.id},to_user_id.eq.${currentUserRef.current?.id}`)
         .order('created_at', { ascending: false })
         .limit(50);
-      
+
       if (error) throw error;
       setTransactions(data || []);
     } catch (error) {
@@ -441,12 +440,12 @@ export default function MoneyTransferApp() {
     let received = 0;
     let sent = 0;
     let hasTransactions = false;
-    
+
     transactions.forEach((t) => {
       const created = new Date(t.created_at).getTime();
       if (created < start || created > end) return;
       hasTransactions = true;
-      
+
       // Count online/UPI transactions
       if (t.to_user_id === currentUserRef.current?.id) {
         received += Number(t.amount || 0);
@@ -454,130 +453,130 @@ export default function MoneyTransferApp() {
       if (t.from_user_id === currentUserRef.current?.id) {
         sent += Number(t.amount || 0);
       }
-      
+
       // Count cash additions (method: cash, type: add, to_name: Cash)
       if (t.method === 'cash' && t.type === 'add' && t.to_name === 'Cash' && t.from_user_id === currentUserRef.current?.id) {
         received += Number(t.amount || 0);
       }
     });
-    
+
     // Only return value if there are transactions today
     return hasTransactions ? received - sent : 0;
   }, [transactions]);
 
   // DEV-ONLY: Seed ~60 days of demo data for current user
   const seedDemoData = async () => {
-   try {
-    if (!currentUserRef.current) return;
-    setLoading(true);
+    try {
+      if (!currentUserRef.current) return;
+      setLoading(true);
 
-    const me = currentUserRef.current;
-    const others = (usersRef.current || []).filter((u: any) => u.id !== me.id);
+      const me = currentUserRef.current;
+      const others = (usersRef.current || []).filter((u: any) => u.id !== me.id);
 
-    if (!others.length) {
-      Alert.alert("Seed", "Need at least one other user for seeding.");
-      return;
-    }
-
-    const rows: any[] = [];
-    const today = new Date();
-
-    const categoriesUPI = ["food", "transportation", "shopping", "utilities", "entertainment", "healthcare"];
-    const categoriesCash = ["food", "transportation", "other"];
-
-    for (let d = 0; d < 365; d++) {
-      const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - d);
-
-      //
-      // 1️⃣ DAILY UPI INCOME (₹250)
-      //
-      rows.push({
-        from_user_id: others[0].id,                    // random customer
-        to_user_id: me.id,
-        from_name: others[0].name,
-        to_name: me.name,
-        amount: 250,
-        type: "transfer",
-        method: "qr_code",
-        transaction_type: "transfer",
-        created_at: new Date(day.getTime() + 1000 * 60 * 60 * 10).toISOString(), // morning
-      });
-
-      //
-      // 2️⃣ CASH INCOME (₹250)
-      //
-      rows.push({
-        from_user_id: me.id,
-        to_user_id: me.id,
-        from_name: me.name,
-        to_name: "Cash",
-        amount: 250,
-        type: "add",
-        method: "cash",
-        transaction_type: "other",
-        created_at: new Date(day.getTime() + 1000 * 60 * 60 * 11).toISOString(),
-      });
-
-      //
-      // 3️⃣ DAILY EXPENSES (fuel, snacks, etc.)
-      //
-      const spendCount = 2 + Math.floor(Math.random() * 2); // 2–3 spends per day
-      for (let i = 0; i < spendCount; i++) {
-        const randomCat = categoriesUPI[Math.floor(Math.random() * categoriesUPI.length)];
-        const randomUser = others[Math.floor(Math.random() * others.length)];
-        const amount = Math.floor(30 + Math.random() * 120); // ₹30–₹150 expenses
-
-        rows.push({
-          from_user_id: me.id,
-          to_user_id: randomUser.id,
-          from_name: me.name,
-          to_name: randomUser.name,
-          amount,
-          type: "transfer",
-          method: "qr_code",
-          transaction_type: randomCat,
-          created_at: new Date(day.getTime() + (i + 13) * 3600_000).toISOString(),
-        });
+      if (!others.length) {
+        Alert.alert("Seed", "Need at least one other user for seeding.");
+        return;
       }
 
-      //
-      // 4️⃣ CASH SPEND (fuel/snacks) ~ 40% chance
-      //
-      if (Math.random() < 0.4) {
-        const category = categoriesCash[Math.floor(Math.random() * categoriesCash.length)];
-        const amount = Math.floor(20 + Math.random() * 120);
+      const rows: any[] = [];
+      const today = new Date();
 
+      const categoriesUPI = ["food", "transportation", "shopping", "utilities", "entertainment", "healthcare"];
+      const categoriesCash = ["food", "transportation", "other"];
+
+      for (let d = 0; d < 365; d++) {
+        const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - d);
+
+        //
+        // 1️⃣ DAILY UPI INCOME (₹250)
+        //
+        rows.push({
+          from_user_id: others[0].id,                    // random customer
+          to_user_id: me.id,
+          from_name: others[0].name,
+          to_name: me.name,
+          amount: 250,
+          type: "transfer",
+          method: "qr_code",
+          transaction_type: "transfer",
+          created_at: new Date(day.getTime() + 1000 * 60 * 60 * 10).toISOString(), // morning
+        });
+
+        //
+        // 2️⃣ CASH INCOME (₹250)
+        //
         rows.push({
           from_user_id: me.id,
           to_user_id: me.id,
           from_name: me.name,
           to_name: "Cash",
-          amount,
-          type: "deduct",
+          amount: 250,
+          type: "add",
           method: "cash",
-          transaction_type: category,
-          created_at: new Date(day.getTime() + 22 * 3600_000).toISOString(),
+          transaction_type: "other",
+          created_at: new Date(day.getTime() + 1000 * 60 * 60 * 11).toISOString(),
         });
+
+        //
+        // 3️⃣ DAILY EXPENSES (fuel, snacks, etc.)
+        //
+        const spendCount = 2 + Math.floor(Math.random() * 2); // 2–3 spends per day
+        for (let i = 0; i < spendCount; i++) {
+          const randomCat = categoriesUPI[Math.floor(Math.random() * categoriesUPI.length)];
+          const randomUser = others[Math.floor(Math.random() * others.length)];
+          const amount = Math.floor(30 + Math.random() * 120); // ₹30–₹150 expenses
+
+          rows.push({
+            from_user_id: me.id,
+            to_user_id: randomUser.id,
+            from_name: me.name,
+            to_name: randomUser.name,
+            amount,
+            type: "transfer",
+            method: "qr_code",
+            transaction_type: randomCat,
+            created_at: new Date(day.getTime() + (i + 13) * 3600_000).toISOString(),
+          });
+        }
+
+        //
+        // 4️⃣ CASH SPEND (fuel/snacks) ~ 40% chance
+        //
+        if (Math.random() < 0.4) {
+          const category = categoriesCash[Math.floor(Math.random() * categoriesCash.length)];
+          const amount = Math.floor(20 + Math.random() * 120);
+
+          rows.push({
+            from_user_id: me.id,
+            to_user_id: me.id,
+            from_name: me.name,
+            to_name: "Cash",
+            amount,
+            type: "deduct",
+            method: "cash",
+            transaction_type: category,
+            created_at: new Date(day.getTime() + 22 * 3600_000).toISOString(),
+          });
+        }
       }
-    }
 
-    //
-    // ✅ Insert into DB using your existing helper
-    //
-    const chunkSize = 200;
-    for (let i = 0; i < rows.length; i += chunkSize) {
-      await insertRowsSafe(rows.slice(i, i + chunkSize));
-    }
+      //
+      // ✅ Insert into DB using your existing helper
+      //
+      const chunkSize = 200;
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        await insertRowsSafe(rows.slice(i, i + chunkSize));
+      }
 
-    await fetchTransactions();
-    Alert.alert("Seed", `Inserted ${rows.length} Swiggy-partner demo transactions ✅`);
-  } catch (e: any) {
-    console.log("Seed Error:", e);
-    Alert.alert("Seed", `Failed: ${e?.message || e}`);
-  } finally {
-    setLoading(false);
-  }
-};
+      await fetchTransactions();
+      Alert.alert("Seed", `Inserted ${rows.length} Swiggy-partner demo transactions ✅`);
+    } catch (e: any) {
+      console.log("Seed Error:", e);
+      Alert.alert("Seed", `Failed: ${e?.message || e}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Cash wallet persistence
   const cashKey = (userId: string | number) => `mt_cash_${userId}`;
@@ -660,10 +659,10 @@ export default function MoneyTransferApp() {
   // Handle QR Code Scan
   const handleQRScan = ({ data }: { data: string }) => {
     setShowQRScanner(false);
-    
+
     try {
       const qrData = JSON.parse(data);
-      
+
       if (qrData.type === 'money_request') {
         setQrRecipient(qrData);
         setShowAmountModal(true);
@@ -678,7 +677,7 @@ export default function MoneyTransferApp() {
   // Handle QR payment with custom modal
   const handleQRPayment = async () => {
     if (!qrRecipient) return;
-    
+
     const amt = parseFloat(qrAmount);
     if (!amt || amt <= 0) {
       Alert.alert('Error', 'Please enter valid amount');
@@ -787,7 +786,7 @@ export default function MoneyTransferApp() {
       setCurrentUser(data);
       setEmail('');
       setPassword('');
-      
+
       Alert.alert('Success', `Welcome ${data.name}!`);
     } catch (error) {
       Alert.alert('Error', 'Login failed');
@@ -1031,7 +1030,7 @@ export default function MoneyTransferApp() {
         .select('*')
         .eq('id', currentUser.id)
         .single();
-      
+
       if (!error && data) {
         setCurrentUser(data);
       }
@@ -1065,10 +1064,10 @@ export default function MoneyTransferApp() {
             ]}>
               {qrCategory === type.value && <View style={styles.radioInnerCircle} />}
             </View>
-            <Icon 
-              name={type.icon as any} 
-              size={20} 
-              color={qrCategory === type.value ? '#007AFF' : '#666'} 
+            <Icon
+              name={type.icon as any}
+              size={20}
+              color={qrCategory === type.value ? '#007AFF' : '#666'}
             />
             <Text style={[
               styles.qrCategoryButtonText,
@@ -1096,10 +1095,10 @@ export default function MoneyTransferApp() {
             ]}
             onPress={() => setCategoryType(type.value)}
           >
-            <Icon 
-              name={type.icon as any} 
-              size={20} 
-              color={categoryType === type.value ? '#007AFF' : '#666'} 
+            <Icon
+              name={type.icon as any}
+              size={20}
+              color={categoryType === type.value ? '#007AFF' : '#666'}
             />
             <Text style={[
               styles.categoryButtonText,
@@ -1117,7 +1116,7 @@ export default function MoneyTransferApp() {
   const renderUserTransferForm = () => (
     <View style={styles.form}>
       <Text style={styles.sectionTitle}>Send Money</Text>
-      
+
       <Text style={styles.label}>Select Recipient</Text>
       <FlatList
         data={users.filter(user => user.id !== currentUser.id)}
@@ -1149,7 +1148,7 @@ export default function MoneyTransferApp() {
         keyboardType="numeric"
       />
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.sendButton, (!amount || !selectedUser) && styles.disabledButton]}
         onPress={handleTransaction}
         disabled={!amount || !selectedUser}
@@ -1165,7 +1164,7 @@ export default function MoneyTransferApp() {
   const renderBankForm = () => (
     <View style={styles.form}>
       <Text style={styles.sectionTitle}>Manage User Balance</Text>
-      
+
       <Text style={styles.label}>Select User</Text>
       <FlatList
         data={users}
@@ -1218,7 +1217,7 @@ export default function MoneyTransferApp() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity 
+      <TouchableOpacity
         style={[styles.sendButton, (!amount || !selectedUser || !transactionType) && styles.disabledButton]}
         onPress={handleTransaction}
         disabled={!amount || !selectedUser || !transactionType}
@@ -1277,8 +1276,8 @@ export default function MoneyTransferApp() {
             autoCapitalize="none"
           />
 
-          <TouchableOpacity 
-            style={[styles.loginButton, loading && styles.disabledButton]} 
+          <TouchableOpacity
+            style={[styles.loginButton, loading && styles.disabledButton]}
             onPress={handleLogin}
             disabled={loading}
           >
@@ -1296,28 +1295,28 @@ export default function MoneyTransferApp() {
           </TouchableOpacity>
 
           {/* Language Selector */}
-         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-  {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
-    <TouchableOpacity
-      key={lang}
-      style={[
-        styles.langButton,
-        currentLang === lang && styles.langButtonActive,
-      ]}
-      onPress={async () => {
-        await setLanguage(lang);
-        setCurrentLang(lang);
-      }}
-    >
-      <Text style={[
-        styles.langText,
-        currentLang === lang && styles.langTextActive,
-      ]}>
-        {lang.toUpperCase()}
-      </Text>
-    </TouchableOpacity>
-  ))}
-</ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+            {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
+              <TouchableOpacity
+                key={lang}
+                style={[
+                  styles.langButton,
+                  currentLang === lang && styles.langButtonActive,
+                ]}
+                onPress={async () => {
+                  await setLanguage(lang);
+                  setCurrentLang(lang);
+                }}
+              >
+                <Text style={[
+                  styles.langText,
+                  currentLang === lang && styles.langTextActive,
+                ]}>
+                  {lang.toUpperCase()}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
 
           <View style={styles.demoBox}>
@@ -1369,150 +1368,153 @@ export default function MoneyTransferApp() {
       <Animated.View style={{ flex: 1, opacity: tabFadeAnim }}>
         {activeTab === 'transfer' && (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-          {/* Balance Card */}
-          <TouchableOpacity style={styles.balanceCard} onPress={() => setShowTotalBalance(!showTotalBalance)}>
-            <Text style={styles.balanceLabel}>{showTotalBalance ? 'Total Balance (Wallet + Cash)' : 'Current Balance'}</Text>
-            <Text style={styles.balance}>
-              ₹{(
-                showTotalBalance 
-                  ? parseFloat(currentUser.balance) + (cashBalance || 0)
-                  : parseFloat(currentUser.balance)
-              ).toFixed(2)}
-            </Text>
-            <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
-          </TouchableOpacity>
-
-        
-          {/* Quick Actions - QR Code Buttons */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => {
-                requestCameraPermission();
-                setShowQRScanner(true);
-              }}
-            >
-              <MaterialCommunityIcons name="qrcode" size={24} color="#007AFF" />
-              <Text style={styles.qrButtonText}>Scan QR</Text>
+            {/* Balance Card */}
+            <TouchableOpacity style={styles.balanceCard} onPress={() => setShowTotalBalance(!showTotalBalance)}>
+              <Text style={styles.balanceLabel}>{showTotalBalance ? 'Total Balance (Wallet + Cash)' : 'Current Balance'}</Text>
+              <Text style={styles.balance}>
+                ₹{(
+                  showTotalBalance
+                    ? parseFloat(currentUser.balance) + (cashBalance || 0)
+                    : parseFloat(currentUser.balance)
+                ).toFixed(2)}
+              </Text>
+              <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => setShowMyQR(true)}
-            >
-              <Icon name="maximize" size={24} color="#007AFF" />
-              <Text style={styles.qrButtonText}>My QR</Text>
-            </TouchableOpacity>
-         
 
-          {/* Cash Wallet Quick Actions */}
-          
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => { setCashAction('add'); setShowCashModal(true); }}
-            >
-              <Icon name="plus-circle" size={24} color="#34C759" />
-              <Text style={styles.qrButtonText}>Cash +</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.qrButton}
-              onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
-            >
-              <Icon name="minus-circle" size={24} color="#FF3B30" />
-              <Text style={styles.qrButtonText}>Cash -</Text>
-            </TouchableOpacity>
-          </View>
-          {/* QR-only transfers: regular form removed */}
+            {/* Quick Actions - QR Code Buttons */}
+            <View style={styles.quickActions}>
+              <TouchableOpacity
+                style={styles.qrButton}
+                onPress={() => {
+                  requestCameraPermission();
+                  setShowQRScanner(true);
+                }}
+              >
+                <MaterialCommunityIcons name="qrcode" size={24} color="#007AFF" />
+                <Text style={styles.qrButtonText}>Scan QR</Text>
+              </TouchableOpacity>
 
-          {/* Recent Transactions */}
-          <Text style={styles.sectionTitle}>Recent Transactions</Text>
-          <FlatList
-            data={transactions
-              .filter((t: any) => t.from_user_id === currentUser.id || t.to_user_id === currentUser.id)
-              .slice(0, 10)}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.transactionItem}>
-                <View style={styles.transactionInfo}>
-                  <Text style={styles.transactionNames}>
-                    {item.from_name} → {item.to_name}
-                  </Text>
-                  <Text style={styles.transactionType}>
-                    {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
-                    {item.method === 'qr_code' && ' • QR'}
-                    {item.method === 'cash' && ' • Cash'}
-                  </Text>
-                </View>
-                <Text style={[
-                  styles.transactionAmount,
-                  { 
-                    color: item.type === 'add' ? 'green' : 
-                           item.type === 'deduct' ? 'red' : 
-                           item.from_user_id === currentUser.id ? 'red' : 'green'
-                  }
-                ]}>
-                  {item.from_user_id === currentUser.id ? '-' : '+'}₹{parseFloat(item.amount).toFixed(2)}
-                </Text>
-              </View>
+              <TouchableOpacity
+                style={styles.qrButton}
+                onPress={() => setShowMyQR(true)}
+              >
+                <Icon name="maximize" size={24} color="#007AFF" />
+                <Text style={styles.qrButtonText}>My QR</Text>
+              </TouchableOpacity>
+
+
+              {/* Cash Wallet Quick Actions */}
+
+              <TouchableOpacity
+                style={styles.qrButton}
+                onPress={() => { setCashAction('add'); setShowCashModal(true); }}
+              >
+                <Icon name="plus-circle" size={24} color="#34C759" />
+                <Text style={styles.qrButtonText}>Cash +</Text>
+              </TouchableOpacity>
+      <TouchableOpacity
+                style={styles.qrButton}
+                onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
+              >
+                <Icon name="minus-circle" size={24} color="#FF3B30" />
+                <Text style={styles.qrButtonText}>Cash -</Text>
+              </TouchableOpacity>
+            </View>
+            {/* Spending Breakdown Chart */}
+            {transactions.length > 0 && (
+              <SpendingBreakdownChart
+                transactions={transactions}
+                currentUserId={currentUser.id}
+              />
             )}
-            style={styles.transactionList}
-            scrollEnabled={false}
-          />
-        </ScrollView>
-      )}
+            <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            <FlatList
+              data={transactions
+                .filter((t: any) => t.from_user_id === currentUser.id || t.to_user_id === currentUser.id)
+                .slice(0, 10)}
+                renderItem={({ item }) => (
+                  <View style={styles.transactionItem}>
+                    <View style={styles.transactionInfo}>
+                      <Text style={styles.transactionNames}>
+                        {item.from_name} → {item.to_name}
+                      </Text>
+                      <Text style={styles.transactionType}>
+                        {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
+                        {item.method === 'qr_code' && ' • QR'}
+                        {item.method === 'cash' && ' • Cash'}
+                      </Text>
+                    </View>
+                    <Text style={[
+                      styles.transactionAmount,
+                      {
+                        color: item.type === 'add' ? 'green' :
+                          item.type === 'deduct' ? 'red' :
+                            item.from_user_id === currentUser.id ? 'red' : 'green'
+                      }
+                    ]}>
+                      {item.from_user_id === currentUser.id ? '-' : '+'}₹{parseFloat(item.amount).toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                style={styles.transactionList}
+                scrollEnabled={false}
+              />
+          </ScrollView>
+        )}
 
-      {activeTab === 'piggy' && (
-        <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-          <PiggyBanks
+        {activeTab === 'piggy' && (
+          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+            <PiggyBanks
+              userId={currentUser.id}
+              todayIncome={todayIncome}
+              todayNetIncome={todayNetIncome}
+              cashBalance={cashBalance}
+              transactions={transactions}
+            />
+          </ScrollView>
+        )}
+
+        {/* Analysis Tab Content */}
+        {activeTab === 'analysis' && (
+          <TransactionAnalysis currentUser={currentUser} />
+        )}
+
+        {/* Coach Tab Content */}
+        {activeTab === 'coach' && (
+          <CoachTab
+            currentUser={currentUser}
+            onOpenChat={() => setShowBot(true)}
+          />
+        )}
+
+        {/* Investments Tab */}
+        {activeTab === 'investments' && (
+          <EnhancedInvestments userId={currentUser.id} />
+        )}
+
+        {/* Finance Bot - Available on all tabs */}
+        {currentUser && (
+          <FinanceBot
             userId={currentUser.id}
-            todayIncome={todayIncome}
-            todayNetIncome={todayNetIncome}
-            cashBalance={cashBalance}
-            transactions={transactions}
+            userSpendingData={{
+              totalIncome: transactions
+                .filter((t: any) => t.to_user_id === currentUser.id)
+                .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+              totalSpent: transactions
+                .filter((t: any) => t.from_user_id === currentUser.id)
+                .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
+              transactionCount: transactions.length,
+            }}
+            isVisible={showBot}
+            onClose={() => {
+              setShowBot(false);
+              setBotAlert(null);
+            }}
+            showAsAlert={!!botAlert}
+            alertMessage={botAlert || undefined}
           />
-        </ScrollView>
-      )}
-
-      {/* Analysis Tab Content */}
-      {activeTab === 'analysis' && (
-        <TransactionAnalysis currentUser={currentUser} />
-      )}
-
-      {/* Coach Tab Content */}
-      {activeTab === 'coach' && (
-        <CoachTab 
-          currentUser={currentUser} 
-          onOpenChat={() => setShowBot(true)} 
-        />
-      )}
-
-      {/* Investments Tab */}
-      {activeTab === 'investments' && (
-        <EnhancedInvestments userId={currentUser.id} />
-      )}
-
-      {/* Finance Bot - Available on all tabs */}
-      {currentUser && (
-        <FinanceBot
-          userId={currentUser.id}
-          userSpendingData={{
-            totalIncome: transactions
-              .filter((t: any) => t.to_user_id === currentUser.id)
-              .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
-            totalSpent: transactions
-              .filter((t: any) => t.from_user_id === currentUser.id)
-              .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
-            transactionCount: transactions.length,
-          }}
-          isVisible={showBot}
-          onClose={() => {
-            setShowBot(false);
-            setBotAlert(null);
-          }}
-          showAsAlert={!!botAlert}
-          alertMessage={botAlert || undefined}
-        />
-      )}
+        )}
       </Animated.View>
 
       {/* Bottom Tabs */}
@@ -1531,10 +1533,10 @@ export default function MoneyTransferApp() {
           style={styles.bottomTab}
           onPress={() => setActiveTab('transfer')}
         >
-          <Icon 
-            name="send" 
-            size={22} 
-            color={activeTab === 'transfer' ? '#007AFF' : '#666'} 
+          <Icon
+            name="send"
+            size={22}
+            color={activeTab === 'transfer' ? '#007AFF' : '#666'}
           />
           <Text style={[styles.bottomTabText, activeTab === 'transfer' && styles.bottomTabTextActive]}>Transfer</Text>
         </TouchableOpacity>
@@ -1542,10 +1544,10 @@ export default function MoneyTransferApp() {
           style={styles.bottomTab}
           onPress={() => setActiveTab('piggy')}
         >
-          <Icon 
-            name="grid" 
-            size={22} 
-            color={activeTab === 'piggy' ? '#007AFF' : '#666'} 
+          <Icon
+            name="grid"
+            size={22}
+            color={activeTab === 'piggy' ? '#007AFF' : '#666'}
           />
           <Text style={[styles.bottomTabText, activeTab === 'piggy' && styles.bottomTabTextActive]}>Piggy</Text>
         </TouchableOpacity>
@@ -1553,10 +1555,10 @@ export default function MoneyTransferApp() {
           style={styles.bottomTab}
           onPress={() => setActiveTab('analysis')}
         >
-          <Icon 
-            name="bar-chart-2" 
-            size={22} 
-            color={activeTab === 'analysis' ? '#007AFF' : '#666'} 
+          <Icon
+            name="bar-chart-2"
+            size={22}
+            color={activeTab === 'analysis' ? '#007AFF' : '#666'}
           />
           <Text style={[styles.bottomTabText, activeTab === 'analysis' && styles.bottomTabTextActive]}>Analysis</Text>
         </TouchableOpacity>
@@ -1564,10 +1566,10 @@ export default function MoneyTransferApp() {
           style={styles.bottomTab}
           onPress={() => setActiveTab('coach')}
         >
-          <Icon 
-            name="briefcase" 
-            size={22} 
-            color={activeTab === 'coach' ? '#007AFF' : '#666'} 
+          <Icon
+            name="briefcase"
+            size={22}
+            color={activeTab === 'coach' ? '#007AFF' : '#666'}
           />
           <Text style={[styles.bottomTabText, activeTab === 'coach' && styles.bottomTabTextActive]}>Coach</Text>
         </TouchableOpacity>
@@ -1597,7 +1599,7 @@ export default function MoneyTransferApp() {
               <Icon name="x" size={24} color="#000" />
             </TouchableOpacity>
           </View>
-          
+
           {permission?.granted ? (
             <CameraView
               style={styles.camera}
@@ -1612,7 +1614,7 @@ export default function MoneyTransferApp() {
           ) : (
             <View style={styles.permissionContainer}>
               <Text style={styles.permissionText}>Camera permission required</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.permissionButton}
                 onPress={requestCameraPermission}
               >
@@ -1636,11 +1638,11 @@ export default function MoneyTransferApp() {
               <Icon name="x" size={24} color="#000" />
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView contentContainerStyle={styles.qrContainer}>
             <Text style={styles.qrTitle}>Scan to Pay Me</Text>
             <Text style={styles.qrSubtitle}>{currentUser.name}</Text>
-            
+
             <View style={styles.qrCodeContainer}>
               <QRCode
                 value={generateQRData()}
@@ -1649,11 +1651,11 @@ export default function MoneyTransferApp() {
                 color="black"
               />
             </View>
-            
+
             <Text style={styles.qrInstruction}>
               Ask others to scan this QR code to send you money instantly
             </Text>
-            
+
             <View style={styles.qrInfo}>
               <Text style={styles.qrInfoText}>Name: {currentUser.name}</Text>
               <Text style={styles.qrInfoText}>Email: {currentUser.email}</Text>
@@ -1675,7 +1677,7 @@ export default function MoneyTransferApp() {
               <Icon name="x" size={24} color="#000" />
             </TouchableOpacity>
           </View>
-          
+
           <ScrollView style={styles.amountModalContent} showsVerticalScrollIndicator={false}>
             <Text style={styles.amountModalRecipient}>
               Send to: {qrRecipient?.userName}
@@ -1683,10 +1685,10 @@ export default function MoneyTransferApp() {
             <Text style={styles.amountModalEmail}>
               {qrRecipient?.email}
             </Text>
-            
+
             {/* Category Selection */}
             {renderQRCategorySelector()}
-            
+
             <View style={styles.amountInputContainer}>
               <Text style={styles.amountLabel}>Amount</Text>
               <View style={styles.amountInputWrapper}>
@@ -1701,7 +1703,7 @@ export default function MoneyTransferApp() {
                 />
               </View>
             </View>
-            
+
             <View style={styles.quickAmounts}>
               <Text style={styles.quickAmountsTitle}>Quick Amounts</Text>
               <View style={styles.quickAmountButtons}>
@@ -1716,10 +1718,10 @@ export default function MoneyTransferApp() {
                 ))}
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[
-                styles.sendButton, 
+                styles.sendButton,
                 (!qrAmount || isNaN(parseFloat(qrAmount)) || parseFloat(qrAmount) <= 0) && styles.disabledButton
               ]}
               onPress={handleQRPayment}
@@ -1766,7 +1768,7 @@ export default function MoneyTransferApp() {
                 />
               </View>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.sendButton, (!cashAmount || isNaN(parseFloat(cashAmount)) || parseFloat(cashAmount) <= 0) && styles.disabledButton]}
               onPress={handleCashSubmit}
               disabled={!cashAmount || isNaN(parseFloat(cashAmount)) || parseFloat(cashAmount) <= 0}
@@ -1859,37 +1861,37 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   languageSelector: {
-  marginTop: 20,
-  paddingTop: 10,
-  width: "100%",
-},
+    marginTop: 20,
+    paddingTop: 10,
+    width: "100%",
+  },
 
-langButton: {
-  paddingHorizontal: 14,
-  paddingVertical: 8,
-  borderRadius: 20,
-  borderWidth: 1,
-  borderColor: "#d1d1d6",
-  marginRight: 8,
-  backgroundColor: "white",
-  height: 38,             // ✅ FIX: same height for all buttons
-  justifyContent: "center",
-},
+  langButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#d1d1d6",
+    marginRight: 8,
+    backgroundColor: "white",
+    height: 38,             // ✅ FIX: same height for all buttons
+    justifyContent: "center",
+  },
 
-langButtonActive: {
-  borderColor: "#007AFF",
-  backgroundColor: "#e6f0ff",
-},
+  langButtonActive: {
+    borderColor: "#007AFF",
+    backgroundColor: "#e6f0ff",
+  },
 
-langText: {
-  fontSize: 13,
-  fontWeight: "600",
-  color: "#6c6c70",
-},
+  langText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6c6c70",
+  },
 
-langTextActive: {
-  color: "#007AFF",
-},
+  langTextActive: {
+    color: "#007AFF",
+  },
 
   header: {
     flexDirection: 'row',
