@@ -45,7 +45,7 @@ const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({
         const now = new Date();
 
         if (period === 'day') {
-            // Today's data
+            // Today's data - show as single bar
             const startOfDay = new Date(now);
             startOfDay.setHours(0, 0, 0, 0);
 
@@ -58,17 +58,19 @@ const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({
 
             userTransactions.forEach((t) => {
                 const category = t.transaction_type || 'other';
-                categoryTotals[category] = (categoryTotals[category] || 0) + t.amount;
-                total += t.amount;
+                const amount = parseFloat(String(t.amount)) || 0;
+                categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+                total += amount;
             });
 
+            // Return single bar for today
             return {
                 bars: [{
                     label: 'Today',
                     categories: categoryTotals,
                     total
                 }],
-                maxTotal: total
+                maxTotal: Math.max(total, 1)
             };
         } else {
             // Last 7 days data
@@ -95,8 +97,9 @@ const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({
 
                 dayTransactions.forEach((t) => {
                     const category = t.transaction_type || 'other';
-                    categoryTotals[category] = (categoryTotals[category] || 0) + t.amount;
-                    total += t.amount;
+                    const amount = parseFloat(String(t.amount)) || 0;
+                    categoryTotals[category] = (categoryTotals[category] || 0) + amount;
+                    total += amount;
                 });
 
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -185,10 +188,10 @@ const SpendingBreakdownChart: React.FC<SpendingBreakdownChartProps> = ({
                                                                 {
                                                                     flex: segment.percentage,
                                                                     backgroundColor: segment.color,
-                                                                    borderTopLeftRadius: i === 0 ? 6 : 0,
-                                                                    borderTopRightRadius: i === 0 ? 6 : 0,
-                                                                    borderBottomLeftRadius: i === categorySegments.length - 1 ? 6 : 0,
-                                                                    borderBottomRightRadius: i === categorySegments.length - 1 ? 6 : 0,
+                                                                    borderTopLeftRadius: i === 0 ? 8 : 0,
+                                                                    borderTopRightRadius: i === 0 ? 8 : 0,
+                                                                    borderBottomLeftRadius: i === categorySegments.length - 1 ? 8 : 0,
+                                                                    borderBottomRightRadius: i === categorySegments.length - 1 ? 8 : 0,
                                                                 },
                                                             ]}
                                                         />
@@ -249,7 +252,7 @@ const styles = StyleSheet.create({
         borderRadius: 20,
         padding: 20,
         marginVertical: 16,
-        marginHorizontal: 16,
+        marginHorizontal: 0,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
@@ -260,7 +263,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
+        marginBottom: 28,
     },
     title: {
         fontSize: 22,
@@ -295,19 +298,21 @@ const styles = StyleSheet.create({
         color: '#fff',
     },
     chartContainer: {
-        marginBottom: 20,
+        marginBottom: 24,
+        overflow: 'hidden',
     },
     barsContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
-        justifyContent: 'space-between',
-        height: 180,
-        paddingHorizontal: 4,
+        justifyContent: 'space-evenly',
+        height: 200,
+        paddingHorizontal: 8,
+        gap: 8,
     },
     barWrapper: {
         flex: 1,
         alignItems: 'center',
-        marginHorizontal: 2,
+        maxWidth: 60,
     },
     barContainer: {
         width: '100%',
@@ -319,9 +324,14 @@ const styles = StyleSheet.create({
         width: '100%',
         maxWidth: 40,
         flexDirection: 'column-reverse',
-        borderRadius: 6,
+        borderRadius: 8,
         overflow: 'hidden',
-        minHeight: 8,
+        minHeight: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     barSegment: {
         width: '100%',
@@ -329,68 +339,72 @@ const styles = StyleSheet.create({
     emptyBar: {
         width: '100%',
         maxWidth: 40,
-        height: 8,
+        height: 10,
         backgroundColor: '#E5E7EB',
-        borderRadius: 6,
+        borderRadius: 8,
     },
     barLabel: {
         fontSize: 11,
-        fontWeight: '600',
+        fontWeight: '700',
         color: '#6B7280',
-        marginTop: 6,
+        marginTop: 8,
+        textAlign: 'center',
+        width: '100%',
     },
     barAmount: {
         fontSize: 10,
-        fontWeight: '500',
+        fontWeight: '600',
         color: '#9CA3AF',
-        marginTop: 2,
+        marginTop: 3,
+        textAlign: 'center',
+        width: '100%',
     },
     legend: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 12,
-        marginTop: 16,
-        paddingTop: 16,
+        marginTop: 20,
+        paddingTop: 20,
         borderTopWidth: 1,
         borderTopColor: '#F3F4F6',
+        gap: 12,
     },
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 12,
     },
     legendDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
         marginRight: 6,
     },
     legendText: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#6B7280',
-        fontWeight: '500',
+        fontWeight: '600',
     },
     alertBanner: {
         backgroundColor: '#FEF2F2',
         borderLeftWidth: 4,
         borderLeftColor: '#EF4444',
         borderRadius: 12,
-        padding: 14,
-        marginTop: 16,
+        padding: 16,
+        marginTop: 20,
     },
     alertText: {
         color: '#991B1B',
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: '600',
     },
     emptyState: {
-        height: 180,
+        height: 200,
         justifyContent: 'center',
         alignItems: 'center',
     },
     emptyText: {
-        fontSize: 14,
+        fontSize: 15,
         color: '#9CA3AF',
+        fontWeight: '500',
     },
 });
 
