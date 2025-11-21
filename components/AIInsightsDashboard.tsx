@@ -23,7 +23,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
     const [insights, setInsights] = useState<AIInsights | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedTab, setSelectedTab] = useState<'overview' | 'predictions' | 'anomalies' | 'coaching'>('overview');
+    const [selectedTab, setSelectedTab] = useState<'overview' | 'predictions' | 'anomalies' | 'coaching' | 'patterns' | 'rebalancing' | 'reduction' | 'rules'>('overview');
 
     useEffect(() => {
         loadInsights();
@@ -86,7 +86,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
 
             {/* Tab Navigation */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
-                {(['overview', 'predictions', 'anomalies', 'coaching'] as const).map(tab => (
+                {(['overview', 'predictions', 'anomalies', 'coaching', 'patterns', 'rebalancing', 'reduction', 'rules'] as const).map(tab => (
                     <TouchableOpacity
                         key={tab}
                         style={[styles.tab, selectedTab === tab && styles.activeTab]}
@@ -98,6 +98,11 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                         {tab === 'anomalies' && insights.anomalies.length > 0 && (
                             <View style={styles.badge}>
                                 <Text style={styles.badgeText}>{insights.anomalies.length}</Text>
+                            </View>
+                        )}
+                        {tab === 'rules' && insights.personalizedRules.filter(r => !r.approved).length > 0 && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{insights.personalizedRules.filter(r => !r.approved).length}</Text>
                             </View>
                         )}
                     </TouchableOpacity>
@@ -287,6 +292,126 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                                 <Icon name="message-circle" size={48} color="#9CA3AF" />
                                 <Text style={styles.emptyStateText}>No coaching tips yet</Text>
                                 <Text style={styles.emptyStateSubtext}>Keep tracking your spending</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Patterns Tab */}
+                {selectedTab === 'patterns' && (
+                    <View>
+                        {insights.patterns.length > 0 ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Spending Patterns</Text>
+                                {insights.patterns.map((pattern, index) => (
+                                    <SpendingPatternCard key={index} pattern={pattern} />
+                                ))}
+                            </>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Icon name="activity" size={48} color="#9CA3AF" />
+                                <Text style={styles.emptyStateText}>No patterns detected yet</Text>
+                                <Text style={styles.emptyStateSubtext}>More data needed for pattern analysis</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Rebalancing Tab */}
+                {selectedTab === 'rebalancing' && (
+                    <View>
+                        {insights.rebalancing && insights.rebalancing.suggestions.length > 0 ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Budget Rebalancing</Text>
+                                <View style={styles.rebalanceSummary}>
+                                    <Text style={styles.rebalanceMessage}>{insights.rebalancing.message}</Text>
+                                    <View style={styles.rebalanceStats}>
+                                        <View style={styles.rebalanceStat}>
+                                            <Icon name="trending-up" size={16} color="#10B981" />
+                                            <Text style={styles.rebalanceStatLabel}>Savings Increase</Text>
+                                            <Text style={styles.rebalanceStatValue}>
+                                                ₹{insights.rebalancing.totalSavingsIncrease.toLocaleString('en-IN')}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.rebalanceStat}>
+                                            <Icon name="trending-down" size={16} color="#DC2626" />
+                                            <Text style={styles.rebalanceStatLabel}>Wants Decrease</Text>
+                                            <Text style={styles.rebalanceStatValue}>
+                                                ₹{insights.rebalancing.totalWantsDecrease.toLocaleString('en-IN')}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </View>
+                                {insights.rebalancing.suggestions.map((suggestion, index) => (
+                                    <BudgetRebalanceCard
+                                        key={index}
+                                        suggestion={suggestion}
+                                        onApprove={(s) => console.log('Approved:', s)}
+                                        onReject={(s) => console.log('Rejected:', s)}
+                                    />
+                                ))}
+                            </>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Icon name="check-circle" size={48} color="#10B981" />
+                                <Text style={styles.emptyStateText}>Budget looks balanced</Text>
+                                <Text style={styles.emptyStateSubtext}>No rebalancing needed right now</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Reduction Tab */}
+                {selectedTab === 'reduction' && (
+                    <View>
+                        {insights.reductionSuggestions.length > 0 ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Spending Reduction Strategies</Text>
+                                {insights.reductionSuggestions.map((reduction, index) => (
+                                    <SpendingReductionCard
+                                        key={index}
+                                        reduction={reduction}
+                                        onTrack={(r) => console.log('Tracking:', r)}
+                                    />
+                                ))}
+                            </>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Icon name="check-circle" size={48} color="#10B981" />
+                                <Text style={styles.emptyStateText}>Spending looks good</Text>
+                                <Text style={styles.emptyStateSubtext}>No reduction suggestions at this time</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Rules Tab */}
+                {selectedTab === 'rules' && (
+                    <View>
+                        {insights.personalizedRules.length > 0 ? (
+                            <>
+                                <Text style={styles.sectionTitle}>Personalized Financial Rules</Text>
+                                <View style={styles.rulesInfo}>
+                                    <Icon name="info" size={16} color="#6B7280" />
+                                    <Text style={styles.rulesInfoText}>
+                                        AI has learned these rules from your spending patterns. Approve to activate.
+                                    </Text>
+                                </View>
+                                {insights.personalizedRules.map((rule, index) => (
+                                    <PersonalizedRuleCard
+                                        key={index}
+                                        rule={rule}
+                                        onApprove={(r) => console.log('Approved rule:', r)}
+                                        onReject={(r) => console.log('Rejected rule:', r)}
+                                        onToggle={(r, active) => console.log('Toggled rule:', r, active)}
+                                    />
+                                ))}
+                            </>
+                        ) : (
+                            <View style={styles.emptyState}>
+                                <Icon name="shield" size={48} color="#9CA3AF" />
+                                <Text style={styles.emptyStateText}>No rules yet</Text>
+                                <Text style={styles.emptyStateSubtext}>AI needs more data to learn your patterns</Text>
                             </View>
                         )}
                     </View>
@@ -588,5 +713,54 @@ const styles = StyleSheet.create({
         color: '#007AFF',
         fontWeight: '600',
         marginRight: 4,
+    },
+    rebalanceSummary: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    rebalanceStats: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 12,
+    },
+    rebalanceStat: {
+        flex: 1,
+        alignItems: 'center',
+        backgroundColor: '#F9FAFB',
+        padding: 12,
+        borderRadius: 10,
+    },
+    rebalanceStatLabel: {
+        fontSize: 11,
+        color: '#6B7280',
+        marginTop: 6,
+        marginBottom: 4,
+    },
+    rebalanceStatValue: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1F2937',
+    },
+    rulesInfo: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: '#EFF6FF',
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 16,
+        gap: 10,
+    },
+    rulesInfoText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#1E40AF',
+        lineHeight: 18,
     },
 });

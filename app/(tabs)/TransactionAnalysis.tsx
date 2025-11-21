@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import AIInsightsDashboard from '../../components/AIInsightsDashboard';
 import FinanceBot from '../../components/FinanceBot';
 import FinanceToast from '../../components/FinanceToast';
 import { supabase } from '../../lib/supabase';
@@ -127,7 +128,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
-  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'coach'>(initialTab as 'overview' | 'categories' | 'coach');
+  const [activeTab, setActiveTab] = useState<'overview' | 'categories' | 'coach' | 'ai-insights'>(initialTab as 'overview' | 'categories' | 'coach' | 'ai-insights');
   const [showBot, setShowBot] = useState(false);
   const [botAlert, setBotAlert] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -138,11 +139,12 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
   const showCoachTab = activeTab === 'coach';
   const showOverviewTab = activeTab === 'overview';
   const showCategoriesTab = activeTab === 'categories';
+  const showAIInsightsTab = activeTab === 'ai-insights';
 
   // Ensure the activeTab is in sync with initialTab
   useEffect(() => {
-    if (initialTab && ['overview', 'categories', 'coach'].includes(initialTab)) {
-      setActiveTab(initialTab as 'overview' | 'categories' | 'coach');
+    if (initialTab && ['overview', 'categories', 'coach', 'ai-insights'].includes(initialTab)) {
+      setActiveTab(initialTab as 'overview' | 'categories' | 'coach' | 'ai-insights');
     }
   }, [initialTab]);
 
@@ -732,7 +734,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
 
       {/* Navigation Tabs */}
       <View style={styles.tabContainer}>
-        {(['overview', 'categories', 'coach'] as const).map(tab => (
+        {(['overview', 'categories', 'coach', 'ai-insights'] as const).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -745,7 +747,7 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
               styles.tabText,
               activeTab === tab && styles.activeTabText
             ]}>
-              {tab === 'coach' ? 'Coach' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab === 'coach' ? 'Coach' : tab === 'ai-insights' ? 'AI Insights' : tab.charAt(0).toUpperCase() + tab.slice(1)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -1159,6 +1161,46 @@ export default function TransactionAnalysis({ currentUser, initialTab = 'overvie
                     </View>
                   );
                 })}
+            </View>
+          )}
+
+          {/* AI Insights Tab - Using showAIInsightsTab variable for conditional rendering */}
+          {showAIInsightsTab && (
+            <View>
+              <AIInsightsDashboard
+                context={{
+                  userId: currentUser?.id || '',
+                  transactions: transactions.map(t => ({
+                    id: t.id,
+                    from_user_id: t.from_user_id,
+                    to_user_id: t.to_user_id,
+                    from_name: t.from_name,
+                    to_name: t.to_name,
+                    amount: Number(t.amount) || 0,
+                    type: t.type || 'other',
+                    method: t.method,
+                    transaction_type: t.transaction_type,
+                    created_at: t.created_at,
+                  })),
+                  totalIncome: spendingAnalysis.totalReceived,
+                  totalSpent: spendingAnalysis.totalSpent,
+                  totalSaved: spendingAnalysis.totalSaved,
+                  savingsRate: spendingAnalysis.savingsRate,
+                  incomeVolatility: spendingAnalysis.incomeVolatility,
+                  isGigWorker: spendingAnalysis.isGigWorker,
+                  incomeFrequency: spendingAnalysis.incomeFrequency,
+                  safeToSpendDaily: spendingAnalysis.safeToSpendDaily,
+                  topCategories: spendingAnalysis.topSpendingCategories,
+                  upcomingBills: spendingAnalysis.upcomingBillsEstimate,
+                  transactionCount: spendingAnalysis.transactionCount,
+                  spendingPattern: spendingAnalysis.spendingPattern,
+                  timeRange: timeRange,
+                }}
+                onRefresh={() => {
+                  // Refresh transactions
+                  setTimeRange(timeRange);
+                }}
+              />
             </View>
           )}
 

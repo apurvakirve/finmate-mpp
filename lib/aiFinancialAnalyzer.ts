@@ -745,6 +745,11 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
     }
 
     private static generateRuleBasedReductions(context: FinancialContext): SpendingReduction[] {
+        // Safety check for topCategories
+        if (!context.topCategories || context.topCategories.length === 0) {
+            return [];
+        }
+
         return context.topCategories.slice(0, 3).map(cat => ({
             category: cat.category,
             currentSpending: cat.amount,
