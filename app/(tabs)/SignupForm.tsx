@@ -128,10 +128,11 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
   };
 
   const handleSpiritAnimalComplete = (animalType: SpiritAnimalType) => {
-    setFormData({ ...formData, spiritAnimal: animalType });
-    // Auto-submit after quiz completion
+    const updatedFormData = { ...formData, spiritAnimal: animalType };
+    setFormData(updatedFormData);
+    // Auto-submit after quiz completion with the updated data
     setTimeout(() => {
-      onSubmit({ ...formData, spiritAnimal: animalType });
+      onSubmit(updatedFormData);
     }, 500);
   };
 

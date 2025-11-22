@@ -19,6 +19,11 @@ import {
   View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import CoachTab from '../../components/CoachTab';
+import DailyInsightCard from '../../components/DailyInsightCard';
+import PersonalityTipCard from '../../components/PersonalityTipCard';
+import SpiritAnimalAvatar from '../../components/SpiritAnimalAvatar';
+import TodayActivityCard from '../../components/TodayActivityCard';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
@@ -538,6 +543,13 @@ export default function MoneyTransferApp() {
   const handleSignup = async (formData: any) => {
     setLoading(true);
     try {
+      console.log('Starting signup with data:', {
+        name: formData.name,
+        email: formData.email,
+        hasSpiritAnimal: !!formData.spiritAnimal,
+        spiritAnimal: formData.spiritAnimal
+      });
+
       const existing = await supabase
         .from('users')
         .select('id')
@@ -549,6 +561,22 @@ export default function MoneyTransferApp() {
         return;
       }
 
+      const metadata = {
+        age: formData.age,
+        phone: formData.phone,
+        city: formData.city,
+        occupation: formData.occupation,
+        monthlyIncome: formData.monthlyIncome,
+        maritalStatus: formData.maritalStatus || 'single',
+        dependents: formData.dependents || '0',
+        primaryGoal: formData.primaryGoal || 'wealth',
+        investmentExperience: formData.investmentExperience || 'basic',
+        spiritAnimal: formData.spiritAnimal || null,
+      };
+
+      console.log('Metadata to save:', metadata);
+
+      // Try to insert user with metadata
       const { data, error } = await supabase
         .from('users')
         .insert({
@@ -557,33 +585,65 @@ export default function MoneyTransferApp() {
           password: formData.password.trim(),
           role: 'user',
           balance: 0,
-          // Store additional profile data in a JSON field or separate table if needed
-          metadata: JSON.stringify({
-            age: formData.age,
-            phone: formData.phone,
-            city: formData.city,
-            occupation: formData.occupation,
-            monthlyIncome: formData.monthlyIncome,
-            maritalStatus: formData.maritalStatus,
-            dependents: formData.dependents,
-            primaryGoal: formData.primaryGoal,
-            investmentExperience: formData.investmentExperience,
-            spiritAnimal: formData.spiritAnimal,
-          }),
+          metadata: JSON.stringify(metadata),
         })
         .select('*')
         .single();
 
-      if (error || !data) {
-        Alert.alert('Error', 'Sign up failed');
+      if (error) {
+        console.error('Signup error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+
+        // If metadata field doesn't exist, try without it
+        if (error.message?.includes('metadata') || error.code === '42703') {
+          console.log('Retrying without metadata field...');
+          const { data: retryData, error: retryError } = await supabase
+            .from('users')
+            .insert({
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              password: formData.password.trim(),
+              role: 'user',
+              balance: 0,
+            })
+            .select('*')
+            .single();
+
+          if (retryError) {
+            Alert.alert('Error', `Sign up failed: ${retryError.message || 'Unknown error'}`);
+            return;
+          }
+
+          if (retryData) {
+            console.log('Signup successful (without metadata):', retryData);
+            setCurrentUser(retryData);
+            setShowSignupForm(false);
+            Alert.alert('Success', `Welcome ${retryData.name}!`);
+            return;
+          }
+        }
+
+        Alert.alert('Error', `Sign up failed: ${error.message || 'Unknown error'}`);
         return;
       }
 
+      if (!data) {
+        console.error('No data returned from signup');
+        Alert.alert('Error', 'Sign up failed: No data returned');
+        return;
+      }
+
+      console.log('Signup successful:', data);
       setCurrentUser(data);
       setShowSignupForm(false);
       Alert.alert('Success', `Welcome ${data.name}!`);
-    } catch (error) {
-      Alert.alert('Error', 'Sign up failed');
+    } catch (error: any) {
+      console.error('Signup exception:', error);
+      Alert.alert('Error', `Sign up failed: ${error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -1049,22 +1109,26 @@ export default function MoneyTransferApp() {
   // Main app screen with tabs
   return (
     <SafeAreaView style={styles.mainContainer}>
-      {/* Header */}
+      {/* Enhanced Header with Spirit Animal */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.appName}>FinMate</Text>
-          <Text style={styles.userName}>{currentUser.name}</Text>
+        <View style={styles.headerLeft}>
           {getUserSpiritAnimal(currentUser) && (
-            <View style={styles.spiritAnimalBadge}>
-              <Text style={styles.spiritAnimalEmoji}>
-                {getUserSpiritAnimal(currentUser)?.profile.emoji}
-              </Text>
+            <SpiritAnimalAvatar
+              animalType={getUserSpiritAnimal(currentUser)!.type}
+              emoji={getUserSpiritAnimal(currentUser)!.profile.emoji}
+              size="medium"
+              showPulse={true}
+            />
+          )}
+          <View style={styles.headerText}>
+            <Text style={styles.appName}>FinMate</Text>
+            <Text style={styles.greeting}>Hey {currentUser.name}! 👋</Text>
+            {getUserSpiritAnimal(currentUser) && (
               <Text style={styles.spiritAnimalName}>
                 {getUserSpiritAnimal(currentUser)?.profile.name}
               </Text>
-            </View>
-          )}
-          <Text style={styles.userRole}>{currentUser.role.toUpperCase()}</Text>
+            )}
+          </View>
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity onPress={refreshCurrentUser} onLongPress={seedDemoData} style={styles.refreshButton}>
@@ -1132,6 +1196,39 @@ export default function MoneyTransferApp() {
                 <Text style={styles.qrButtonText}>Cash -</Text>
               </TouchableOpacity>
             </View>
+
+            {/* AI Insights & Activity Cards */}
+            {getUserSpiritAnimal(currentUser) && (
+              <>
+                {/* Daily Insight Card */}
+                <DailyInsightCard
+                  title="Smart Spending Tip"
+                  description={`As a ${getUserSpiritAnimal(currentUser)?.profile.name}, focus on ${getUserSpiritAnimal(currentUser)?.profile.tips[0].toLowerCase()}`}
+                  icon="lightbulb"
+                  iconColor="#FFA000"
+                  gradientColors={['#FFF8E1', '#FFFFFF']}
+                />
+
+                {/* Today's Activity */}
+                <TodayActivityCard
+                  income={transactions
+                    .filter((t: any) =>
+                      t.receiver_id === currentUser.id &&
+                      new Date(t.created_at).toDateString() === new Date().toDateString()
+                    )
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0)}
+                  spending={transactions
+                    .filter((t: any) =>
+                      t.sender_id === currentUser.id &&
+                      new Date(t.created_at).toDateString() === new Date().toDateString()
+                    )
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0)}
+                />
+
+                {/* Personality Tip */}
+                <PersonalityTipCard profile={getUserSpiritAnimal(currentUser)!.profile} />
+              </>
+            )}
 
             {/* QR-only transfers: regular form removed */}
 
@@ -1589,6 +1686,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  greeting: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 2,
   },
   headerButtons: {
     flexDirection: 'row',
