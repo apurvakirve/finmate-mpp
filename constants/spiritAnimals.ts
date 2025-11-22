@@ -187,41 +187,41 @@ export const SPIRIT_ANIMAL_PROFILES: Record<SpiritAnimalType, SpiritAnimalProfil
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
     {
         id: 'q1',
-        question: 'What\'s your money philosophy?',
+        question: 'What\'s your life philosophy when it comes to money?',
         options: [
             {
                 id: 'q1_eagle',
-                text: 'Money should grow and work for me',
+                text: 'Money is a tool to build wealth and freedom',
                 animal: 'eagle',
                 icon: 'trending-up'
             },
             {
                 id: 'q1_squirrel',
-                text: 'Save first, spend what\'s left',
+                text: 'Security first - save for rainy days',
                 animal: 'squirrel',
                 icon: 'shield'
             },
             {
                 id: 'q1_butterfly',
-                text: 'Life is short, enjoy it now',
+                text: 'You only live once - enjoy the journey',
                 animal: 'butterfly',
                 icon: 'sun'
             },
             {
                 id: 'q1_lion',
-                text: 'Every rupee should have a purpose',
+                text: 'Every rupee should serve my goals',
                 animal: 'lion',
                 icon: 'target'
             },
             {
                 id: 'q1_dolphin',
-                text: 'Balance between saving and enjoying',
+                text: 'Balance today\'s joy with tomorrow\'s security',
                 animal: 'dolphin',
                 icon: 'activity'
             },
             {
                 id: 'q1_fox',
-                text: 'Get maximum value from every rupee',
+                text: 'Smart decisions maximize every opportunity',
                 animal: 'fox',
                 icon: 'zap'
             }
@@ -392,6 +392,90 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 text: 'Optimized for efficiency',
                 animal: 'fox',
                 icon: 'cpu'
+            }
+        ]
+    },
+    {
+        id: 'q6',
+        question: 'What drives your financial decisions?',
+        options: [
+            {
+                id: 'q6_eagle',
+                text: 'Future potential and growth opportunities',
+                animal: 'eagle',
+                icon: 'sunrise'
+            },
+            {
+                id: 'q6_squirrel',
+                text: 'Safety, stability, and peace of mind',
+                animal: 'squirrel',
+                icon: 'shield'
+            },
+            {
+                id: 'q6_butterfly',
+                text: 'Experiences and living in the moment',
+                animal: 'butterfly',
+                icon: 'smile'
+            },
+            {
+                id: 'q6_lion',
+                text: 'Achieving specific dreams and milestones',
+                animal: 'lion',
+                icon: 'award'
+            },
+            {
+                id: 'q6_dolphin',
+                text: 'Maintaining flexibility and options',
+                animal: 'dolphin',
+                icon: 'compass'
+            },
+            {
+                id: 'q6_fox',
+                text: 'Getting the best value and outcomes',
+                animal: 'fox',
+                icon: 'star'
+            }
+        ]
+    },
+    {
+        id: 'q7',
+        question: 'How do you view money\'s role in your happiness?',
+        options: [
+            {
+                id: 'q7_eagle',
+                text: 'It buys freedom and opportunities',
+                animal: 'eagle',
+                icon: 'unlock'
+            },
+            {
+                id: 'q7_squirrel',
+                text: 'It provides security and reduces stress',
+                animal: 'squirrel',
+                icon: 'heart'
+            },
+            {
+                id: 'q7_butterfly',
+                text: 'It enables amazing experiences and memories',
+                animal: 'butterfly',
+                icon: 'camera'
+            },
+            {
+                id: 'q7_lion',
+                text: 'It helps me achieve what matters most',
+                animal: 'lion',
+                icon: 'check-circle'
+            },
+            {
+                id: 'q7_dolphin',
+                text: 'It supports a well-rounded, fulfilling life',
+                animal: 'dolphin',
+                icon: 'life-buoy'
+            },
+            {
+                id: 'q7_fox',
+                text: 'It\'s a resource to be optimized wisely',
+                animal: 'fox',
+                icon: 'tool'
             }
         ]
     }

@@ -1,15 +1,16 @@
+import { Feather as Icon } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
-  View,
+  Alert,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
+  View,
 } from 'react-native';
-import { Feather as Icon } from '@expo/vector-icons';
-import { t } from '../../lib/i18n';
+import SpiritAnimalOnboarding from '../../screens/SpiritAnimalOnboarding';
+import { SpiritAnimalType } from '../../types/spiritAnimal';
 
 interface SignupFormData {
   name: string;
@@ -24,6 +25,7 @@ interface SignupFormData {
   dependents: string;
   primaryGoal: 'emergency' | 'education' | 'home' | 'vacation' | 'retirement' | 'wealth';
   investmentExperience: 'none' | 'basic' | 'experienced';
+  spiritAnimal?: string;
 }
 
 interface SignupFormProps {
@@ -117,7 +119,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
 
   const handleNext = () => {
     if (validateStep(step)) {
-      if (step < 3) {
+      if (step < 4) {
         setStep(step + 1);
       } else {
         onSubmit(formData);
@@ -125,12 +127,20 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
     }
   };
 
+  const handleSpiritAnimalComplete = (animalType: SpiritAnimalType) => {
+    setFormData({ ...formData, spiritAnimal: animalType });
+    // Auto-submit after quiz completion
+    setTimeout(() => {
+      onSubmit({ ...formData, spiritAnimal: animalType });
+    }, 500);
+  };
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${(step / 3) * 100}%` }]} />
+        <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
       </View>
-      <Text style={styles.stepIndicator}>Step {step} of 3</Text>
+      <Text style={styles.stepIndicator}>Step {step} of 4{step === 4 ? ' - Quiz (7 questions)' : ''}</Text>
 
       {step === 1 && (
         <View style={styles.stepContent}>
@@ -178,14 +188,14 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             {formData.password.length > 0 && (
               <View style={styles.passwordStrengthContainer}>
                 <View style={styles.passwordStrengthBar}>
-                  <View 
+                  <View
                     style={[
                       styles.passwordStrengthFill,
-                      { 
+                      {
                         width: `${(formData.password.length / 12) * 100}%`,
                         backgroundColor: getPasswordStrength(formData.password).color
                       }
-                    ]} 
+                    ]}
                   />
                 </View>
                 <Text style={[styles.passwordStrengthText, { color: getPasswordStrength(formData.password).color }]}>
@@ -352,24 +362,35 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
         </View>
       )}
 
-      <View style={styles.buttonRow}>
-        {step > 1 && (
-          <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
-            <Icon name="arrow-left" size={18} color="#007AFF" />
-            <Text style={styles.backButtonText}>Back</Text>
+      {step === 4 && (
+        <View style={styles.stepContent}>
+          <Text style={styles.title}>Discover Your Financial Personality</Text>
+          <Text style={styles.subtitle}>Take a quick quiz to personalize your experience</Text>
+
+          <SpiritAnimalOnboarding onComplete={handleSpiritAnimalComplete} />
+        </View>
+      )}
+
+      {step < 4 && (
+        <View style={styles.buttonRow}>
+          {step > 1 && (
+            <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
+              <Icon name="arrow-left" size={18} color="#007AFF" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.nextButton, loading && styles.nextButtonDisabled]}
+            onPress={handleNext}
+            disabled={loading}
+          >
+            <Text style={styles.nextButtonText}>
+              {step === 3 ? 'Next' : 'Next'}
+            </Text>
+            {step < 3 && <Icon name="arrow-right" size={18} color="white" style={{ marginLeft: 6 }} />}
           </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.nextButton, loading && styles.nextButtonDisabled]}
-          onPress={handleNext}
-          disabled={loading}
-        >
-          <Text style={styles.nextButtonText}>
-            {step === 3 ? 'Create Account' : 'Next'}
-          </Text>
-          {step < 3 && <Icon name="arrow-right" size={18} color="white" style={{ marginLeft: 6 }} />}
-        </TouchableOpacity>
-      </View>
+        </View>
+      )}
 
       <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
         <Text style={styles.cancelButtonText}>Cancel</Text>

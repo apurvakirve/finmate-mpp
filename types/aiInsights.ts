@@ -147,6 +147,13 @@ export interface FinancialContext {
     spendingPattern: 'high' | 'moderate' | 'low';
     transactions: Transaction[];
     timeRange: 'week' | 'month' | 'year';
+    spiritAnimal?: string;
+    spiritAnimalTraits?: {
+        riskTolerance: string;
+        traits: string[];
+        strengths: string[];
+        weaknesses: string[];
+    };
 }
 
 // AI Analysis Request

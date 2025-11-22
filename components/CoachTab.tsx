@@ -5,57 +5,81 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface CoachTabProps {
   currentUser: any;
   onOpenChat: () => void;
+  spiritAnimal?: { type: string; profile: any } | null;
 }
 
-export default function CoachTab({ currentUser, onOpenChat }: CoachTabProps) {
+export default function CoachTab({ currentUser, onOpenChat, spiritAnimal }: CoachTabProps) {
+  const profile = spiritAnimal?.profile;
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Financial Coach</Text>
-        <Text style={styles.subtitle}>Get personalized financial advice</Text>
+        <Text style={styles.title}>
+          {spiritAnimal ? `Hey ${profile.name}! ${profile.emoji}` : 'Financial Coach'}
+        </Text>
+        <Text style={styles.subtitle}>
+          {spiritAnimal ? profile.philosophy : 'Get personalized financial advice'}
+        </Text>
       </View>
-      
+
       <View style={styles.card}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.chatButton}
           onPress={onOpenChat}
         >
           <Icon name="message-circle" size={24} color="white" style={styles.chatIcon} />
           <Text style={styles.chatButtonText}>Chat with Financial Coach</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.tipsContainer}>
-          <Text style={styles.tipsTitle}>Quick Tips</Text>
-          
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIcon, { backgroundColor: '#E8F5E9' }]}>
-              <Icon name="trending-up" size={20} color="#4CAF50" />
-            </View>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Save Consistently</Text>
-              <Text style={styles.tipDescription}>Aim to save at least 20% of your income each month.</Text>
-            </View>
-          </View>
-          
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIcon, { backgroundColor: '#FFF3E0' }]}>
-              <Icon name="alert-triangle" size={20} color="#FFA000" />
-            </View>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Manage Debt</Text>
-              <Text style={styles.tipDescription}>Focus on paying off high-interest debt as a priority.</Text>
-            </View>
-          </View>
-          
-          <View style={styles.tipItem}>
-            <View style={[styles.tipIcon, { backgroundColor: '#E3F2FD' }]}>
-              <Icon name="bar-chart-2" size={20} color="#2196F3" />
-            </View>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>Diversify Investments</Text>
-              <Text style={styles.tipDescription}>Spread your investments across different asset classes.</Text>
-            </View>
-          </View>
+          <Text style={styles.tipsTitle}>
+            {spiritAnimal ? `Tips for ${profile.name}` : 'Quick Tips'}
+          </Text>
+
+          {spiritAnimal && profile.tips ? (
+            profile.tips.slice(0, 3).map((tip: string, index: number) => (
+              <View key={index} style={styles.tipItem}>
+                <View style={[styles.tipIcon, { backgroundColor: profile.accentColor || '#E3F2FD' }]}>
+                  <Text style={{ fontSize: 20 }}>{profile.emoji}</Text>
+                </View>
+                <View style={styles.tipContent}>
+                  <Text style={styles.tipDescription}>{tip}</Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <>
+              <View style={styles.tipItem}>
+                <View style={[styles.tipIcon, { backgroundColor: '#E8F5E9' }]}>
+                  <Icon name="trending-up" size={20} color="#4CAF50" />
+                </View>
+                <View style={styles.tipContent}>
+                  <Text style={styles.tipTitle}>Save Consistently</Text>
+                  <Text style={styles.tipDescription}>Aim to save at least 20% of your income each month.</Text>
+                </View>
+              </View>
+
+              <View style={styles.tipItem}>
+                <View style={[styles.tipIcon, { backgroundColor: '#FFF3E0' }]}>
+                  <Icon name="alert-triangle" size={20} color="#FFA000" />
+                </View>
+                <View style={styles.tipContent}>
+                  <Text style={styles.tipTitle}>Manage Debt</Text>
+                  <Text style={styles.tipDescription}>Focus on paying off high-interest debt as a priority.</Text>
+                </View>
+              </View>
+
+              <View style={styles.tipItem}>
+                <View style={[styles.tipIcon, { backgroundColor: '#E3F2FD' }]}>
+                  <Icon name="bar-chart-2" size={20} color="#2196F3" />
+                </View>
+                <View style={styles.tipContent}>
+                  <Text style={styles.tipTitle}>Diversify Investments</Text>
+                  <Text style={styles.tipDescription}>Spread your investments across different asset classes.</Text>
+                </View>
+              </View>
+            </>
+          )}
         </View>
       </View>
     </View>

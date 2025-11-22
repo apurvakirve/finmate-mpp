@@ -2,7 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,17 +19,15 @@ import {
   View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import CoachTab from '../../components/CoachTab';
-import FinanceBot from '../../components/FinanceBot';
-import FinanceToast from '../../components/FinanceToast';
+import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
-import EnhancedInvestments from './EnhancedInvestments';
+import { SpiritAnimalType } from '../../types/spiritAnimal';
+import InvestmentsTab from './InvestmentsTab';
 import PiggyBanks from './PiggyBanks';
+import RiskProfile, { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
-import QRCategorySelector from '../../components/QRCategorySelector';
-import SpendingBreakdownChart from '../../components/SpendingBreakdownChart';
 // Add transaction types constant
 const TRANSACTION_TYPES = [
   { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
@@ -56,6 +54,7 @@ export default function MoneyTransferApp() {
   const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'coach' | 'investments'>('transfer');
+  const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
   const [showTotalBalance, setShowTotalBalance] = useState(false);
   const [cashBalance, setCashBalance] = useState<number>(0);
   const [showCashModal, setShowCashModal] = useState(false);
@@ -64,97 +63,8 @@ export default function MoneyTransferApp() {
   const [cashAction, setCashAction] = useState<'add' | 'spend'>('spend');
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [currentLang, setCurrentLang] = useState<Language>('en');
-  const [showBot, setShowBot] = useState(false);
-  const [botAlert, setBotAlert] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [toastType, setToastType] = useState<'info' | 'warning' | 'success' | 'error'>('info');
-  const [showToast, setShowToast] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(1)).current;
-
-  // Helper function to check spending limits and show alerts
-  const checkSpendingLimit = async (amount: number, category: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      (async () => {
-        try {
-          // Get user metadata to find monthly income
-          let monthlyIncome = 0;
-          if (currentUser?.metadata) {
-            try {
-              const metadata = typeof currentUser.metadata === 'string'
-                ? JSON.parse(currentUser.metadata)
-                : currentUser.metadata;
-              monthlyIncome = parseFloat(metadata.monthlyIncome) || 0;
-            } catch (e) {
-              console.log('Error parsing metadata:', e);
-            }
-          }
-
-          if (monthlyIncome <= 0) {
-            resolve(true); // No limit if income not set
-            return;
-          }
-
-          // Get current month's spending
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
-
-          const { data: monthTransactions } = await supabase
-            .from('transactions')
-            .select('amount')
-            .eq('from_user_id', currentUser.id)
-            .gte('created_at', startOfMonth)
-            .lte('created_at', endOfMonth);
-
-          const monthSpending = (monthTransactions || []).reduce((sum, t) => sum + (t.amount || 0), 0);
-          const projectedSpending = monthSpending + amount;
-          const spendingPercentage = (projectedSpending / monthlyIncome) * 100;
-
-          // Alert thresholds
-          if (spendingPercentage >= 100) {
-            Alert.alert(
-              '⚠️ High Spending Alert',
-              `You're about to exceed your monthly income!\n\n` +
-              `Monthly Income: ₹${monthlyIncome.toFixed(0)}\n` +
-              `Spent this month: ₹${monthSpending.toFixed(0)}\n` +
-              `After this transaction: ₹${projectedSpending.toFixed(0)}\n\n` +
-              `This is ${spendingPercentage.toFixed(1)}% of your income. Consider reducing expenses.`,
-              [
-                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                { text: 'Proceed Anyway', onPress: () => resolve(true) }
-              ]
-            );
-          } else if (spendingPercentage >= 80) {
-            Alert.alert(
-              '⚠️ Spending Warning',
-              `You're spending ${spendingPercentage.toFixed(1)}% of your monthly income.\n\n` +
-              `Monthly Income: ₹${monthlyIncome.toFixed(0)}\n` +
-              `Spent this month: ₹${monthSpending.toFixed(0)}\n` +
-              `After this transaction: ₹${projectedSpending.toFixed(0)}\n\n` +
-              `You have ₹${(monthlyIncome - projectedSpending).toFixed(0)} remaining this month.`,
-              [
-                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                { text: 'Continue', onPress: () => resolve(true) }
-              ]
-            );
-          } else if (spendingPercentage >= 60) {
-            Alert.alert(
-              '💡 Spending Reminder',
-              `You've spent ${spendingPercentage.toFixed(1)}% of your monthly income.\n\n` +
-              `Remaining: ₹${(monthlyIncome - projectedSpending).toFixed(0)}`,
-              [{ text: 'OK', onPress: () => resolve(true) }]
-            );
-          } else {
-            resolve(true);
-          }
-        } catch (error) {
-          console.log('Error checking spending limit:', error);
-          resolve(true); // Allow transaction if check fails
-        }
-      })();
-    });
-  };
 
   // QR Code States
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -174,118 +84,6 @@ export default function MoneyTransferApp() {
     currentUserRef.current = currentUser;
     usersRef.current = users;
   }, [currentUser, users]);
-
-  // Generate alerts and toast notifications based on transactions
-  useEffect(() => {
-    if (currentUser && transactions.length > 0) {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const monthAgo = new Date(today);
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-      // Calculate today's spending
-      const todaySpending = transactions
-        .filter((t: any) => {
-          const txDate = new Date(t.created_at);
-          return txDate >= today && t.from_user_id === currentUser.id;
-        })
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-
-      // Calculate this week's spending
-      const weekSpending = transactions
-        .filter((t: any) => {
-          const txDate = new Date(t.created_at);
-          return txDate >= weekAgo && t.from_user_id === currentUser.id;
-        })
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-
-      // Calculate this month's spending
-      const monthSpending = transactions
-        .filter((t: any) => {
-          const txDate = new Date(t.created_at);
-          return txDate >= monthAgo && t.from_user_id === currentUser.id;
-        })
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-
-      const totalSpent = transactions
-        .filter((t: any) => t.from_user_id === currentUser.id)
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-
-      const totalReceived = transactions
-        .filter((t: any) => t.to_user_id === currentUser.id)
-        .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
-
-      const netFlow = totalReceived - totalSpent;
-      const savingsRate = totalReceived > 0 ? (Math.max(0, netFlow) / totalReceived) * 100 : 0;
-      const avgDailySpending = monthSpending / 30;
-      const avgWeeklySpending = monthSpending / 4.33;
-
-      const alerts: Array<{ message: string; type: 'info' | 'warning' | 'success' | 'error' }> = [];
-
-      // Today's spending alert
-      if (todaySpending > avgDailySpending * 1.5 && todaySpending > 0) {
-        alerts.push({
-          message: `💰 You've spent ₹${todaySpending.toLocaleString('en-IN')} today - ${((todaySpending / avgDailySpending - 1) * 100).toFixed(0)}% more than average. Make sure to save some!`,
-          type: 'warning'
-        });
-      }
-
-      // This week's spending alert
-      if (weekSpending > avgWeeklySpending * 1.2 && weekSpending > 0) {
-        alerts.push({
-          message: `📊 You've spent ₹${weekSpending.toLocaleString('en-IN')} this week - more than usual. Try to save some for the rest of the week!`,
-          type: 'warning'
-        });
-      }
-
-      // Low savings rate alert
-      if (savingsRate < 10 && totalReceived > 0) {
-        alerts.push({
-          message: `💡 Your savings rate is ${savingsRate.toFixed(1)}%. Try to save at least 20% of your income.`,
-          type: 'warning'
-        });
-      }
-
-      // Negative flow alert
-      if (netFlow < 0) {
-        alerts.push({
-          message: `⚠️ You've spent ₹${Math.abs(netFlow).toLocaleString('en-IN')} more than you received this month. Consider reviewing your expenses.`,
-          type: 'error'
-        });
-      }
-
-      // High transaction count
-      if (transactions.length > 50) {
-        alerts.push({
-          message: `📊 You have ${transactions.length} transactions. Consider consolidating or reviewing your spending patterns.`,
-          type: 'info'
-        });
-      }
-
-      // Positive reinforcement
-      if (savingsRate >= 20 && totalReceived > 0) {
-        alerts.push({
-          message: `🎉 Excellent! You're saving ${savingsRate.toFixed(1)}% of your income. Keep it up!`,
-          type: 'success'
-        });
-      }
-
-      // Show toast notifications (one at a time)
-      if (alerts.length > 0 && !toastMessage) {
-        const firstAlert = alerts[0];
-        setToastMessage(firstAlert.message);
-        setToastType(firstAlert.type);
-        setShowToast(true);
-
-        // Set bot alert for persistent notification
-        if (!botAlert) {
-          setBotAlert(firstAlert.message);
-        }
-      }
-    }
-  }, [currentUser, transactions]);
 
   // Load language on mount
   useEffect(() => {
@@ -439,29 +237,17 @@ export default function MoneyTransferApp() {
 
     let received = 0;
     let sent = 0;
-    let hasTransactions = false;
-
     transactions.forEach((t) => {
       const created = new Date(t.created_at).getTime();
       if (created < start || created > end) return;
-      hasTransactions = true;
-
-      // Count online/UPI transactions
       if (t.to_user_id === currentUserRef.current?.id) {
         received += Number(t.amount || 0);
       }
       if (t.from_user_id === currentUserRef.current?.id) {
         sent += Number(t.amount || 0);
       }
-
-      // Count cash additions (method: cash, type: add, to_name: Cash)
-      if (t.method === 'cash' && t.type === 'add' && t.to_name === 'Cash' && t.from_user_id === currentUserRef.current?.id) {
-        received += Number(t.amount || 0);
-      }
     });
-
-    // Only return value if there are transactions today
-    return hasTransactions ? received - sent : 0;
+    return received - sent;
   }, [transactions]);
 
   // DEV-ONLY: Seed ~60 days of demo data for current user
@@ -469,110 +255,81 @@ export default function MoneyTransferApp() {
     try {
       if (!currentUserRef.current) return;
       setLoading(true);
-
       const me = currentUserRef.current;
-      const others = (usersRef.current || []).filter((u: any) => u.id !== me.id);
-
+      const others = (usersRef.current || []).filter((u: any) => u.id !== me.id).slice(0, 3);
       if (!others.length) {
-        Alert.alert("Seed", "Need at least one other user for seeding.");
+        Alert.alert('Seed', 'Need at least one other user in database.');
         return;
       }
-
+      const categories = ['food', 'transportation', 'shopping', 'utilities', 'entertainment', 'healthcare', 'other'];
       const rows: any[] = [];
       const today = new Date();
-
-      const categoriesUPI = ["food", "transportation", "shopping", "utilities", "entertainment", "healthcare"];
-      const categoriesCash = ["food", "transportation", "other"];
-
-      for (let d = 0; d < 365; d++) {
+      for (let d = 0; d < 60; d++) {
         const day = new Date(today.getFullYear(), today.getMonth(), today.getDate() - d);
 
-        //
-        // 1️⃣ DAILY UPI INCOME (₹250)
-        //
-        rows.push({
-          from_user_id: others[0].id,                    // random customer
-          to_user_id: me.id,
-          from_name: others[0].name,
-          to_name: me.name,
-          amount: 250,
-          type: "transfer",
-          method: "qr_code",
-          transaction_type: "transfer",
-          created_at: new Date(day.getTime() + 1000 * 60 * 60 * 10).toISOString(), // morning
-        });
-
-        //
-        // 2️⃣ CASH INCOME (₹250)
-        //
-        rows.push({
-          from_user_id: me.id,
-          to_user_id: me.id,
-          from_name: me.name,
-          to_name: "Cash",
-          amount: 250,
-          type: "add",
-          method: "cash",
-          transaction_type: "other",
-          created_at: new Date(day.getTime() + 1000 * 60 * 60 * 11).toISOString(),
-        });
-
-        //
-        // 3️⃣ DAILY EXPENSES (fuel, snacks, etc.)
-        //
-        const spendCount = 2 + Math.floor(Math.random() * 2); // 2–3 spends per day
-        for (let i = 0; i < spendCount; i++) {
-          const randomCat = categoriesUPI[Math.floor(Math.random() * categoriesUPI.length)];
-          const randomUser = others[Math.floor(Math.random() * others.length)];
-          const amount = Math.floor(30 + Math.random() * 120); // ₹30–₹150 expenses
-
+        // Income: 0-2 receipts/day
+        const incomeCount = Math.floor(Math.random() * 3);
+        for (let i = 0; i < incomeCount; i++) {
+          const from = others[Math.floor(Math.random() * others.length)];
+          const amount = Math.floor(200 + Math.random() * 800);
           rows.push({
-            from_user_id: me.id,
-            to_user_id: randomUser.id,
-            from_name: me.name,
-            to_name: randomUser.name,
+            from_user_id: from.id,
+            to_user_id: me.id,
+            from_name: from.name,
+            to_name: me.name,
             amount,
-            type: "transfer",
-            method: "qr_code",
-            transaction_type: randomCat,
-            created_at: new Date(day.getTime() + (i + 13) * 3600_000).toISOString(),
+            type: 'transfer',
+            method: 'qr_code',
+            transaction_type: categories[Math.floor(Math.random() * categories.length)],
+            created_at: new Date(day.getTime() + i * 3600_000).toISOString(),
           });
         }
 
-        //
-        // 4️⃣ CASH SPEND (fuel/snacks) ~ 40% chance
-        //
-        if (Math.random() < 0.4) {
-          const category = categoriesCash[Math.floor(Math.random() * categoriesCash.length)];
-          const amount = Math.floor(20 + Math.random() * 120);
+        // Spending: 1-3 sends/day
+        const spendCount = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < spendCount; i++) {
+          const to = others[Math.floor(Math.random() * others.length)];
+          const amount = Math.floor(50 + Math.random() * 600);
+          rows.push({
+            from_user_id: me.id,
+            to_user_id: to.id,
+            from_name: me.name,
+            to_name: to.name,
+            amount,
+            type: 'transfer',
+            method: 'qr_code',
+            transaction_type: categories[Math.floor(Math.random() * categories.length)],
+            created_at: new Date(day.getTime() + (i + 4) * 3600_000).toISOString(),
+          });
+        }
 
+        // Cash spend ~50% days
+        if (Math.random() < 0.5) {
+          const amount = Math.floor(20 + Math.random() * 200);
           rows.push({
             from_user_id: me.id,
             to_user_id: me.id,
             from_name: me.name,
-            to_name: "Cash",
+            to_name: 'Cash',
             amount,
-            type: "deduct",
-            method: "cash",
-            transaction_type: category,
+            type: 'deduct',
+            method: 'cash',
+            transaction_type: categories[Math.floor(Math.random() * categories.length)],
             created_at: new Date(day.getTime() + 22 * 3600_000).toISOString(),
           });
         }
       }
 
-      //
-      // ✅ Insert into DB using your existing helper
-      //
       const chunkSize = 200;
       for (let i = 0; i < rows.length; i += chunkSize) {
-        await insertRowsSafe(rows.slice(i, i + chunkSize));
+        const chunk = rows.slice(i, i + chunkSize);
+        await insertRowsSafe(chunk);
       }
-
       await fetchTransactions();
-      Alert.alert("Seed", `Inserted ${rows.length} Swiggy-partner demo transactions ✅`);
-    } catch (e: any) {
-      console.log("Seed Error:", e);
-      Alert.alert("Seed", `Failed: ${e?.message || e}`);
+      Alert.alert('Seed', `Inserted ~${rows.length} demo transactions`);
+    } catch (e) {
+      console.log('Seed error', e);
+      Alert.alert('Seed', `Failed to insert demo data: ${e?.message || e}`);
     } finally {
       setLoading(false);
     }
@@ -610,14 +367,6 @@ export default function MoneyTransferApp() {
         const nextCash = cashBalance - amt;
         if (nextCash < 0) {
           Alert.alert('Error', 'Insufficient cash');
-          setLoading(false);
-          return;
-        }
-
-        // Check spending limit before proceeding with cash spend
-        const canProceed = await checkSpendingLimit(amt, cashCategory);
-        if (!canProceed) {
-          setLoading(false);
           return;
         }
         await saveCashBalance(nextCash);
@@ -693,7 +442,6 @@ export default function MoneyTransferApp() {
 
       if (!sender || !receiver) {
         Alert.alert('Error', 'User not found');
-        setLoading(false);
         return;
       }
 
@@ -702,14 +450,6 @@ export default function MoneyTransferApp() {
 
       if (senderBalance < amt) {
         Alert.alert('Error', 'Insufficient balance');
-        setLoading(false);
-        return;
-      }
-
-      // Check spending limit before proceeding
-      const canProceed = await checkSpendingLimit(amt, qrCategory);
-      if (!canProceed) {
-        setLoading(false);
         return;
       }
 
@@ -798,89 +538,52 @@ export default function MoneyTransferApp() {
   const handleSignup = async (formData: any) => {
     setLoading(true);
     try {
-      // Check if email already exists
-      const { data: existingUser, error: checkError } = await supabase
+      const existing = await supabase
         .from('users')
         .select('id')
         .eq('email', formData.email.trim())
         .maybeSingle();
 
-      if (checkError) {
-        console.error('Error checking email:', checkError);
-        Alert.alert('Error', `Failed to check email: ${checkError.message}`);
-        setLoading(false);
-        return;
-      }
-
-      if (existingUser) {
+      if (existing.data) {
         Alert.alert('Error', 'Email already registered');
-        setLoading(false);
         return;
       }
 
-      // Prepare user data
-      const userData: any = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        role: 'user',
-        balance: 0,
-      };
-
-      // Try to add metadata if the column exists
-      const metadata = {
-        age: formData.age,
-        phone: formData.phone,
-        city: formData.city,
-        occupation: formData.occupation,
-        monthlyIncome: formData.monthlyIncome,
-        maritalStatus: formData.maritalStatus,
-        dependents: formData.dependents,
-        primaryGoal: formData.primaryGoal,
-        investmentExperience: formData.investmentExperience,
-      };
-
-      // First, try to insert with metadata
-      let insertResult = await supabase
+      const { data, error } = await supabase
         .from('users')
         .insert({
-          ...userData,
-          metadata: JSON.stringify(metadata),
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          password: formData.password.trim(),
+          role: 'user',
+          balance: 0,
+          // Store additional profile data in a JSON field or separate table if needed
+          metadata: JSON.stringify({
+            age: formData.age,
+            phone: formData.phone,
+            city: formData.city,
+            occupation: formData.occupation,
+            monthlyIncome: formData.monthlyIncome,
+            maritalStatus: formData.maritalStatus,
+            dependents: formData.dependents,
+            primaryGoal: formData.primaryGoal,
+            investmentExperience: formData.investmentExperience,
+            spiritAnimal: formData.spiritAnimal,
+          }),
         })
         .select('*')
         .single();
 
-      // If that fails (metadata column might not exist), try without it
-      if (insertResult.error && (insertResult.error.message?.includes('metadata') || insertResult.error.message?.includes('column'))) {
-        console.log('Metadata column not found, inserting without metadata');
-        insertResult = await supabase
-          .from('users')
-          .insert(userData)
-          .select('*')
-          .single();
-      }
-
-      if (insertResult.error) {
-        console.error('Signup error:', insertResult.error);
-        Alert.alert('Error', `Sign up failed: ${insertResult.error.message || 'Unknown error'}`);
-        setLoading(false);
+      if (error || !data) {
+        Alert.alert('Error', 'Sign up failed');
         return;
       }
-
-      if (!insertResult.data) {
-        Alert.alert('Error', 'Sign up failed: No data returned');
-        setLoading(false);
-        return;
-      }
-
-      const data = insertResult.data;
 
       setCurrentUser(data);
       setShowSignupForm(false);
       Alert.alert('Success', `Welcome ${data.name}!`);
-    } catch (error: any) {
-      console.error('Signup exception:', error);
-      Alert.alert('Error', `Sign up failed: ${error?.message || 'Unknown error'}`);
+    } catch (error) {
+      Alert.alert('Error', 'Sign up failed');
     } finally {
       setLoading(false);
     }
@@ -949,7 +652,6 @@ export default function MoneyTransferApp() {
 
         if (!sender || !receiver) {
           Alert.alert('Error', 'User not found');
-          setLoading(false);
           return;
         }
 
@@ -958,14 +660,6 @@ export default function MoneyTransferApp() {
 
         if (senderBalance < amt) {
           Alert.alert('Error', 'Insufficient balance');
-          setLoading(false);
-          return;
-        }
-
-        // Check spending limit before proceeding
-        const canProceed = await checkSpendingLimit(amt, categoryType);
-        if (!canProceed) {
-          setLoading(false);
           return;
         }
 
@@ -1021,6 +715,22 @@ export default function MoneyTransferApp() {
     setUsers([]);
     setTransactions([]);
     setActiveTab('transfer');
+  };
+
+  // Helper to get spirit animal from user metadata
+  const getUserSpiritAnimal = (user: any): { type: SpiritAnimalType; profile: any } | null => {
+    try {
+      if (!user?.metadata) return null;
+      const metadata = typeof user.metadata === 'string' ? JSON.parse(user.metadata) : user.metadata;
+      const spiritAnimalType = metadata.spiritAnimal as SpiritAnimalType;
+      if (!spiritAnimalType) return null;
+      return {
+        type: spiritAnimalType,
+        profile: getSpiritAnimalProfile(spiritAnimalType)
+      };
+    } catch (e) {
+      return null;
+    }
   };
 
   const refreshCurrentUser = async () => {
@@ -1295,29 +1005,35 @@ export default function MoneyTransferApp() {
           </TouchableOpacity>
 
           {/* Language Selector */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-            {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[
-                  styles.langButton,
-                  currentLang === lang && styles.langButtonActive,
-                ]}
-                onPress={async () => {
-                  await setLanguage(lang);
-                  setCurrentLang(lang);
-                }}
-              >
-                <Text style={[
-                  styles.langText,
-                  currentLang === lang && styles.langTextActive,
-                ]}>
-                  {lang.toUpperCase()}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
+          <View style={styles.languageSelector}>
+            <Text style={styles.languageLabel}>Language:</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginTop: 8, maxHeight: 32 }}
+            >
+              {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
+                <TouchableOpacity
+                  key={lang}
+                  style={[
+                    styles.langButton,
+                    currentLang === lang && styles.langButtonActive,
+                  ]}
+                  onPress={async () => {
+                    await setLanguage(lang);
+                    setCurrentLang(lang);
+                  }}
+                >
+                  <Text style={[
+                    styles.langText,
+                    currentLang === lang && styles.langTextActive,
+                  ]}>
+                    {lang.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={styles.demoBox}>
             <Text style={styles.demoTitle}>Demo Accounts:</Text>
@@ -1333,25 +1049,21 @@ export default function MoneyTransferApp() {
   // Main app screen with tabs
   return (
     <SafeAreaView style={styles.mainContainer}>
-      {/* Finance Toast Notification */}
-      {currentUser && (
-        <FinanceToast
-          message={toastMessage || ''}
-          type={toastType}
-          isVisible={showToast}
-          onDismiss={() => {
-            setShowToast(false);
-            setToastMessage(null);
-          }}
-          duration={6000}
-        />
-      )}
-
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.appName}>FinMate</Text>
           <Text style={styles.userName}>{currentUser.name}</Text>
+          {getUserSpiritAnimal(currentUser) && (
+            <View style={styles.spiritAnimalBadge}>
+              <Text style={styles.spiritAnimalEmoji}>
+                {getUserSpiritAnimal(currentUser)?.profile.emoji}
+              </Text>
+              <Text style={styles.spiritAnimalName}>
+                {getUserSpiritAnimal(currentUser)?.profile.name}
+              </Text>
+            </View>
+          )}
           <Text style={styles.userRole}>{currentUser.role.toUpperCase()}</Text>
         </View>
         <View style={styles.headerButtons}>
@@ -1381,7 +1093,6 @@ export default function MoneyTransferApp() {
               <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
             </TouchableOpacity>
 
-
             {/* Quick Actions - QR Code Buttons */}
             <View style={styles.quickActions}>
               <TouchableOpacity
@@ -1391,7 +1102,7 @@ export default function MoneyTransferApp() {
                   setShowQRScanner(true);
                 }}
               >
-                <MaterialCommunityIcons name="qrcode" size={24} color="#007AFF" />
+                <Icon name="camera" size={24} color="#007AFF" />
                 <Text style={styles.qrButtonText}>Scan QR</Text>
               </TouchableOpacity>
 
@@ -1402,10 +1113,10 @@ export default function MoneyTransferApp() {
                 <Icon name="maximize" size={24} color="#007AFF" />
                 <Text style={styles.qrButtonText}>My QR</Text>
               </TouchableOpacity>
+            </View>
 
-
-              {/* Cash Wallet Quick Actions */}
-
+            {/* Cash Wallet Quick Actions */}
+            <View style={styles.quickActions}>
               <TouchableOpacity
                 style={styles.qrButton}
                 onPress={() => { setCashAction('add'); setShowCashModal(true); }}
@@ -1413,7 +1124,7 @@ export default function MoneyTransferApp() {
                 <Icon name="plus-circle" size={24} color="#34C759" />
                 <Text style={styles.qrButtonText}>Cash +</Text>
               </TouchableOpacity>
-      <TouchableOpacity
+              <TouchableOpacity
                 style={styles.qrButton}
                 onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
               >
@@ -1421,56 +1132,61 @@ export default function MoneyTransferApp() {
                 <Text style={styles.qrButtonText}>Cash -</Text>
               </TouchableOpacity>
             </View>
-            {/* Spending Breakdown Chart */}
-            {transactions.length > 0 && (
-              <SpendingBreakdownChart
-                transactions={transactions}
-                currentUserId={currentUser.id}
-              />
-            )}
+
+            {/* QR-only transfers: regular form removed */}
+
+            {/* Recent Transactions */}
             <Text style={styles.sectionTitle}>Recent Transactions</Text>
             <FlatList
               data={transactions
                 .filter((t: any) => t.from_user_id === currentUser.id || t.to_user_id === currentUser.id)
                 .slice(0, 10)}
-                renderItem={({ item }) => (
-                  <View style={styles.transactionItem}>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionNames}>
-                        {item.from_name} → {item.to_name}
-                      </Text>
-                      <Text style={styles.transactionType}>
-                        {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
-                        {item.method === 'qr_code' && ' • QR'}
-                        {item.method === 'cash' && ' • Cash'}
-                      </Text>
-                    </View>
-                    <Text style={[
-                      styles.transactionAmount,
-                      {
-                        color: item.type === 'add' ? 'green' :
-                          item.type === 'deduct' ? 'red' :
-                            item.from_user_id === currentUser.id ? 'red' : 'green'
-                      }
-                    ]}>
-                      {item.from_user_id === currentUser.id ? '-' : '+'}₹{parseFloat(item.amount).toFixed(2)}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={({ item }) => (
+                <View style={styles.transactionItem}>
+                  <View style={styles.transactionInfo}>
+                    <Text style={styles.transactionNames}>
+                      {item.from_name} → {item.to_name}
+                    </Text>
+                    <Text style={styles.transactionType}>
+                      {item.transaction_type} • {new Date(item.created_at).toLocaleDateString()}
+                      {item.method === 'qr_code' && ' • QR'}
+                      {item.method === 'cash' && ' • Cash'}
                     </Text>
                   </View>
-                )}
-                style={styles.transactionList}
-                scrollEnabled={false}
-              />
+                  <Text style={[
+                    styles.transactionAmount,
+                    {
+                      color: item.type === 'add' ? 'green' :
+                        item.type === 'deduct' ? 'red' :
+                          item.from_user_id === currentUser.id ? 'red' : 'green'
+                    }
+                  ]}>
+                    {item.from_user_id === currentUser.id ? '-' : '+'}₹{parseFloat(item.amount).toFixed(2)}
+                  </Text>
+                </View>
+              )}
+              style={styles.transactionList}
+              scrollEnabled={false}
+            />
           </ScrollView>
         )}
 
         {activeTab === 'piggy' && (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+            <View style={styles.infoBanner}>
+              <Icon name="sun" size={18} color="#007AFF" />
+              <Text style={styles.infoBannerText}>
+                Today’s recorded income: ₹{todayIncome.toFixed(0)} • Risk profile: {piggyRiskLevel.toUpperCase()}.
+                Adjust jars or edit your profile below.
+              </Text>
+            </View>
+            <RiskProfile userId={currentUser.id} onRiskLevelChange={setPiggyRiskLevel} />
             <PiggyBanks
               userId={currentUser.id}
               todayIncome={todayIncome}
               todayNetIncome={todayNetIncome}
-              cashBalance={cashBalance}
-              transactions={transactions}
+              riskLevel={piggyRiskLevel}
             />
           </ScrollView>
         )}
@@ -1484,51 +1200,23 @@ export default function MoneyTransferApp() {
         {activeTab === 'coach' && (
           <CoachTab
             currentUser={currentUser}
-            onOpenChat={() => setShowBot(true)}
+            spiritAnimal={getUserSpiritAnimal(currentUser)}
+            onOpenChat={() => {
+              // Navigate to coach chat in TransactionAnalysis
+              setActiveTab('analysis');
+              // The TransactionAnalysis component will handle showing the coach tab
+            }}
           />
         )}
 
         {/* Investments Tab */}
         {activeTab === 'investments' && (
-          <EnhancedInvestments userId={currentUser.id} />
-        )}
-
-        {/* Finance Bot - Available on all tabs */}
-        {currentUser && (
-          <FinanceBot
-            userId={currentUser.id}
-            userSpendingData={{
-              totalIncome: transactions
-                .filter((t: any) => t.to_user_id === currentUser.id)
-                .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
-              totalSpent: transactions
-                .filter((t: any) => t.from_user_id === currentUser.id)
-                .reduce((sum: number, t: any) => sum + (t.amount || 0), 0),
-              transactionCount: transactions.length,
-            }}
-            isVisible={showBot}
-            onClose={() => {
-              setShowBot(false);
-              setBotAlert(null);
-            }}
-            showAsAlert={!!botAlert}
-            alertMessage={botAlert || undefined}
-          />
+          <InvestmentsTab userId={currentUser.id} />
         )}
       </Animated.View>
 
       {/* Bottom Tabs */}
       <View style={styles.bottomTabContainer}>
-        {/* Floating Bot Button */}
-        {currentUser && (
-          <TouchableOpacity
-            style={styles.floatingBotButton}
-            onPress={() => setShowBot(true)}
-          >
-            <Icon name="message-circle" size={24} color="white" />
-            {botAlert && <View style={styles.floatingBotBadge} />}
-          </TouchableOpacity>
-        )}
         <TouchableOpacity
           style={styles.bottomTab}
           onPress={() => setActiveTab('transfer')}
@@ -1861,38 +1549,38 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   languageSelector: {
-    marginTop: 20,
-    paddingTop: 10,
-    width: "100%",
+    marginTop: 2,
+    paddingTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e5ea',
   },
-
+  languageLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6c6c70',
+  },
   langButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#d1d1d6",
-    marginRight: 8,
-    backgroundColor: "white",
-    height: 38,             // ✅ FIX: same height for all buttons
-    justifyContent: "center",
+    borderColor: '#d1d1d6',
+    marginRight: 6,
+    backgroundColor: 'white',
+    minWidth: 40,
   },
-
   langButtonActive: {
-    borderColor: "#007AFF",
-    backgroundColor: "#e6f0ff",
+    borderColor: '#007AFF',
+    backgroundColor: '#e6f0ff',
   },
-
   langText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#6c6c70",
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6c6c70',
   },
-
   langTextActive: {
-    color: "#007AFF",
+    color: '#007AFF',
   },
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1921,6 +1609,21 @@ const styles = StyleSheet.create({
   userRole: {
     color: 'gray',
     fontSize: 14,
+  },
+  spiritAnimalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  spiritAnimalEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  spiritAnimalName: {
+    fontSize: 13,
+    color: '#666',
+    fontWeight: '500',
   },
   appName: {
     fontSize: 14,
@@ -1973,7 +1676,7 @@ const styles = StyleSheet.create({
   // Quick Actions Styles
   quickActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     marginBottom: 20,
   },
   qrButton: {
@@ -1981,7 +1684,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     padding: 15,
     borderRadius: 10,
-    width: '23%',
+    width: '45%',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -1990,9 +1693,8 @@ const styles = StyleSheet.create({
   },
   qrButtonText: {
     marginTop: 8,
-    fontSize: 10,
     fontWeight: 'bold',
-    color: '#000000ff',
+    color: '#007AFF',
   },
   form: {
     backgroundColor: 'white',
@@ -2371,32 +2073,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  floatingBotButton: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 35 : 15,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
+  infoBanner: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 1000,
+    backgroundColor: '#eaf4ff',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
-  floatingBotBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#FF3B30',
-    borderWidth: 2,
-    borderColor: 'white',
+  infoBannerText: {
+    marginLeft: 10,
+    color: '#0a66c2',
+    flex: 1,
+    fontWeight: '600',
   },
 }); 
