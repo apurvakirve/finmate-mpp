@@ -1278,12 +1278,12 @@ export default function MoneyTransferApp() {
                 Adjust jars or edit your profile below.
               </Text>
             </View>
-            <RiskProfile userId={currentUser.id} onRiskLevelChange={setPiggyRiskLevel} />
             <PiggyBanks
               userId={currentUser.id}
               todayIncome={todayIncome}
               todayNetIncome={todayNetIncome}
-              riskLevel={piggyRiskLevel}
+              transactions={transactions}
+              spiritAnimal={getUserSpiritAnimal(currentUser)}
             />
           </ScrollView>
         )}
