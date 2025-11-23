@@ -2,6 +2,8 @@ import { Feather as Icon } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -137,266 +139,272 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
   };
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
-      </View>
-      <Text style={styles.stepIndicator}>Step {step} of 4{step === 4 ? ' - Quiz (7 questions)' : ''}</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={100}
+    >
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.progressBar}>
+          <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
+        </View>
+        <Text style={styles.stepIndicator}>Step {step} of 4{step === 4 ? ' - Quiz (7 questions)' : ''}</Text>
 
-      {step === 1 && (
-        <View style={styles.stepContent}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Let's get started with your basic information</Text>
+        {step === 1 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.title}>Create Account</Text>
+            <Text style={styles.subtitle}>Let's get started with your basic information</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              value={formData.name}
-              onChangeText={(v) => updateField('name', v)}
-              autoCapitalize="words"
-            />
-          </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your full name"
+                value={formData.name}
+                onChangeText={(v) => updateField('name', v)}
+                autoCapitalize="words"
+              />
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email *</Text>
-            <TextInput
-              style={[
-                styles.input,
-                formData.email && !validateEmail(formData.email) && styles.inputError
-              ]}
-              placeholder="your.email@example.com"
-              value={formData.email}
-              onChangeText={(v) => updateField('email', v)}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            {formData.email && !validateEmail(formData.email) && (
-              <Text style={styles.errorText}>Please enter a valid email address</Text>
-            )}
-          </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email *</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  formData.email && !validateEmail(formData.email) && styles.inputError
+                ]}
+                placeholder="your.email@example.com"
+                value={formData.email}
+                onChangeText={(v) => updateField('email', v)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {formData.email && !validateEmail(formData.email) && (
+                <Text style={styles.errorText}>Please enter a valid email address</Text>
+              )}
+            </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Minimum 6 characters"
-              value={formData.password}
-              onChangeText={(v) => updateField('password', v)}
-              secureTextEntry
-            />
-            {formData.password.length > 0 && (
-              <View style={styles.passwordStrengthContainer}>
-                <View style={styles.passwordStrengthBar}>
-                  <View
-                    style={[
-                      styles.passwordStrengthFill,
-                      {
-                        width: `${(formData.password.length / 12) * 100}%`,
-                        backgroundColor: getPasswordStrength(formData.password).color
-                      }
-                    ]}
-                  />
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Minimum 6 characters"
+                value={formData.password}
+                onChangeText={(v) => updateField('password', v)}
+                secureTextEntry
+              />
+              {formData.password.length > 0 && (
+                <View style={styles.passwordStrengthContainer}>
+                  <View style={styles.passwordStrengthBar}>
+                    <View
+                      style={[
+                        styles.passwordStrengthFill,
+                        {
+                          width: `${(formData.password.length / 12) * 100}%`,
+                          backgroundColor: getPasswordStrength(formData.password).color
+                        }
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.passwordStrengthText, { color: getPasswordStrength(formData.password).color }]}>
+                    {getPasswordStrength(formData.password).text}
+                  </Text>
                 </View>
-                <Text style={[styles.passwordStrengthText, { color: getPasswordStrength(formData.password).color }]}>
-                  {getPasswordStrength(formData.password).text}
-                </Text>
+              )}
+              <Text style={styles.hintText}>Use 8+ characters with mix of letters and numbers for better security</Text>
+            </View>
+          </View>
+        )}
+
+        {step === 2 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.title}>Personal Details</Text>
+            <Text style={styles.subtitle}>Help us understand you better</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Age *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your age"
+                value={formData.age}
+                onChangeText={(v) => updateField('age', v)}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="+91 9876543210"
+                value={formData.phone}
+                onChangeText={(v) => updateField('phone', v)}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your city"
+                value={formData.city}
+                onChangeText={(v) => updateField('city', v)}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Occupation *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g., Delivery Partner, Student, etc."
+                value={formData.occupation}
+                onChangeText={(v) => updateField('occupation', v)}
+              />
+            </View>
+          </View>
+        )}
+
+        {step === 3 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.title}>Financial Profile</Text>
+            <Text style={styles.subtitle}>This helps us personalize your experience</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Monthly Income (₹) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter approximate monthly income"
+                value={formData.monthlyIncome}
+                onChangeText={(v) => updateField('monthlyIncome', v)}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Marital Status</Text>
+              <View style={styles.optionRow}>
+                {(['single', 'married'] as const).map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.optionButton,
+                      formData.maritalStatus === status && styles.optionButtonActive,
+                    ]}
+                    onPress={() => updateField('maritalStatus', status)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        formData.maritalStatus === status && styles.optionTextActive,
+                      ]}
+                    >
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Number of Dependents</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0"
+                value={formData.dependents}
+                onChangeText={(v) => updateField('dependents', v)}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Primary Financial Goal</Text>
+              <View style={styles.goalGrid}>
+                {(['emergency', 'education', 'home', 'vacation', 'retirement', 'wealth'] as const).map((goal) => (
+                  <TouchableOpacity
+                    key={goal}
+                    style={[
+                      styles.goalButton,
+                      formData.primaryGoal === goal && styles.goalButtonActive,
+                    ]}
+                    onPress={() => updateField('primaryGoal', goal)}
+                  >
+                    <Text
+                      style={[
+                        styles.goalText,
+                        formData.primaryGoal === goal && styles.goalTextActive,
+                      ]}
+                    >
+                      {goal.charAt(0).toUpperCase() + goal.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Investment Experience</Text>
+              <View style={styles.optionRow}>
+                {(['none', 'basic', 'experienced'] as const).map((exp) => (
+                  <TouchableOpacity
+                    key={exp}
+                    style={[
+                      styles.optionButton,
+                      formData.investmentExperience === exp && styles.optionButtonActive,
+                    ]}
+                    onPress={() => updateField('investmentExperience', exp)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        formData.investmentExperience === exp && styles.optionTextActive,
+                      ]}
+                    >
+                      {exp.charAt(0).toUpperCase() + exp.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {step === 4 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.title}>Discover Your Financial Personality</Text>
+            <Text style={styles.subtitle}>Take a quick quiz to personalize your experience</Text>
+
+            <SpiritAnimalOnboarding onComplete={handleSpiritAnimalComplete} />
+          </View>
+        )}
+
+        {step < 4 && (
+          <View style={styles.buttonRow}>
+            {step > 1 && (
+              <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
+                <Icon name="arrow-left" size={18} color="#007AFF" />
+                <Text style={styles.backButtonText}>Back</Text>
+              </TouchableOpacity>
             )}
-            <Text style={styles.hintText}>Use 8+ characters with mix of letters and numbers for better security</Text>
-          </View>
-        </View>
-      )}
-
-      {step === 2 && (
-        <View style={styles.stepContent}>
-          <Text style={styles.title}>Personal Details</Text>
-          <Text style={styles.subtitle}>Help us understand you better</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Age *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your age"
-              value={formData.age}
-              onChangeText={(v) => updateField('age', v)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="+91 9876543210"
-              value={formData.phone}
-              onChangeText={(v) => updateField('phone', v)}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>City *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Your city"
-              value={formData.city}
-              onChangeText={(v) => updateField('city', v)}
-              autoCapitalize="words"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Occupation *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Delivery Partner, Student, etc."
-              value={formData.occupation}
-              onChangeText={(v) => updateField('occupation', v)}
-            />
-          </View>
-        </View>
-      )}
-
-      {step === 3 && (
-        <View style={styles.stepContent}>
-          <Text style={styles.title}>Financial Profile</Text>
-          <Text style={styles.subtitle}>This helps us personalize your experience</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Monthly Income (₹) *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter approximate monthly income"
-              value={formData.monthlyIncome}
-              onChangeText={(v) => updateField('monthlyIncome', v)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Marital Status</Text>
-            <View style={styles.optionRow}>
-              {(['single', 'married'] as const).map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[
-                    styles.optionButton,
-                    formData.maritalStatus === status && styles.optionButtonActive,
-                  ]}
-                  onPress={() => updateField('maritalStatus', status)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      formData.maritalStatus === status && styles.optionTextActive,
-                    ]}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Number of Dependents</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0"
-              value={formData.dependents}
-              onChangeText={(v) => updateField('dependents', v)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Primary Financial Goal</Text>
-            <View style={styles.goalGrid}>
-              {(['emergency', 'education', 'home', 'vacation', 'retirement', 'wealth'] as const).map((goal) => (
-                <TouchableOpacity
-                  key={goal}
-                  style={[
-                    styles.goalButton,
-                    formData.primaryGoal === goal && styles.goalButtonActive,
-                  ]}
-                  onPress={() => updateField('primaryGoal', goal)}
-                >
-                  <Text
-                    style={[
-                      styles.goalText,
-                      formData.primaryGoal === goal && styles.goalTextActive,
-                    ]}
-                  >
-                    {goal.charAt(0).toUpperCase() + goal.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Investment Experience</Text>
-            <View style={styles.optionRow}>
-              {(['none', 'basic', 'experienced'] as const).map((exp) => (
-                <TouchableOpacity
-                  key={exp}
-                  style={[
-                    styles.optionButton,
-                    formData.investmentExperience === exp && styles.optionButtonActive,
-                  ]}
-                  onPress={() => updateField('investmentExperience', exp)}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      formData.investmentExperience === exp && styles.optionTextActive,
-                    ]}
-                  >
-                    {exp.charAt(0).toUpperCase() + exp.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
-
-      {step === 4 && (
-        <View style={styles.stepContent}>
-          <Text style={styles.title}>Discover Your Financial Personality</Text>
-          <Text style={styles.subtitle}>Take a quick quiz to personalize your experience</Text>
-
-          <SpiritAnimalOnboarding onComplete={handleSpiritAnimalComplete} />
-        </View>
-      )}
-
-      {step < 4 && (
-        <View style={styles.buttonRow}>
-          {step > 1 && (
-            <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
-              <Icon name="arrow-left" size={18} color="#007AFF" />
-              <Text style={styles.backButtonText}>Back</Text>
+            <TouchableOpacity
+              style={[styles.nextButton, loading && styles.nextButtonDisabled]}
+              onPress={handleNext}
+              disabled={loading}
+            >
+              <Text style={styles.nextButtonText}>
+                {step === 3 ? 'Next' : 'Next'}
+              </Text>
+              {step < 3 && <Icon name="arrow-right" size={18} color="white" style={{ marginLeft: 6 }} />}
             </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={[styles.nextButton, loading && styles.nextButtonDisabled]}
-            onPress={handleNext}
-            disabled={loading}
-          >
-            <Text style={styles.nextButtonText}>
-              {step === 3 ? 'Next' : 'Next'}
-            </Text>
-            {step < 3 && <Icon name="arrow-right" size={18} color="white" style={{ marginLeft: 6 }} />}
-          </TouchableOpacity>
-        </View>
-      )}
+          </View>
+        )}
 
-      <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-        <Text style={styles.cancelButtonText}>Cancel</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
