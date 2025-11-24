@@ -2,6 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Dimensions,
     RefreshControl,
     ScrollView,
     StyleSheet,
@@ -9,10 +10,15 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { AIFinancialAnalyzer } from '../lib/aiFinancialAnalyzer';
 import { AIInsights, FinancialContext } from '../types/aiInsights';
 import AnomalyAlert from './AnomalyAlert';
+import BudgetRebalanceCard from './BudgetRebalanceCard';
+import PersonalizedRuleCard from './PersonalizedRuleCard';
 import PredictionCard from './PredictionCard';
+import SpendingPatternCard from './SpendingPatternCard';
+import SpendingReductionCard from './SpendingReductionCard';
 
 interface AIInsightsDashboardProps {
     context: FinancialContext;
@@ -76,7 +82,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                 <View>
                     <Text style={styles.title}>AI Financial Insights</Text>
                     <Text style={styles.subtitle}>
-                        {insights.confidence}% confidence • Last updated {new Date(insights.lastUpdated).toLocaleTimeString()}
+                        {insights.confidence}% confidence • Updated {new Date().toLocaleTimeString()} (v2)
                     </Text>
                 </View>
                 <TouchableOpacity onPress={handleRefresh} disabled={refreshing}>
@@ -120,8 +126,94 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                 {/* Overview Tab */}
                 {selectedTab === 'overview' && (
                     <View>
+                        {/* Top Predictions - Prominent */}
+                        {insights.predictions.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Top Predictions</Text>
+                                {insights.predictions.slice(0, 2).map((prediction, index) => (
+                                    <PredictionCard key={index} prediction={prediction} />
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Spending Trend Chart */}
+                        <View style={styles.chartContainer}>
+                            <Text style={styles.chartTitle}>Spending Trend</Text>
+                            <LineChart
+                                data={{
+                                    labels: ["W1", "W2", "W3", "W4"],
+                                    datasets: [{
+                                        data: [
+                                            context.totalSpent * 0.2,
+                                            context.totalSpent * 0.3,
+                                            context.totalSpent * 0.25,
+                                            context.totalSpent * 0.25
+                                        ]
+                                    }]
+                                }}
+                                width={Dimensions.get("window").width - 32}
+                                height={220}
+                                yAxisLabel="₹"
+                                chartConfig={{
+                                    backgroundColor: "#ffffff",
+                                    backgroundGradientFrom: "#ffffff",
+                                    backgroundGradientTo: "#ffffff",
+                                    decimalPlaces: 0,
+                                    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    style: { borderRadius: 16 },
+                                    propsForDots: { r: "6", strokeWidth: "2", stroke: "#007AFF" }
+                                }}
+                                bezier
+                                style={{ marginVertical: 8, borderRadius: 16 }}
+                            />
+                        </View>
+
+                        {/* Category Breakdown Chart */}
+                        <View style={styles.chartContainer}>
+                            <Text style={styles.chartTitle}>Category Breakdown</Text>
+                            <PieChart
+                                data={context.topCategories.map((c, i) => ({
+                                    name: c.category,
+                                    population: c.amount,
+                                    color: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'][i % 5],
+                                    legendFontColor: "#7F7F7F",
+                                    legendFontSize: 12
+                                }))}
+                                width={Dimensions.get("window").width - 32}
+                                height={220}
+                                chartConfig={{
+                                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                }}
+                                accessor={"population"}
+                                backgroundColor={"transparent"}
+                                paddingLeft={"15"}
+                                absolute
+                            />
+                        </View>
+
                         {/* Quick Stats */}
                         <View style={styles.statsGrid}>
+                            {/* Gig Worker Specific Cards */}
+                            {context.isGigWorker && (
+                                <>
+                                    <View style={[styles.statCard, styles.highlightCard]}>
+                                        <Icon name="activity" size={24} color="#8B5CF6" />
+                                        <Text style={styles.statValue}>
+                                            {context.incomeVolatility ? 'High' : 'Stable'}
+                                        </Text>
+                                        <Text style={styles.statLabel}>Income Volatility</Text>
+                                    </View>
+                                    <View style={[styles.statCard, styles.highlightCard]}>
+                                        <Icon name="shield" size={24} color="#10B981" />
+                                        <Text style={styles.statValue}>
+                                            ₹{context.safeToSpendDaily ? context.safeToSpendDaily.toFixed(0) : '0'}
+                                        </Text>
+                                        <Text style={styles.statLabel}>Safe to Spend/Day</Text>
+                                    </View>
+                                </>
+                            )}
+
                             <View style={styles.statCard}>
                                 <Icon name="trending-up" size={24} color="#10B981" />
                                 <Text style={styles.statValue}>{insights.patterns.length}</Text>
@@ -143,16 +235,6 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                                 <Text style={styles.statLabel}>Tips</Text>
                             </View>
                         </View>
-
-                        {/* Top Predictions */}
-                        {insights.predictions.length > 0 && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Top Predictions</Text>
-                                {insights.predictions.slice(0, 2).map((prediction, index) => (
-                                    <PredictionCard key={index} prediction={prediction} />
-                                ))}
-                            </View>
-                        )}
 
                         {/* Recent Anomalies */}
                         {insights.anomalies.length > 0 && (
@@ -465,18 +547,18 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
+        padding: 12, // Reduced from 16
         backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
         borderBottomColor: '#E5E7EB',
     },
     title: {
-        fontSize: 20,
+        fontSize: 18, // Reduced from 20
         fontWeight: '700',
         color: '#1F2937',
     },
     subtitle: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#6B7280',
         marginTop: 2,
     },
@@ -484,26 +566,52 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderBottomWidth: 1,
         borderBottomColor: '#E5E7EB',
-        paddingHorizontal: 16,
+        paddingHorizontal: 4,
+        height: 40,
+        maxHeight: 40, // Force max height
+        flexGrow: 0, // Prevent expansion
     },
     tab: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        marginRight: 8,
-        flexDirection: 'row',
+        paddingVertical: 0, // No vertical padding
+        paddingHorizontal: 12,
+        marginRight: 0,
+        justifyContent: 'center',
         alignItems: 'center',
+        height: 40, // Full height of container
+        borderBottomWidth: 2,
+        borderBottomColor: 'transparent',
     },
     activeTab: {
-        borderBottomWidth: 2,
+        backgroundColor: 'transparent',
         borderBottomColor: '#007AFF',
     },
     tabText: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 13,
+        fontWeight: '500',
         color: '#6B7280',
     },
     activeTabText: {
         color: '#007AFF',
+        fontWeight: '600',
+    },
+    chartContainer: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+        alignItems: 'center',
+    },
+    chartTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1F2937',
+        marginBottom: 12,
+        alignSelf: 'flex-start',
     },
     badge: {
         marginLeft: 6,
@@ -541,6 +649,11 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,
+    },
+    highlightCard: {
+        backgroundColor: '#F0F9FF',
+        borderWidth: 1,
+        borderColor: '#BAE6FD',
     },
     statValue: {
         fontSize: 24,

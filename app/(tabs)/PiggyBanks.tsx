@@ -1,5 +1,6 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -277,6 +278,8 @@ interface PiggyBanksProps {
   cashBalance?: number;
   transactions?: any[];
   spiritAnimal?: { type: string; profile: any } | null;
+  demoMode?: 'off' | '1w' | '1m' | '1y';
+  demoData?: any;
 }
 
 const storageKey = (userId: string | number) => `mt_piggy_${userId}`;
@@ -299,6 +302,8 @@ export default function PiggyBanks({
   cashBalance = 0,
   transactions = [],
   spiritAnimal = null,
+  demoMode = 'off',
+  demoData = null,
 }: PiggyBanksProps) {
   const [state, setState] = useState<EnvelopeState>(defaultState);
   const [pendingAllocations, setPendingAllocations] = useState<Record<EnvelopeKey, number> | null>(null);
@@ -544,6 +549,18 @@ export default function PiggyBanks({
 
   useEffect(() => {
     (async () => {
+      if (demoMode && demoMode !== 'off' && demoData) {
+        // Use Demo Data
+        const demoState = {
+          ...defaultState,
+          balances: demoData.balances,
+          jarTargets: demoData.jarTargets,
+          readyInvestments: demoData.readyInvestments || [],
+        };
+        setState(hydrateState(demoState));
+        return;
+      }
+
       try {
         const [raw, readyRaw] = await Promise.all([
           AsyncStorage.getItem(key),
@@ -559,7 +576,7 @@ export default function PiggyBanks({
         console.warn('Failed to load jars', error);
       }
     })();
-  }, [key, userId]);
+  }, [key, userId, demoMode, demoData]);
 
   // Initialize AI Coach and generate insights
   useEffect(() => {
@@ -1054,11 +1071,18 @@ export default function PiggyBanks({
         </View>
 
         <View style={styles.jarAmountSection}>
-          <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+            <Text style={styles.jarCardAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+            {targetAmount > 0 && (
+              <Text style={{ fontSize: 16, color: '#9CA3AF', fontWeight: '600' }}>
+                / ₹{targetAmount.toLocaleString('en-IN')}
+              </Text>
+            )}
+          </View>
           {targetAmount > 0 && (
             <View style={styles.jarTargetRow}>
               <Text style={styles.jarCardTarget}>
-                Target: ₹{targetAmount.toLocaleString('en-IN')}
+                Target Goal
               </Text>
               <Text style={[styles.jarProgressText, { color: jar.color }]}>
                 {progress.toFixed(0)}%
@@ -1161,7 +1185,12 @@ export default function PiggyBanks({
         {activeTab === 'allocate' && (
           <>
             {effectiveIncome > 0 && (
-              <View style={styles.summaryCard}>
+              <LinearGradient
+                colors={['#0052CC', '#0033A0']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.summaryCard}
+              >
                 <View style={{ flex: 1 }}>
                   <View style={styles.summaryHeaderRow}>
                     <Text style={styles.summaryLabel}>Profit to allocate today</Text>
@@ -1169,7 +1198,7 @@ export default function PiggyBanks({
                       setEditingIncome(true);
                       setTempIncome(String(effectiveIncome));
                     }}>
-                      <Icon name="edit-2" size={16} color="#007AFF" />
+                      <Icon name="edit-2" size={16} color="rgba(255,255,255,0.8)" />
                     </TouchableOpacity>
                   </View>
                   {editingIncome ? (
@@ -1200,13 +1229,13 @@ export default function PiggyBanks({
                       {!state.editedIncome && (
                         <View style={styles.summaryMetaRow}>
                           <View style={styles.metaItem}>
-                            <Icon name="arrow-down" size={14} color="#34C759" />
-                            <Text style={[styles.summaryMeta, { color: '#34C759', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} income</Text>
+                            <Icon name="arrow-down" size={14} color="#4ADE80" />
+                            <Text style={[styles.summaryMeta, { color: '#4ADE80', marginLeft: 4 }]}>₹{todayIncome.toFixed(0)} income</Text>
                           </View>
                           {todayExpenses > 0 && (
                             <View style={styles.metaItem}>
-                              <Icon name="arrow-up" size={14} color="#FF3B30" />
-                              <Text style={[styles.summaryMeta, { color: '#FF3B30', marginLeft: 4 }]}>₹{todayExpenses.toFixed(0)} expenses</Text>
+                              <Icon name="arrow-up" size={14} color="#F87171" />
+                              <Text style={[styles.summaryMeta, { color: '#F87171', marginLeft: 4 }]}>₹{todayExpenses.toFixed(0)} expenses</Text>
                             </View>
                           )}
                         </View>
@@ -1214,7 +1243,7 @@ export default function PiggyBanks({
                     </>
                   )}
                 </View>
-              </View>
+              </LinearGradient>
             )}
 
             {effectiveIncome > 0 && (
@@ -1541,7 +1570,14 @@ export default function PiggyBanks({
                               )}
                             </View>
                             <Text style={styles.jarGridLabel} numberOfLines={1}>{jar.label}</Text>
-                            <Text style={styles.jarGridAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
+                              <Text style={styles.jarGridAmount}>₹{balance.toLocaleString('en-IN')}</Text>
+                              {targetAmount > 0 && (
+                                <Text style={{ fontSize: 11, color: '#9CA3AF', fontWeight: '600' }}>
+                                  / ₹{targetAmount.toLocaleString('en-IN')}
+                                </Text>
+                              )}
+                            </View>
                             {targetAmount > 0 && (
                               <View style={styles.jarGridProgress}>
                                 <View style={[styles.jarGridProgressBar, { width: `${progress}%`, backgroundColor: jar.color }]} />
@@ -1838,7 +1874,6 @@ const styles = StyleSheet.create({
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -1885,26 +1920,34 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   summaryLabel: {
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.9)',
     fontSize: 13,
+    fontWeight: '600',
   },
   summaryValue: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
   },
   summaryMetaRow: {
-    marginTop: 8,
+    marginTop: 12,
     flexDirection: 'row',
-    gap: 12,
+    gap: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   summaryMeta: {
-    color: '#6B7280',
+    color: '#FFFFFF',
     fontSize: 12,
+    fontWeight: '600',
   },
 
   // --- Income edit

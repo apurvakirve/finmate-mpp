@@ -642,6 +642,7 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
         if (context.transactionCount > 50) confidence += 10;
         if (context.totalIncome > 0) confidence += 10;
         if (context.topCategories.length >= 3) confidence += 10;
+        if (context.incomeVolatility && context.incomeVolatility > 0) confidence += 5;
 
         return Math.min(confidence, 95);
     }

@@ -34,6 +34,16 @@ export interface AIFundRecommendation {
     reasoning: string[];
     tags: ('top-pick' | 'rising-star' | 'stable-performer' | 'high-growth')[];
     sipSuggestion: number;
+    allocationPercentage: number; // Percentage of total investment capacity
+}
+
+export interface IncomeAnalysis {
+    averageMonthlyIncome: number;
+    averageMonthlySavings: number;
+    investmentJarBalance: number;
+    recommendedMonthlyInvestment: number;
+    canAfford: boolean;
+    savingsRate: number; // percentage
 }
 
 interface UserInvestmentProfile {
@@ -88,6 +98,59 @@ export class AgenticInvestmentCoach {
         this.userProfile.riskLevel = riskLevel;
         // Load user preferences from storage if needed
         return Promise.resolve();
+    }
+
+    /**
+     * Analyze user's income and savings pattern from transaction history
+     */
+    async analyzeUserIncome(transactions: any[], investmentJarBalance: number): Promise<IncomeAnalysis> {
+        // Calculate average monthly income from last 3 months
+        const threeMonthsAgo = new Date();
+        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+        const recentTransactions = transactions.filter(t =>
+            new Date(t.date) >= threeMonthsAgo
+        );
+
+        // Calculate income (credits/deposits)
+        const incomeTransactions = recentTransactions.filter(t =>
+            t.type === 'credit' || t.amount > 0
+        );
+        const totalIncome = incomeTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const averageMonthlyIncome = totalIncome / 3;
+
+        // Calculate expenses (debits)
+        const expenseTransactions = recentTransactions.filter(t =>
+            t.type === 'debit' || t.amount < 0
+        );
+        const totalExpenses = expenseTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        const averageMonthlyExpenses = totalExpenses / 3;
+
+        // Calculate savings
+        const averageMonthlySavings = averageMonthlyIncome - averageMonthlyExpenses;
+        const savingsRate = averageMonthlyIncome > 0
+            ? (averageMonthlySavings / averageMonthlyIncome) * 100
+            : 0;
+
+        // Recommend 60-70% of monthly savings for investment (keep buffer for emergencies)
+        const recommendedMonthlyInvestment = Math.max(
+            500, // Minimum 500 Rs
+            Math.min(
+                investmentJarBalance, // Don't exceed jar balance
+                Math.floor(averageMonthlySavings * 0.65) // 65% of savings
+            )
+        );
+
+        const canAfford = investmentJarBalance >= recommendedMonthlyInvestment;
+
+        return {
+            averageMonthlyIncome,
+            averageMonthlySavings,
+            investmentJarBalance,
+            recommendedMonthlyInvestment,
+            canAfford,
+            savingsRate,
+        };
     }
 
     /**
@@ -189,16 +252,17 @@ export class AgenticInvestmentCoach {
      */
     async generateRecommendations(
         riskLevel: RiskLevel,
+        monthlyCapacity: number = 5000,
         historicalData?: Map<string, Array<{ date: string; nav: number }>>
     ): Promise<AIFundRecommendation[]> {
         const baseFunds = getRecommendationsByRiskLevel(riskLevel);
-        const recommendations: AIFundRecommendation[] = [];
+        const scoredRecommendations: Partial<AIFundRecommendation>[] = [];
 
+        // 1. Score all funds
         for (const fund of baseFunds) {
             const fundHistory = historicalData?.get(fund.code);
             const prediction = predictInvestmentGrowth(fund, fundHistory);
 
-            // Calculate AI score based on multiple factors
             let score = prediction.recommendationScore;
 
             // Boost score for previously selected funds (learning)
@@ -226,7 +290,7 @@ export class AgenticInvestmentCoach {
                 reasoning.push('Aligned with your aggressive growth strategy');
             }
 
-            if (fund.minInvestment <= this.userProfile.monthlyInvestmentCapacity) {
+            if (fund.minInvestment <= monthlyCapacity) {
                 reasoning.push('Fits within your investment budget');
             }
 
@@ -237,21 +301,47 @@ export class AgenticInvestmentCoach {
             if (fund.riskLevel === 'low' && prediction.confidence > 80) tags.push('stable-performer');
             if (fund.type === 'equity' && prediction.predictedGrowth.threeYear > 0.35) tags.push('rising-star');
 
-            // Calculate SIP suggestion
-            const sipSuggestion = this.calculateOptimalSip(fund, this.userProfile.monthlyInvestmentCapacity);
-
-            recommendations.push({
+            scoredRecommendations.push({
                 fund,
                 prediction,
                 score: Math.min(100, score),
                 reasoning,
                 tags,
-                sipSuggestion,
             });
         }
 
-        // Sort by score
-        return recommendations.sort((a, b) => b.score - a.score);
+        // 2. Sort and Select Top Funds
+        scoredRecommendations.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+        // Determine how many funds we can support (min 500 per fund)
+        // If capacity is very low (< 500), suggest at least one fund but warn user
+        const maxFunds = Math.max(1, Math.floor(monthlyCapacity / 500));
+
+        // Select top funds (max 5 or limited by budget)
+        const selectedFunds = scoredRecommendations.slice(0, Math.min(5, maxFunds));
+
+        // 3. Distribute Budget Smartly
+        const totalScore = selectedFunds.reduce((sum, item) => sum + (item.score || 0), 0);
+
+        return selectedFunds.map(item => {
+            // Calculate share based on score
+            const allocationShare = (item.score || 0) / totalScore;
+
+            // Calculate SIP amount (round to nearest 100)
+            let sipAmount = Math.floor((monthlyCapacity * allocationShare) / 100) * 100;
+
+            // Ensure minimum investment (usually 500 for most funds)
+            if (sipAmount < 500) sipAmount = 500;
+
+            // Cap at monthly capacity if single fund
+            if (sipAmount > monthlyCapacity) sipAmount = monthlyCapacity;
+
+            return {
+                ...item,
+                sipSuggestion: sipAmount,
+                allocationPercentage: Math.round(allocationShare * 100)
+            } as AIFundRecommendation;
+        });
     }
 
     /**

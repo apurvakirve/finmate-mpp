@@ -1,3 +1,12 @@
+import { Feather as Icon } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
+import { AgenticInvestmentCoach, AIFundRecommendation, IncomeAnalysis, InvestmentInsight, PortfolioAnalysis } from '../../lib/AgenticInvestmentCoach';
+import { getRecommendationsByRiskLevel, InvestmentFund } from '../../lib/investmentPrediction';
+import RiskProfile, { computeRiskScore, riskProfileStorageKey, type RiskLevel } from './RiskProfile';
+
 interface FundDetail {
   meta: {
     fund_house: string;
@@ -66,6 +75,10 @@ function computeReturns(data: FundDetail['data']) {
   };
 }
 
+function formatCurrency(amount: number) {
+  return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
 interface InvestmentsTabProps {
   userId: string | number;
 }
@@ -81,6 +94,7 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
   const [aiRecommendations, setAiRecommendations] = useState<AIFundRecommendation[]>([]);
   const [aiInsights, setAiInsights] = useState<InvestmentInsight[]>([]);
   const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysis | null>(null);
+  const [incomeAnalysis, setIncomeAnalysis] = useState<IncomeAnalysis | null>(null);
   const [selectedFunds, setSelectedFunds] = useState<InvestmentFund[]>([]);
 
   // Chat State
@@ -107,8 +121,24 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
 
     setFunds(entries);
 
+    // Analyze Income & Investment Capacity (Mock Data for Demo)
+    const mockTransactions = [
+      { date: new Date().toISOString(), amount: 85000, type: 'credit' },
+      { date: new Date().toISOString(), amount: -15000, type: 'debit' },
+      { date: new Date().toISOString(), amount: -5000, type: 'debit' },
+      { date: new Date().toISOString(), amount: -8000, type: 'debit' },
+    ];
+    const mockJarBalance = 15000;
+
+    const incomeAnalysisResult = await aiCoach.analyzeUserIncome(mockTransactions, mockJarBalance);
+    setIncomeAnalysis(incomeAnalysisResult);
+
     // Generate AI recommendations
-    const recommendations = await aiCoach.generateRecommendations(level, historicalDataMap);
+    const recommendations = await aiCoach.generateRecommendations(
+      level,
+      incomeAnalysisResult.recommendedMonthlyInvestment,
+      historicalDataMap
+    );
     setAiRecommendations(recommendations);
 
     // Analyze portfolio (using recommended funds as selected for demo)
@@ -204,6 +234,26 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
           }} />
         </View>
 
+        {/* Income Analysis Card */}
+        {incomeAnalysis && (
+          <View style={styles.incomeCard}>
+            <View style={styles.incomeHeader}>
+              <Icon name="activity" size={20} color="#007AFF" />
+              <Text style={styles.incomeTitle}>Smart Investment Plan</Text>
+            </View>
+            <Text style={styles.incomeText}>
+              Based on your monthly savings of <Text style={{ fontWeight: '700' }}>₹{formatCurrency(incomeAnalysis.averageMonthlySavings)}</Text>,
+              we recommend investing <Text style={{ fontWeight: '700', color: '#34C759' }}>₹{formatCurrency(incomeAnalysis.recommendedMonthlyInvestment)}/month</Text>.
+            </Text>
+            <View style={styles.progressBarBg}>
+              <View style={[styles.progressBarFill, { width: `${Math.min(100, (incomeAnalysis.recommendedMonthlyInvestment / incomeAnalysis.averageMonthlySavings) * 100)}%` }]} />
+            </View>
+            <Text style={styles.incomeSubtext}>
+              {incomeAnalysis.canAfford ? '✅ Within your budget' : '⚠️ Exceeds current savings'}
+            </Text>
+          </View>
+        )}
+
         {/* Portfolio Analysis Dashboard */}
         {portfolioAnalysis && (
           <>
@@ -254,37 +304,6 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
                 </View>
               </View>
             </View>
-
-            {/* Portfolio Allocation Pie Chart */}
-            {Object.values(portfolioAnalysis.allocationBreakdown).some(v => v > 0) && (
-              <View style={styles.allocationCard}>
-                <View style={styles.allocationHeader}>
-                  <Icon name="pie-chart" size={20} color="#007AFF" />
-                  <Text style={styles.allocationTitle}>Asset Allocation</Text>
-                </View>
-
-                <PieChart
-                  data={[
-                    { name: 'Equity', population: portfolioAnalysis.allocationBreakdown.equity, color: '#007AFF', legendFontColor: '#1c1c1e' },
-                    { name: 'Debt', population: portfolioAnalysis.allocationBreakdown.debt, color: '#34C759', legendFontColor: '#1c1c1e' },
-                    { name: 'Gold', population: portfolioAnalysis.allocationBreakdown.gold, color: '#FFD700', legendFontColor: '#1c1c1e' },
-                    { name: 'Hybrid', population: portfolioAnalysis.allocationBreakdown.hybrid, color: '#AF52DE', legendFontColor: '#1c1c1e' },
-                    { name: 'Liquid', population: portfolioAnalysis.allocationBreakdown.liquid, color: '#5AC8FA', legendFontColor: '#1c1c1e' },
-                  ].filter(item => item.population > 0)}
-                  width={Dimensions.get('window').width - 60}
-                  height={200}
-                  chartConfig={{
-                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                  }}
-                  accessor="population"
-                  backgroundColor="transparent"
-                  paddingLeft="15"
-                  absolute
-                  hasLegend={true}
-                  style={styles.pieChart}
-                />
-              </View>
-            )}
           </>
         )}
 
@@ -334,20 +353,56 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
                   )}
 
                   <View style={styles.fundHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fundName}>{recommendation.fund.name}</Text>
+                    <View style={{ flex: 1, marginRight: 12 }}>
+                      <Text style={styles.fundName} numberOfLines={2} ellipsizeMode="tail">
+                        {recommendation.fund.name}
+                      </Text>
                       <Text style={styles.fundCategory}>{recommendation.fund.category}</Text>
                     </View>
                     <View style={[styles.scoreBox, { backgroundColor: recommendation.score >= 85 ? '#E3F8ED' : '#E3F2FD' }]}>
                       <Icon name="star" size={16} color={recommendation.score >= 85 ? '#34C759' : '#007AFF'} />
-                      <Text style={[styles.scoreValue, { color: recommendation.score >= 85 ? '#34C759' : '#007AFF' }]}>{recommendation.score}</Text>
+                      <Text style={[styles.scoreValue, { color: recommendation.score >= 85 ? '#34C759' : '#007AFF' }]}>
+                        {Math.round(recommendation.score)}
+                      </Text>
                       <Text style={[styles.scoreLabel, { color: recommendation.score >= 85 ? '#34C759' : '#007AFF' }]}>AI Score</Text>
                     </View>
                   </View>
 
-                  {detail && <Text style={styles.fundHouse}>{detail.meta.fund_house}</Text>}
+                  <View style={styles.chartContainer}>
+                    {chartData.length > 0 ? (
+                      <LineChart
+                        data={{
+                          labels: [],
+                          datasets: [{
+                            data: chartData.map(d => {
+                              const val = parseFloat(d.nav);
+                              return isNaN(val) ? 0 : val;
+                            })
+                          }]
+                        }}
+                        width={Dimensions.get('window').width - 80}
+                        height={100}
+                        withDots={false}
+                        withInnerLines={false}
+                        withOuterLines={false}
+                        withVerticalLabels={false}
+                        withHorizontalLabels={false}
+                        chartConfig={{
+                          ...chartConfig,
+                          color: (opacity = 1) => recommendation.score >= 85 ? `rgba(52, 199, 89, ${opacity})` : `rgba(0, 122, 255, ${opacity})`,
+                          backgroundGradientFrom: '#FFFFFF',
+                          backgroundGradientTo: '#FFFFFF',
+                        }}
+                        bezier
+                        style={{ paddingRight: 0, paddingLeft: 0 }}
+                      />
+                    ) : (
+                      <View style={{ height: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12 }}>
+                        <Text style={{ color: '#9CA3AF', fontSize: 12 }}>Chart data unavailable</Text>
+                      </View>
+                    )}
+                  </View>
 
-                  {/* AI Reasoning */}
                   <View style={styles.reasoningBox}>
                     <Text style={styles.reasoningTitle}>Why this fund?</Text>
                     {recommendation.reasoning.slice(0, 2).map((reason, idx) => (
@@ -380,136 +435,124 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
                     <View style={styles.returnCell}>
                       <Text style={styles.returnLabel}>Predicted 1Y</Text>
                       <Text style={[styles.returnValue, styles.green]}>
-                        {(recommendation.prediction.predictedGrowth.oneYear * 100).toFixed(1)}%
+                        +{Math.round(recommendation.prediction.predictedGrowth.oneYear * 100)}%
                       </Text>
                     </View>
                   </View>
 
-                  {chartData.length >= 5 && (
-                    <LineChart
-                      data={{
-                        labels: chartData.map((item, idx) => (idx % 6 === 0 ? item.date.split('-').reverse().slice(0, 2).join('/') : '')),
-                        datasets: [{
-                          data: chartData.map(item => parseFloat(item.nav)),
-                          strokeWidth: 3,
-                        }],
-                      }}
-                      width={Dimensions.get('window').width - 60}
-                      height={200}
-                      chartConfig={chartConfig}
-                      bezier
-                      withInnerLines={true}
-                      withOuterLines={false}
-                      withVerticalLines={false}
-                      withHorizontalLines={true}
-                      style={styles.chart}
-                    />
-                  )}
-
-                  <View style={styles.sipBox}>
-                    <Icon name="calendar" size={16} color="#007AFF" />
-                    <Text style={styles.sipText}>
-                      AI Suggested SIP: ₹{recommendation.sipSuggestion.toLocaleString()} / month •
-                      Confidence: {recommendation.prediction.confidence}%
-                    </Text>
+                  {/* Smart SIP Suggestion */}
+                  <View style={styles.sipContainer}>
+                    <View style={styles.sipHeader}>
+                      <Icon name="trending-up" size={16} color="#007AFF" />
+                      <Text style={styles.sipTitle}>Recommended SIP</Text>
+                    </View>
+                    <View style={styles.sipRow}>
+                      <Text style={styles.sipAmount}>₹{recommendation.sipSuggestion}</Text>
+                      <Text style={styles.sipFrequency}>/ month</Text>
+                      {recommendation.allocationPercentage && (
+                        <View style={styles.allocationBadge}>
+                          <Text style={styles.allocationText}>{recommendation.allocationPercentage}% of budget</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
+
+                  <TouchableOpacity style={styles.investButton}>
+                    <Text style={styles.investButtonText}>Invest Now</Text>
+                    <Icon name="arrow-right" size={18} color="white" />
+                  </TouchableOpacity>
                 </View>
               );
             })}
           </>
         )}
-
-        <Text style={styles.disclaimer}>
-          Data courtesy mfapi.in. AI recommendations are for informational purposes only. Please consult a financial advisor before investing.
-        </Text>
       </ScrollView>
-
-      {/* Floating AI Chat Button */}
-      <TouchableOpacity
-        style={styles.floatingChatButton}
-        onPress={() => setChatVisible(true)}
-      >
-        <Icon name="message-circle" size={24} color="#FFFFFF" />
-      </TouchableOpacity>
 
       {/* AI Chat Modal */}
       <Modal
         visible={chatVisible}
         animationType="slide"
-        transparent={true}
+        presentationStyle="pageSheet"
         onRequestClose={() => setChatVisible(false)}
       >
-        <View style={styles.chatOverlay}>
-          <View style={styles.chatModal}>
-            <View style={styles.chatHeader}>
-              <Text style={styles.chatTitle}>AI Investment Assistant</Text>
-              <TouchableOpacity onPress={() => setChatVisible(false)}>
-                <Icon name="x" size={24} color="#6c6c70" />
-              </TouchableOpacity>
+        <SafeAreaView style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>AI Investment Coach</Text>
+            <TouchableOpacity onPress={() => setChatVisible(false)} style={styles.closeButton}>
+              <Icon name="x" size={24} color="#1c1c1e" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.chatContent}>
+            <View style={styles.chatMessage}>
+              <View style={styles.botAvatar}>
+                <Icon name="cpu" size={20} color="white" />
+              </View>
+              <View style={styles.messageBubble}>
+                <Text style={styles.messageText}>
+                  Hello! I'm your personal investment coach. I've analyzed your portfolio and market trends. Ask me anything about your investments!
+                </Text>
+              </View>
             </View>
 
-            <ScrollView style={styles.chatContent}>
-              <Text style={styles.chatWelcome}>
-                Hi! I'm your AI investment assistant. Ask me anything about investments, diversification, or fund selection.
-              </Text>
+            {chatQuestion ? (
+              <View style={[styles.chatMessage, styles.userMessageRow]}>
+                <View style={[styles.messageBubble, styles.userBubble]}>
+                  <Text style={[styles.messageText, styles.userMessageText]}>{chatQuestion}</Text>
+                </View>
+              </View>
+            ) : null}
 
-              {/* Quick Questions */}
-              <View style={styles.quickQuestions}>
-                <Text style={styles.quickTitle}>Quick Questions:</Text>
-                {[
-                  'How should I diversify?',
-                  'Is this a good time to invest?',
-                  'What is my risk profile?',
-                  'How much should I invest monthly?',
-                ].map((q, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.quickButton}
-                    onPress={() => handleAskQuestion(q)}
-                  >
-                    <Text style={styles.quickButtonText}>{q}</Text>
+            {chatLoading ? (
+              <View style={styles.chatMessage}>
+                <View style={styles.botAvatar}>
+                  <Icon name="cpu" size={20} color="white" />
+                </View>
+                <View style={[styles.messageBubble, { flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                  <ActivityIndicator size="small" color="#007AFF" />
+                  <Text style={styles.messageText}>Thinking...</Text>
+                </View>
+              </View>
+            ) : chatResponse ? (
+              <View style={styles.chatMessage}>
+                <View style={styles.botAvatar}>
+                  <Icon name="cpu" size={20} color="white" />
+                </View>
+                <View style={styles.messageBubble}>
+                  <Text style={styles.messageText}>{chatResponse}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {!chatQuestion && (
+              <View style={styles.suggestions}>
+                <Text style={styles.suggestionsTitle}>Try asking:</Text>
+                {['Is my portfolio diversified?', 'Why should I invest in gold?', 'What is a liquid fund?'].map((q, i) => (
+                  <TouchableOpacity key={i} style={styles.suggestionChip} onPress={() => handleAskQuestion(q)}>
+                    <Text style={styles.suggestionText}>{q}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
+            )}
+          </ScrollView>
 
-              {chatResponse && (
-                <View style={styles.chatResponseBox}>
-                  <Icon name="cpu" size={20} color="#007AFF" />
-                  <Text style={styles.chatResponseText}>{chatResponse}</Text>
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.chatInputContainer}>
-              <TextInput
-                style={styles.chatInput}
-                placeholder="Ask me anything..."
-                value={chatQuestion}
-                onChangeText={setChatQuestion}
-                onSubmitEditing={() => {
-                  if (chatQuestion.trim()) {
-                    handleAskQuestion(chatQuestion);
-                  }
-                }}
-              />
-              <TouchableOpacity
-                style={styles.chatSendButton}
-                onPress={() => {
-                  if (chatQuestion.trim()) {
-                    handleAskQuestion(chatQuestion);
-                  }
-                }}
-                disabled={chatLoading}
-              >
-                {chatLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Icon name="send" size={20} color="#FFFFFF" />
-                )}
-              </TouchableOpacity>
-            </View>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Ask a question..."
+              value={chatQuestion}
+              onChangeText={setChatQuestion}
+              onSubmitEditing={() => handleAskQuestion(chatQuestion)}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, !chatQuestion && styles.sendButtonDisabled]}
+              onPress={() => handleAskQuestion(chatQuestion)}
+              disabled={!chatQuestion}
+            >
+              <Icon name="send" size={20} color="white" />
+            </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -563,6 +606,48 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
     fontSize: 13,
+  },
+  incomeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  incomeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  incomeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  incomeText: {
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 3,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#34C759',
+    borderRadius: 3,
+  },
+  incomeSubtext: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontStyle: 'italic',
   },
   dashboardCard: {
     backgroundColor: '#FFFFFF',
@@ -645,155 +730,109 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   miniMetricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   miniMetricValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1c1c1e',
   },
   miniMetricLabel: {
-    fontSize: 11,
-    color: '#8e8e93',
-    fontWeight: '600',
-  },
-  alignmentBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  allocationCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
-  },
-  allocationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 16,
-  },
-  allocationTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1c1c1e',
-  },
-  pieChart: {
-    borderRadius: 16,
-    marginVertical: 8,
+    fontSize: 12,
+    color: '#6c6c70',
   },
   insightsContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: '#1c1c1e',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   insightCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
     borderLeftWidth: 4,
     shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
+    elevation: 2,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   insightTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#1c1c1e',
   },
   insightMessage: {
-    fontSize: 13,
-    color: '#6c6c70',
-    lineHeight: 18,
-  },
-  loaderBox: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-  },
-  loaderText: {
-    marginTop: 12,
-    color: '#6c6c70',
+    fontSize: 14,
+    color: '#4b5563',
+    lineHeight: 20,
   },
   fundCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: '#F3F4F6',
   },
   tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   tag: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     gap: 4,
     borderWidth: 1,
   },
   tagText: {
-    fontWeight: '800',
     fontSize: 10,
-    letterSpacing: 0.5,
+    fontWeight: '700',
   },
   fundHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   fundName: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: '#1c1c1e',
-    lineHeight: 22,
+    marginBottom: 4,
+    lineHeight: 24,
   },
   fundCategory: {
-    color: '#8e8e93',
     fontSize: 13,
-    marginTop: 4,
+    color: '#6c6c70',
     fontWeight: '500',
   },
   scoreBox: {
@@ -806,7 +845,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   scoreValue: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
     marginTop: 2,
   },
@@ -817,11 +856,9 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  fundHouse: {
-    marginTop: 4,
-    marginBottom: 12,
-    color: '#6c6c70',
-    fontSize: 13,
+  chartContainer: {
+    marginVertical: 16,
+    alignItems: 'center',
   },
   reasoningBox: {
     backgroundColor: '#F9FAFB',
@@ -839,179 +876,228 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   reasonText: {
+    fontSize: 13,
+    color: '#4b5563',
     flex: 1,
-    fontSize: 12,
-    color: '#6c6c70',
-    lineHeight: 16,
+    lineHeight: 18,
   },
   returnsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 12,
-    marginBottom: 12,
+    marginBottom: 16,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+    borderRadius: 12,
   },
   returnCell: {
     alignItems: 'center',
-    flex: 1,
   },
   returnLabel: {
     fontSize: 11,
-    color: '#8e8e93',
+    color: '#6c6c70',
+    marginBottom: 4,
+    fontWeight: '600',
   },
   returnValue: {
-    marginTop: 4,
+    fontSize: 14,
     fontWeight: '700',
-    fontSize: 13,
   },
   green: { color: '#34C759' },
   red: { color: '#FF3B30' },
-  chart: {
-    marginTop: 16,
-    marginBottom: 16,
-    borderRadius: 20,
-    alignSelf: 'center',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
-  sipBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sipContainer: {
     backgroundColor: '#F0F9FF',
-    padding: 14,
-    borderRadius: 14,
-    marginTop: 12,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#E3F2FD',
   },
-  sipText: {
-    marginLeft: 10,
-    color: '#1c1c1e',
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '500',
-    lineHeight: 18,
+  sipHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
-  disclaimer: {
-    marginTop: 12,
-    color: '#8e8e93',
+  sipTitle: {
     fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
+    fontWeight: '600',
+    color: '#007AFF',
   },
-  floatingChatButton: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  sipRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  sipAmount: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#007AFF',
+  },
+  sipFrequency: {
+    fontSize: 13,
+    color: '#6c6c70',
+    fontWeight: '500',
+  },
+  allocationBadge: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 'auto',
+  },
+  allocationText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#007AFF',
+  },
+  investButton: {
     backgroundColor: '#007AFF',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    paddingVertical: 14,
+    borderRadius: 14,
+    gap: 8,
+    shadowColor: '#007AFF',
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    elevation: 4,
   },
-  chatOverlay: {
+  investButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  loaderBox: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loaderText: {
+    marginTop: 12,
+    color: '#6c6c70',
+    fontSize: 15,
+  },
+  modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: '#f2f2f7',
   },
-  chatModal: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '80%',
-    paddingBottom: 20,
-  },
-  chatHeader: {
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
+    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#f2f2f7',
+    borderBottomColor: '#e5e5ea',
   },
-  chatTitle: {
+  modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1c1c1e',
   },
+  closeButton: {
+    padding: 4,
+  },
   chatContent: {
-    padding: 20,
-    maxHeight: 400,
+    flex: 1,
+    padding: 16,
   },
-  chatWelcome: {
-    fontSize: 14,
-    color: '#6c6c70',
-    marginBottom: 16,
-    lineHeight: 20,
+  chatMessage: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
   },
-  quickQuestions: {
-    marginBottom: 16,
+  userMessageRow: {
+    flexDirection: 'row-reverse',
   },
-  quickTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1c1c1e',
-    marginBottom: 8,
+  botAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  quickButton: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+  messageBubble: {
+    flex: 1,
+    backgroundColor: 'white',
     padding: 12,
+    borderRadius: 16,
+    borderTopLeftRadius: 4,
+    maxWidth: '80%',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  userBubble: {
+    backgroundColor: '#007AFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 4,
+  },
+  messageText: {
+    fontSize: 15,
+    color: '#1c1c1e',
+    lineHeight: 22,
+  },
+  userMessageText: {
+    color: 'white',
+  },
+  suggestions: {
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  suggestionsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6c6c70',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  suggestionChip: {
+    backgroundColor: 'white',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
     marginBottom: 8,
+    alignSelf: 'flex-start',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  quickButtonText: {
-    fontSize: 13,
+  suggestionText: {
+    fontSize: 14,
     color: '#007AFF',
-    fontWeight: '600',
   },
-  chatResponseBox: {
-    flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-    marginTop: 12,
-  },
-  chatResponseText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#1c1c1e',
-    lineHeight: 18,
-  },
-  chatInputContainer: {
-    flexDirection: 'row',
+  inputContainer: {
     padding: 16,
-    gap: 8,
+    backgroundColor: 'white',
     borderTopWidth: 1,
-    borderTopColor: '#f2f2f7',
+    borderTopColor: '#e5e5ea',
+    flexDirection: 'row',
+    gap: 12,
   },
-  chatInput: {
+  input: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#f2f2f7',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 16,
+    maxHeight: 100,
   },
-  chatSendButton: {
+  sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#d1d1d6',
   },
 });

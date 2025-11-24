@@ -19,18 +19,18 @@ import {
   View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import CoachTab from '../../components/CoachTab';
 import DailyInsightCard from '../../components/DailyInsightCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
 import SpiritAnimalAvatar from '../../components/SpiritAnimalAvatar';
 import TodayActivityCard from '../../components/TodayActivityCard';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
+import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
 import { SpiritAnimalType } from '../../types/spiritAnimal';
 import InvestmentsTab from './InvestmentsTab';
 import PiggyBanks from './PiggyBanks';
-import RiskProfile, { RiskLevel } from './RiskProfile';
+import { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
 // Add transaction types constant
@@ -58,7 +58,7 @@ export default function MoneyTransferApp() {
   const [transactionType, setTransactionType] = useState('');
   const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'coach' | 'investments'>('transfer');
+  const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'investments'>('transfer');
   const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
   const [showTotalBalance, setShowTotalBalance] = useState(false);
   const [cashBalance, setCashBalance] = useState<number>(0);
@@ -68,6 +68,12 @@ export default function MoneyTransferApp() {
   const [cashAction, setCashAction] = useState<'add' | 'spend'>('spend');
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [currentLang, setCurrentLang] = useState<Language>('en');
+
+  // Demo Mode State
+  const [demoMode, setDemoMode] = useState<'off' | '1w' | '1m' | '1y'>('off');
+  const [demoData, setDemoData] = useState<any>(null);
+  const [showDemoMenu, setShowDemoMenu] = useState(false);
+
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -777,6 +783,34 @@ export default function MoneyTransferApp() {
     setActiveTab('transfer');
   };
 
+  const selectDemo = (mode: 'off' | '1w' | '1m' | '1y') => {
+    setDemoMode(mode);
+    setShowDemoMenu(false);
+
+    if (mode === 'off') {
+      setDemoData(null);
+      fetchTransactions(); // Restore real data
+      fetchUsers(); // Restore real user
+    } else {
+      const data = generateSohamData(mode);
+      setDemoData(data);
+      // Override transactions
+      setTransactions(data.transactions);
+      // Override current user for display
+      if (currentUser) {
+        setCurrentUser({
+          ...currentUser,
+          name: 'Soham (Demo)',
+          balance: data.balance,
+          metadata: JSON.stringify({
+            ...JSON.parse(currentUser.metadata || '{}'),
+            spiritAnimal: 'squirrel'
+          })
+        });
+      }
+    }
+  };
+
   // Helper to get spirit animal from user metadata
   const getUserSpiritAnimal = (user: any): { type: SpiritAnimalType; profile: any } | null => {
     try {
@@ -1112,7 +1146,7 @@ export default function MoneyTransferApp() {
       {/* Enhanced Header with Spirit Animal */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          {getUserSpiritAnimal(currentUser) && (
+          {getUserSpiritAnimal(currentUser)?.profile && (
             <SpiritAnimalAvatar
               animalType={getUserSpiritAnimal(currentUser)!.type}
               emoji={getUserSpiritAnimal(currentUser)!.profile.emoji}
@@ -1123,7 +1157,7 @@ export default function MoneyTransferApp() {
           <View style={styles.headerText}>
             <Text style={styles.appName}>FinMate</Text>
             <Text style={styles.greeting}>Hey {currentUser.name}! 👋</Text>
-            {getUserSpiritAnimal(currentUser) && (
+            {getUserSpiritAnimal(currentUser)?.profile && (
               <Text style={styles.spiritAnimalName}>
                 {getUserSpiritAnimal(currentUser)?.profile.name}
               </Text>
@@ -1131,6 +1165,9 @@ export default function MoneyTransferApp() {
           </View>
         </View>
         <View style={styles.headerButtons}>
+          <TouchableOpacity onPress={() => setShowDemoMenu(true)} style={[styles.refreshButton, { marginRight: 10 }]}>
+            <Icon name="chevron-down" size={24} color={demoMode !== 'off' ? '#007AFF' : '#666'} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={refreshCurrentUser} onLongPress={seedDemoData} style={styles.refreshButton}>
             <Icon name="refresh-cw" size={20} color="#007AFF" />
           </TouchableOpacity>
@@ -1284,27 +1321,18 @@ export default function MoneyTransferApp() {
               todayNetIncome={todayNetIncome}
               transactions={transactions}
               spiritAnimal={getUserSpiritAnimal(currentUser)}
+              demoMode={demoMode}
+              demoData={demoData?.piggyBanks}
             />
           </ScrollView>
         )}
 
         {/* Analysis Tab Content */}
         {activeTab === 'analysis' && (
-          <TransactionAnalysis currentUser={currentUser} />
+          <TransactionAnalysis currentUser={currentUser} transactions={transactions} />
         )}
 
-        {/* Coach Tab Content */}
-        {activeTab === 'coach' && (
-          <CoachTab
-            currentUser={currentUser}
-            spiritAnimal={getUserSpiritAnimal(currentUser)}
-            onOpenChat={() => {
-              // Navigate to coach chat in TransactionAnalysis
-              setActiveTab('analysis');
-              // The TransactionAnalysis component will handle showing the coach tab
-            }}
-          />
-        )}
+
 
         {/* Investments Tab */}
         {activeTab === 'investments' && (
@@ -1349,17 +1377,6 @@ export default function MoneyTransferApp() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.bottomTab}
-          onPress={() => setActiveTab('coach')}
-        >
-          <Icon
-            name="briefcase"
-            size={22}
-            color={activeTab === 'coach' ? '#007AFF' : '#666'}
-          />
-          <Text style={[styles.bottomTabText, activeTab === 'coach' && styles.bottomTabTextActive]}>Coach</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.bottomTab}
           onPress={() => setActiveTab('investments')}
         >
           <Icon
@@ -1380,9 +1397,11 @@ export default function MoneyTransferApp() {
         <SafeAreaView style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Scan QR Code</Text>
-            <TouchableOpacity onPress={() => setShowQRScanner(false)}>
-              <Icon name="x" size={24} color="#000" />
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <TouchableOpacity onPress={() => setShowQRScanner(false)}>
+                <Icon name="x" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {permission?.granted ? (
@@ -1447,6 +1466,46 @@ export default function MoneyTransferApp() {
             </View>
           </ScrollView>
         </SafeAreaView>
+      </Modal>
+
+      {/* Demo Menu Modal */}
+      <Modal
+        visible={showDemoMenu}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowDemoMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowDemoMenu(false)}
+        >
+          <View style={styles.menuContainer}>
+            <Text style={styles.menuTitle}>Select Persona View</Text>
+
+            <TouchableOpacity style={styles.menuOption} onPress={() => selectDemo('off')}>
+              <Icon name={demoMode === 'off' ? "check-circle" : "circle"} size={20} color={demoMode === 'off' ? "#007AFF" : "#666"} />
+              <Text style={[styles.menuOptionText, demoMode === 'off' && styles.menuOptionTextActive]}>Normal View</Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity style={styles.menuOption} onPress={() => selectDemo('1w')}>
+              <Icon name={demoMode === '1w' ? "check-circle" : "circle"} size={20} color={demoMode === '1w' ? "#007AFF" : "#666"} />
+              <Text style={[styles.menuOptionText, demoMode === '1w' && styles.menuOptionTextActive]}>Soham: 1 Week</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuOption} onPress={() => selectDemo('1m')}>
+              <Icon name={demoMode === '1m' ? "check-circle" : "circle"} size={20} color={demoMode === '1m' ? "#007AFF" : "#666"} />
+              <Text style={[styles.menuOptionText, demoMode === '1m' && styles.menuOptionTextActive]}>Soham: 1 Month</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuOption} onPress={() => selectDemo('1y')}>
+              <Icon name={demoMode === '1y' ? "check-circle" : "circle"} size={20} color={demoMode === '1y' ? "#007AFF" : "#666"} />
+              <Text style={[styles.menuOptionText, demoMode === '1y' && styles.menuOptionTextActive]}>Soham: 1 Year</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* Amount Input Modal for QR Payments */}
@@ -1563,7 +1622,7 @@ export default function MoneyTransferApp() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -2011,6 +2070,54 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   // Modal Styles
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  menuContainer: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#1F2937',
+    textAlign: 'center',
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+  },
+  menuOptionText: {
+    fontSize: 16,
+    color: '#4B5563',
+    marginLeft: 10,
+  },
+  menuOptionTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 5,
+  },
   modalContainer: {
     flex: 1,
     backgroundColor: 'white',
