@@ -11,6 +11,7 @@ import {
     View
 } from 'react-native';
 import { LineChart, PieChart } from 'react-native-chart-kit';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { AIFinancialAnalyzer } from '../lib/aiFinancialAnalyzer';
 import { AIInsights, FinancialContext } from '../types/aiInsights';
 import AnomalyAlert from './AnomalyAlert';
@@ -57,7 +58,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
     if (loading && !insights) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={AIStudioTheme.colors.primary} />
                 <Text style={styles.loadingText}>Analyzing your finances with AI...</Text>
             </View>
         );
@@ -66,7 +67,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
     if (!insights) {
         return (
             <View style={styles.emptyContainer}>
-                <Icon name="alert-circle" size={48} color="#9CA3AF" />
+                <Icon name="alert-circle" size={48} color={AIStudioTheme.colors.textMuted} />
                 <Text style={styles.emptyText}>Unable to load AI insights</Text>
                 <TouchableOpacity style={styles.retryButton} onPress={() => loadInsights(true)}>
                     <Text style={styles.retryText}>Retry</Text>
@@ -86,7 +87,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                     </Text>
                 </View>
                 <TouchableOpacity onPress={handleRefresh} disabled={refreshing}>
-                    <Icon name="refresh-cw" size={20} color="#007AFF" />
+                    <Icon name="refresh-cw" size={20} color={AIStudioTheme.colors.primary} />
                 </TouchableOpacity>
             </View>
 
@@ -155,14 +156,14 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                                 height={220}
                                 yAxisLabel="₹"
                                 chartConfig={{
-                                    backgroundColor: "#ffffff",
-                                    backgroundGradientFrom: "#ffffff",
-                                    backgroundGradientTo: "#ffffff",
+                                    backgroundColor: AIStudioTheme.colors.surface,
+                                    backgroundGradientFrom: AIStudioTheme.colors.surface,
+                                    backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
                                     decimalPlaces: 0,
-                                    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-                                    labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                                    color: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(232, 234, 237, ${opacity})`,
                                     style: { borderRadius: 16 },
-                                    propsForDots: { r: "6", strokeWidth: "2", stroke: "#007AFF" }
+                                    propsForDots: { r: "6", strokeWidth: "2", stroke: AIStudioTheme.colors.primary }
                                 }}
                                 bezier
                                 style={{ marginVertical: 8, borderRadius: 16 }}
@@ -176,8 +177,8 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                                 data={context.topCategories.map((c, i) => ({
                                     name: c.category,
                                     population: c.amount,
-                                    color: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'][i % 5],
-                                    legendFontColor: "#7F7F7F",
+                                    color: [AIStudioTheme.colors.primary, AIStudioTheme.colors.accent, AIStudioTheme.colors.warning, AIStudioTheme.colors.success, '#9966FF'][i % 5],
+                                    legendFontColor: AIStudioTheme.colors.textSecondary,
                                     legendFontSize: 12
                                 }))}
                                 width={Dimensions.get("window").width - 32}
@@ -506,7 +507,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: AIStudioTheme.colors.background,
     },
     loadingContainer: {
         flex: 1,
@@ -517,7 +518,7 @@ const styles = StyleSheet.create({
     loadingText: {
         marginTop: 16,
         fontSize: 14,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
     },
     emptyContainer: {
         flex: 1,
@@ -528,15 +529,15 @@ const styles = StyleSheet.create({
     emptyText: {
         marginTop: 16,
         fontSize: 16,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.text,
         fontWeight: '600',
     },
     retryButton: {
         marginTop: 16,
         paddingVertical: 10,
         paddingHorizontal: 20,
-        backgroundColor: '#007AFF',
-        borderRadius: 10,
+        backgroundColor: AIStudioTheme.colors.primary,
+        borderRadius: AIStudioTheme.borderRadius.md,
     },
     retryText: {
         color: '#FFFFFF',
@@ -547,29 +548,28 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 12, // Reduced from 16
-        backgroundColor: '#FFFFFF',
+        padding: AIStudioTheme.spacing.md,
+        backgroundColor: AIStudioTheme.colors.surface,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        borderBottomColor: AIStudioTheme.colors.border,
     },
     title: {
-        fontSize: 18, // Reduced from 20
-        fontWeight: '700',
-        color: '#1F2937',
+        ...AIStudioTheme.typography.h3,
+        color: AIStudioTheme.colors.text,
     },
     subtitle: {
-        fontSize: 11,
-        color: '#6B7280',
+        ...AIStudioTheme.typography.caption,
+        color: AIStudioTheme.colors.textSecondary,
         marginTop: 2,
     },
     tabContainer: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
-        paddingHorizontal: 4,
+        borderBottomColor: AIStudioTheme.colors.border,
+        paddingHorizontal: AIStudioTheme.spacing.sm,
         height: 40,
-        maxHeight: 40, // Force max height
-        flexGrow: 0, // Prevent expansion
+        maxHeight: 40,
+        flexGrow: 0,
     },
     tab: {
         paddingVertical: 0, // No vertical padding
@@ -583,40 +583,38 @@ const styles = StyleSheet.create({
     },
     activeTab: {
         backgroundColor: 'transparent',
-        borderBottomColor: '#007AFF',
+        borderBottomColor: AIStudioTheme.colors.primary,
     },
     tabText: {
         fontSize: 13,
         fontWeight: '500',
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
     },
     activeTabText: {
-        color: '#007AFF',
+        color: AIStudioTheme.colors.primary,
         fontWeight: '600',
     },
     chartContainer: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.lg,
+        padding: AIStudioTheme.spacing.md,
+        marginBottom: AIStudioTheme.spacing.md,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
         alignItems: 'center',
     },
     chartTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         marginBottom: 12,
         alignSelf: 'flex-start',
     },
     badge: {
         marginLeft: 6,
-        backgroundColor: '#EF4444',
-        borderRadius: 10,
+        backgroundColor: AIStudioTheme.colors.error,
+        borderRadius: AIStudioTheme.borderRadius.full,
         paddingHorizontal: 6,
         paddingVertical: 2,
         minWidth: 20,
@@ -640,30 +638,28 @@ const styles = StyleSheet.create({
     statCard: {
         flex: 1,
         minWidth: '45%',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 16,
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.md,
+        padding: AIStudioTheme.spacing.md,
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
     },
     highlightCard: {
-        backgroundColor: '#F0F9FF',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         borderWidth: 1,
-        borderColor: '#BAE6FD',
+        borderColor: AIStudioTheme.colors.primary,
     },
     statValue: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         marginTop: 8,
     },
     statLabel: {
         fontSize: 12,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
         marginTop: 4,
     },
     section: {
@@ -672,7 +668,7 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         marginBottom: 12,
     },
     patternCard: {

@@ -19,10 +19,11 @@ import {
   View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import AppHeader from '../../components/AppHeader';
 import DailyInsightCard from '../../components/DailyInsightCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
-import SpiritAnimalAvatar from '../../components/SpiritAnimalAvatar';
 import TodayActivityCard from '../../components/TodayActivityCard';
+import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
@@ -33,6 +34,7 @@ import PiggyBanks from './PiggyBanks';
 import { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
+
 // Add transaction types constant
 const TRANSACTION_TYPES = [
   { value: 'food', label: '🍕 Food & Dining', icon: 'coffee' },
@@ -1143,39 +1145,13 @@ export default function MoneyTransferApp() {
   // Main app screen with tabs
   return (
     <SafeAreaView style={styles.mainContainer}>
-      {/* Enhanced Header with Spirit Animal */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          {getUserSpiritAnimal(currentUser)?.profile && (
-            <SpiritAnimalAvatar
-              animalType={getUserSpiritAnimal(currentUser)!.type}
-              emoji={getUserSpiritAnimal(currentUser)!.profile.emoji}
-              size="medium"
-              showPulse={true}
-            />
-          )}
-          <View style={styles.headerText}>
-            <Text style={styles.appName}>FinMate</Text>
-            <Text style={styles.greeting}>Hey {currentUser.name}! 👋</Text>
-            {getUserSpiritAnimal(currentUser)?.profile && (
-              <Text style={styles.spiritAnimalName}>
-                {getUserSpiritAnimal(currentUser)?.profile.name}
-              </Text>
-            )}
-          </View>
-        </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity onPress={() => setShowDemoMenu(true)} style={[styles.refreshButton, { marginRight: 10 }]}>
-            <Icon name="chevron-down" size={24} color={demoMode !== 'off' ? '#007AFF' : '#666'} />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={refreshCurrentUser} onLongPress={seedDemoData} style={styles.refreshButton}>
-            <Icon name="refresh-cw" size={20} color="#007AFF" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-            <Icon name="log-out" size={24} color="red" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Modern Header */}
+      <AppHeader
+        userName={currentUser.name}
+        spiritAnimal={getUserSpiritAnimal(currentUser)}
+        onRefresh={refreshCurrentUser}
+        onLogout={handleLogout}
+      />
 
       {/* Content */}
       <Animated.View style={{ flex: 1, opacity: tabFadeAnim }}>
@@ -1631,23 +1607,23 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
   },
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 20,
   },
   mainContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   loginBox: {
     width: '100%',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 20,
     borderRadius: 10,
     alignItems: 'center',
@@ -1656,16 +1632,16 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   input: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 8,
     padding: 12,
     marginVertical: 8,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   loginButton: {
     backgroundColor: '#007AFF',
@@ -1676,7 +1652,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   disabledButton: {
-    backgroundColor: '#999',
+    backgroundcolor: AIStudioTheme.colors.textMuted,
   },
   loginText: {
     color: 'white',
@@ -1698,11 +1674,11 @@ const styles = StyleSheet.create({
   demoTitle: {
     fontWeight: 'bold',
     marginBottom: 5,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   demoText: {
     fontSize: 14,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
   },
   languageSelector: {
     marginTop: 2,
@@ -1722,7 +1698,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d1d1d6',
     marginRight: 6,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     minWidth: 40,
   },
   langButtonActive: {
@@ -1742,7 +1718,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
   },
@@ -1758,7 +1734,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
     marginTop: 2,
   },
   headerButtons: {
@@ -1775,7 +1751,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   userRole: {
     color: 'gray',
@@ -1793,7 +1769,7 @@ const styles = StyleSheet.create({
   },
   spiritAnimalName: {
     fontSize: 13,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '500',
   },
   appName: {
@@ -1805,7 +1781,7 @@ const styles = StyleSheet.create({
   // Bottom Tabs
   bottomTabContainer: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: '#e5e5e5',
   },
@@ -1817,7 +1793,7 @@ const styles = StyleSheet.create({
   },
   bottomTabText: {
     fontSize: 12,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     marginTop: 2,
   },
   bottomTabTextActive: {
@@ -1852,12 +1828,12 @@ const styles = StyleSheet.create({
   },
   qrButton: {
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 15,
     borderRadius: 10,
     width: '45%',
     elevation: 2,
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
@@ -1868,7 +1844,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   form: {
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 15,
     borderRadius: 10,
     marginBottom: 20,
@@ -1877,12 +1853,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 10,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   label: {
     fontWeight: '600',
     marginBottom: 8,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   flatList: {
     maxHeight: 150,
@@ -1893,7 +1869,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 8,
     marginVertical: 4,
     backgroundColor: '#f9f9f9',
@@ -1904,11 +1880,11 @@ const styles = StyleSheet.create({
   },
   userItemText: {
     fontSize: 16,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   userBalance: {
     fontSize: 14,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
   },
   actionRow: {
     flexDirection: 'row',
@@ -1920,7 +1896,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: AIStudioTheme.colors.border,
     alignItems: 'center',
     marginHorizontal: 5,
     backgroundColor: '#f9f9f9',
@@ -1935,7 +1911,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontWeight: 'bold',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   sendButton: {
     backgroundColor: '#007AFF',
@@ -1975,7 +1951,7 @@ const styles = StyleSheet.create({
   categoryButtonText: {
     marginLeft: 5,
     fontWeight: '600',
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
   },
   categoryButtonTextActive: {
     color: '#007AFF',
@@ -1988,7 +1964,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
     textAlign: 'center',
   },
   qrCategoryGrid: {
@@ -1999,7 +1975,7 @@ const styles = StyleSheet.create({
   qrCategoryButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 12,
     borderRadius: 10,
     marginBottom: 10,
@@ -2014,7 +1990,7 @@ const styles = StyleSheet.create({
   qrCategoryButtonText: {
     marginLeft: 8,
     fontWeight: '600',
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     fontSize: 14,
   },
   qrCategoryButtonTextActive: {
@@ -2026,7 +2002,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#ddd',
+    borderColor: AIStudioTheme.colors.border,
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -2044,7 +2020,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 12,
     borderRadius: 8,
     marginVertical: 4,
@@ -2055,7 +2031,7 @@ const styles = StyleSheet.create({
   transactionNames: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   transactionType: {
     fontSize: 12,
@@ -2082,11 +2058,11 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     width: '80%',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 16,
     padding: 20,
     elevation: 5,
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -2120,7 +2096,7 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2187,15 +2163,15 @@ const styles = StyleSheet.create({
   },
   qrSubtitle: {
     fontSize: 18,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     marginBottom: 30,
   },
   qrCodeContainer: {
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 20,
     borderRadius: 10,
     elevation: 3,
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -2204,12 +2180,12 @@ const styles = StyleSheet.create({
   qrInstruction: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     marginBottom: 20,
     lineHeight: 24,
   },
   qrInfo: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -2231,7 +2207,7 @@ const styles = StyleSheet.create({
   },
   amountModalEmail: {
     fontSize: 16,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -2242,7 +2218,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   amountInputWrapper: {
     flexDirection: 'row',
@@ -2252,19 +2228,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 15,
     paddingVertical: 15,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   currencySymbol: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
     marginRight: 10,
   },
   amountInput: {
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   quickAmounts: {
     marginBottom: 30,
@@ -2273,7 +2249,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   quickAmountButtons: {
     flexDirection: 'row',
@@ -2290,7 +2266,7 @@ const styles = StyleSheet.create({
   },
   quickAmountText: {
     fontWeight: 'bold',
-    color: '#333',
+    color: AIStudioTheme.colors.text,
   },
   infoBanner: {
     flexDirection: 'row',

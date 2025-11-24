@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
+import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { AgenticInvestmentCoach, AIFundRecommendation, IncomeAnalysis, InvestmentInsight, PortfolioAnalysis } from '../../lib/AgenticInvestmentCoach';
 import { getRecommendationsByRiskLevel, InvestmentFund } from '../../lib/investmentPrediction';
 import RiskProfile, { computeRiskScore, riskProfileStorageKey, type RiskLevel } from './RiskProfile';
@@ -16,22 +17,22 @@ interface FundDetail {
 }
 
 const chartConfig = {
-  backgroundColor: '#F8FAFC',
-  backgroundGradientFrom: '#F0F9FF',
-  backgroundGradientTo: '#FFFFFF',
+  backgroundColor: AIStudioTheme.colors.surface,
+  backgroundGradientFrom: AIStudioTheme.colors.surface,
+  backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
   decimalPlaces: 2,
-  color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(28, 28, 30, ${opacity})`,
+  color: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(232, 234, 237, ${opacity})`,
   strokeWidth: 3,
   propsForDots: {
     r: '4',
     strokeWidth: '2',
-    stroke: '#007AFF',
-    fill: '#FFFFFF',
+    stroke: AIStudioTheme.colors.primary,
+    fill: AIStudioTheme.colors.surface,
   },
   propsForBackgroundLines: {
     strokeDasharray: '',
-    stroke: '#E5E7EB',
+    stroke: AIStudioTheme.colors.border,
     strokeWidth: 1,
   },
 };
@@ -389,16 +390,16 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
                         withHorizontalLabels={false}
                         chartConfig={{
                           ...chartConfig,
-                          color: (opacity = 1) => recommendation.score >= 85 ? `rgba(52, 199, 89, ${opacity})` : `rgba(0, 122, 255, ${opacity})`,
-                          backgroundGradientFrom: '#FFFFFF',
-                          backgroundGradientTo: '#FFFFFF',
+                          color: (opacity = 1) => recommendation.score >= 85 ? `rgba(52, 199, 89, ${opacity})` : `rgba(138, 180, 248, ${opacity})`,
+                          backgroundGradientFrom: AIStudioTheme.colors.surface,
+                          backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
                         }}
                         bezier
                         style={{ paddingRight: 0, paddingLeft: 0 }}
                       />
                     ) : (
-                      <View style={{ height: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12 }}>
-                        <Text style={{ color: '#9CA3AF', fontSize: 12 }}>Chart data unavailable</Text>
+                      <View style={{ height: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: AIStudioTheme.colors.surfaceVariant, borderRadius: 12 }}>
+                        <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 12 }}>Chart data unavailable</Text>
                       </View>
                     )}
                   </View>
@@ -561,14 +562,14 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: AIStudioTheme.colors.background,
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
   },
   headerCard: {
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -582,14 +583,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   subtitle: {
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     marginTop: 4,
   },
   helper: {
-    color: '#8e8e93',
+    color: AIStudioTheme.colors.textMuted,
     marginTop: 4,
     fontSize: 12,
   },
@@ -608,12 +609,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   incomeCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: AIStudioTheme.colors.border,
   },
   incomeHeader: {
     flexDirection: 'row',
@@ -624,17 +625,17 @@ const styles = StyleSheet.create({
   incomeTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   incomeText: {
     fontSize: 14,
-    color: '#4b5563',
+    color: AIStudioTheme.colors.textSecondary,
     lineHeight: 20,
     marginBottom: 12,
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 3,
     marginBottom: 8,
     overflow: 'hidden',
@@ -646,11 +647,11 @@ const styles = StyleSheet.create({
   },
   incomeSubtext: {
     fontSize: 12,
-    color: '#6b7280',
+    color: AIStudioTheme.colors.textSecondary,
     fontStyle: 'italic',
   },
   dashboardCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -669,7 +670,7 @@ const styles = StyleSheet.create({
   dashboardTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   healthRow: {
     flexDirection: 'row',
@@ -712,7 +713,7 @@ const styles = StyleSheet.create({
   },
   healthLabel: {
     fontSize: 13,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -727,11 +728,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   miniMetric: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: AIStudioTheme.colors.border,
   },
   miniMetricHeader: {
     flexDirection: 'row',
@@ -742,11 +743,11 @@ const styles = StyleSheet.create({
   miniMetricValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   miniMetricLabel: {
     fontSize: 12,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
   },
   insightsContainer: {
     marginBottom: 24,
@@ -754,16 +755,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
     marginBottom: 16,
   },
   insightCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -778,25 +779,25 @@ const styles = StyleSheet.create({
   insightTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   insightMessage: {
     fontSize: 14,
-    color: '#4b5563',
+    color: AIStudioTheme.colors.textSecondary,
     lineHeight: 20,
   },
   fundCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: AIStudioTheme.colors.border,
   },
   tagsRow: {
     flexDirection: 'row',
@@ -826,13 +827,13 @@ const styles = StyleSheet.create({
   fundName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
     marginBottom: 4,
     lineHeight: 24,
   },
   fundCategory: {
     fontSize: 13,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '500',
   },
   scoreBox: {
@@ -842,7 +843,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     minWidth: 70,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: AIStudioTheme.colors.border,
   },
   scoreValue: {
     fontSize: 18,
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reasoningBox: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -869,7 +870,7 @@ const styles = StyleSheet.create({
   reasoningTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
     marginBottom: 8,
   },
   reasonRow: {
@@ -880,7 +881,7 @@ const styles = StyleSheet.create({
   },
   reasonText: {
     fontSize: 13,
-    color: '#4b5563',
+    color: AIStudioTheme.colors.textSecondary,
     flex: 1,
     lineHeight: 18,
   },
@@ -888,7 +889,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 12,
     borderRadius: 12,
   },
@@ -897,7 +898,7 @@ const styles = StyleSheet.create({
   },
   returnLabel: {
     fontSize: 11,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     marginBottom: 4,
     fontWeight: '600',
   },
@@ -908,12 +909,12 @@ const styles = StyleSheet.create({
   green: { color: '#34C759' },
   red: { color: '#FF3B30' },
   sipContainer: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E3F2FD',
+    borderColor: AIStudioTheme.colors.border,
   },
   sipHeader: {
     flexDirection: 'row',
@@ -938,11 +939,11 @@ const styles = StyleSheet.create({
   },
   sipFrequency: {
     fontSize: 13,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '500',
   },
   allocationBadge: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -978,26 +979,26 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     marginTop: 12,
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontSize: 15,
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: '#f2f2f7',
+    backgroundColor: AIStudioTheme.colors.background,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5ea',
+    borderBottomColor: AIStudioTheme.colors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1c1c1e',
+    color: AIStudioTheme.colors.text,
   },
   closeButton: {
     padding: 4,
@@ -1024,12 +1025,12 @@ const styles = StyleSheet.create({
   },
   messageBubble: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     padding: 12,
     borderRadius: 16,
     borderTopLeftRadius: 4,
     maxWidth: '80%',
-    shadowColor: '#000',
+    shadowcolor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -1059,14 +1060,14 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   suggestionChip: {
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     marginBottom: 8,
     alignSelf: 'flex-start',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: AIStudioTheme.colors.border,
   },
   suggestionText: {
     fontSize: 14,
@@ -1074,7 +1075,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     padding: 16,
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderTopWidth: 1,
     borderTopColor: '#e5e5ea',
     flexDirection: 'row',

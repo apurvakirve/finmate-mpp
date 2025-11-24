@@ -1,6 +1,7 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { SpendingPattern } from '../types/aiInsights';
 
 interface SpendingPatternCardProps {
@@ -151,15 +152,13 @@ export default function SpendingPatternCard({ pattern }: SpendingPatternCardProp
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.lg,
+        padding: AIStudioTheme.spacing.md,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
     },
     header: {
         flexDirection: 'row',
@@ -170,7 +169,7 @@ const styles = StyleSheet.create({
     category: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         textTransform: 'capitalize',
     },
     trendBadge: {
@@ -188,7 +187,7 @@ const styles = StyleSheet.create({
     },
     insight: {
         fontSize: 14,
-        color: '#4B5563',
+        color: AIStudioTheme.colors.textSecondary,
         lineHeight: 20,
         marginBottom: 16,
     },
@@ -197,13 +196,13 @@ const styles = StyleSheet.create({
     },
     amountLabel: {
         fontSize: 12,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
         marginBottom: 4,
     },
     amountValue: {
         fontSize: 24,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
     },
     comparisons: {
         gap: 12,
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
     },
     comparisonLabel: {
         fontSize: 13,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
         fontWeight: '500',
     },
     comparisonPercentage: {
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
     },
     progressBar: {
         height: 6,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         borderRadius: 3,
         overflow: 'hidden',
     },
@@ -237,6 +236,6 @@ const styles = StyleSheet.create({
     },
     comparisonAmount: {
         fontSize: 12,
-        color: '#9CA3AF',
+        color: AIStudioTheme.colors.textMuted,
     },
 });

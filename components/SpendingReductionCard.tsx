@@ -1,6 +1,7 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { SpendingReduction } from '../types/aiInsights';
 
 interface SpendingReductionCardProps {
@@ -133,15 +134,13 @@ export default function SpendingReductionCard({ reduction, onTrack }: SpendingRe
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 16,
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.lg,
+        padding: AIStudioTheme.spacing.md,
         marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
     },
     header: {
         marginBottom: 16,
@@ -154,7 +153,7 @@ const styles = StyleSheet.create({
     category: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         textTransform: 'capitalize',
     },
     difficultyBadge: {
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
         textTransform: 'capitalize',
     },
     spendingSection: {
-        backgroundColor: '#F9FAFB',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         borderRadius: 12,
         padding: 12,
         marginBottom: 16,
@@ -183,7 +182,7 @@ const styles = StyleSheet.create({
     },
     spendingLabel: {
         fontSize: 11,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
         marginBottom: 4,
     },
     currentAmount: {
@@ -237,7 +236,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
+        borderTopColor: AIStudioTheme.colors.border,
     },
     strategiesHeaderLeft: {
         flexDirection: 'row',
@@ -247,7 +246,7 @@ const styles = StyleSheet.create({
     strategiesTitle: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#4B5563',
+        color: AIStudioTheme.colors.textSecondary,
     },
     strategiesList: {
         paddingTop: 8,
@@ -270,7 +269,7 @@ const styles = StyleSheet.create({
     strategyText: {
         flex: 1,
         fontSize: 13,
-        color: '#4B5563',
+        color: AIStudioTheme.colors.textSecondary,
         lineHeight: 20,
     },
     trackButton: {
@@ -279,13 +278,13 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         paddingVertical: 12,
         borderTopWidth: 1,
-        borderTopColor: '#E5E7EB',
+        borderTopColor: AIStudioTheme.colors.border,
         marginTop: 12,
         gap: 6,
     },
     trackButtonText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#007AFF',
+        color: AIStudioTheme.colors.primary,
     },
 });

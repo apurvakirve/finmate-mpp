@@ -1,6 +1,7 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { Prediction } from '../types/aiInsights';
 
 interface PredictionCardProps {
@@ -90,7 +91,7 @@ export default function PredictionCard({ prediction, onAction }: PredictionCardP
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: 16,
         padding: 16,
         marginVertical: 8,
@@ -120,16 +121,16 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         marginBottom: 2,
     },
     confidence: {
         fontSize: 12,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
     },
     message: {
         fontSize: 14,
-        color: '#4B5563',
+        color: AIStudioTheme.colors.textSecondary,
         lineHeight: 20,
         marginBottom: 12,
     },
@@ -160,12 +161,12 @@ const styles = StyleSheet.create({
     },
     amountLabel: {
         fontSize: 13,
-        color: '#6B7280',
+        color: AIStudioTheme.colors.textSecondary,
         fontWeight: '500',
     },
     amountValue: {
         fontSize: 16,
-        color: '#1F2937',
+        color: AIStudioTheme.colors.text,
         fontWeight: '700',
     },
     actionButton: {
