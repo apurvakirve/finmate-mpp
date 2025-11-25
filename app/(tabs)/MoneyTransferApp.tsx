@@ -20,14 +20,21 @@ import {
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import AppHeader from '../../components/AppHeader';
+import CompactAnomalyAlert from '../../components/CompactAnomalyAlert';
+import CompactPredictionCard from '../../components/CompactPredictionCard';
 import DailyInsightCard from '../../components/DailyInsightCard';
+import FinancialOverviewCard from '../../components/FinancialOverviewCard';
+import MetricCard from '../../components/MetricCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
-import TodayActivityCard from '../../components/TodayActivityCard';
+import SpendingSnapshot from '../../components/SpendingSnapshot';
+import TabPreviewCard from '../../components/TabPreviewCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
+import { AIFinancialAnalyzer } from '../../lib/aiFinancialAnalyzer';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
+import { AIInsights, FinancialContext } from '../../types/aiInsights';
 import { SpiritAnimalType } from '../../types/spiritAnimal';
 import InvestmentsTab from './InvestmentsTab';
 import PiggyBanks from './PiggyBanks';
@@ -87,6 +94,10 @@ export default function MoneyTransferApp() {
   const [qrAmount, setQrAmount] = useState('');
   const [qrCategory, setQrCategory] = useState('other');
   const [permission, requestPermission] = useCameraPermissions();
+
+  // AI Insights State
+  const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   // Use refs to prevent infinite loops
   const currentUserRef = useRef(currentUser);
@@ -198,6 +209,72 @@ export default function MoneyTransferApp() {
       console.log('Error fetching transactions:', error);
     }
   };
+
+  const loadAIInsights = async () => {
+    if (!currentUser || transactions.length === 0) return;
+
+    try {
+      setLoadingInsights(true);
+
+      // Build financial context
+      const totalIncome = transactions
+        .filter((t: any) => t.to_user_id === currentUser.id)
+        .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+      const totalSpent = transactions
+        .filter((t: any) => t.from_user_id === currentUser.id)
+        .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+      const categoryTotals: { [key: string]: number } = {};
+      transactions
+        .filter((t: any) => t.from_user_id === currentUser.id)
+        .forEach((t: any) => {
+          const cat = t.transaction_type || 'other';
+          categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.amount || 0);
+        });
+
+      const topCategories = Object.entries(categoryTotals)
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: totalSpent > 0 ? (amount / totalSpent) * 100 : 0
+        }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+
+      const context: FinancialContext = {
+        userId: currentUser.id,
+        totalIncome,
+        totalSpent,
+        totalSaved: totalIncome - totalSpent,
+        savingsRate: totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome) * 100 : 0,
+        incomeVolatility: 0,
+        isGigWorker: false,
+        incomeFrequency: 'monthly',
+        safeToSpendDaily: 0,
+        topCategories,
+        upcomingBills: 0,
+        transactionCount: transactions.length,
+        spendingPattern: totalSpent > 5000 ? 'high' : totalSpent > 2000 ? 'moderate' : 'low',
+        transactions: transactions.slice(0, 50),
+        timeRange: 'month',
+      };
+
+      const insights = await AIFinancialAnalyzer.analyzeFinances(context);
+      setAiInsights(insights);
+    } catch (error) {
+      console.log('Error loading AI insights:', error);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
+
+  // Load AI insights when transactions change
+  useEffect(() => {
+    if (currentUser && transactions.length > 0) {
+      loadAIInsights();
+    }
+  }, [transactions.length, currentUser?.id]);
 
   // Helper to insert rows and fallback if 'method' column doesn't exist
   const insertRowsSafe = async (rows: any[]) => {
@@ -1156,59 +1233,276 @@ export default function MoneyTransferApp() {
       {/* Content */}
       <Animated.View style={{ flex: 1, opacity: tabFadeAnim }}>
         {activeTab === 'transfer' && (
-          <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-            {/* Balance Card */}
-            <TouchableOpacity style={styles.balanceCard} onPress={() => setShowTotalBalance(!showTotalBalance)}>
-              <Text style={styles.balanceLabel}>{showTotalBalance ? 'Total Balance (Wallet + Cash)' : 'Current Balance'}</Text>
-              <Text style={styles.balance}>
-                ₹{(
-                  showTotalBalance
-                    ? parseFloat(currentUser.balance) + (cashBalance || 0)
-                    : parseFloat(currentUser.balance)
-                ).toFixed(2)}
-              </Text>
-              <Text style={{ color: 'white', opacity: 0.8, marginTop: 6 }}>Tap to toggle</Text>
-            </TouchableOpacity>
+          <ScrollView
+            style={styles.tabContent}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Financial Overview Card */}
+            <FinancialOverviewCard
+              walletBalance={parseFloat(currentUser.balance)}
+              cashBalance={cashBalance}
+              todayIncome={todayIncome}
+              todaySpending={transactions
+                .filter((t: any) => {
+                  const today = new Date();
+                  const tDate = new Date(t.created_at);
+                  return (
+                    t.from_user_id === currentUser.id &&
+                    tDate.toDateString() === today.toDateString()
+                  );
+                })
+                .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0)}
+              showTotal={showTotalBalance}
+              onToggle={() => setShowTotalBalance(!showTotalBalance)}
+            />
 
-            {/* Quick Actions - QR Code Buttons */}
-            <View style={styles.quickActions}>
-              <TouchableOpacity
-                style={styles.qrButton}
-                onPress={() => {
-                  requestCameraPermission();
-                  setShowQRScanner(true);
+            {/* Quick Actions - Moved to top */}
+            <View style={styles.quickActionsSection}>
+              <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+              <View style={styles.quickActionsGrid}>
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => {
+                    requestCameraPermission();
+                    setShowQRScanner(true);
+                  }}
+                >
+                  <View style={styles.actionIcon}>
+                    <Icon name="camera" size={24} color={AIStudioTheme.colors.primary} />
+                  </View>
+                  <Text style={styles.actionLabel}>Scan QR</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => setShowMyQR(true)}
+                >
+                  <View style={styles.actionIcon}>
+                    <Icon name="maximize" size={24} color={AIStudioTheme.colors.primary} />
+                  </View>
+                  <Text style={styles.actionLabel}>My QR</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => { setCashAction('add'); setShowCashModal(true); }}
+                >
+                  <View style={styles.actionIcon}>
+                    <Icon name="plus-circle" size={24} color={AIStudioTheme.colors.success} />
+                  </View>
+                  <Text style={styles.actionLabel}>Add Cash</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
+                >
+                  <View style={styles.actionIcon}>
+                    <Icon name="minus-circle" size={24} color={AIStudioTheme.colors.error} />
+                  </View>
+                  <Text style={styles.actionLabel}>Spend Cash</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Key Metrics Grid */}
+            <View style={styles.metricsGrid}>
+              <MetricCard
+                icon="trending-up"
+                iconColor="#8B5CF6"
+                iconBgColor="#EDE9FE"
+                label="Weekly Spending"
+                value={`₹${transactions
+                  .filter((t: any) => {
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+                    return (
+                      t.from_user_id === currentUser.id &&
+                      new Date(t.created_at) >= weekAgo
+                    );
+                  })
+                  .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0)
+                  .toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                trend={{
+                  direction: 'down',
+                  value: '12% less'
                 }}
-              >
-                <Icon name="camera" size={24} color="#007AFF" />
-                <Text style={styles.qrButtonText}>Scan QR</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.qrButton}
-                onPress={() => setShowMyQR(true)}
-              >
-                <Icon name="maximize" size={24} color="#007AFF" />
-                <Text style={styles.qrButtonText}>My QR</Text>
-              </TouchableOpacity>
+                onPress={() => setActiveTab('analysis')}
+              />
+              <MetricCard
+                icon="shopping-bag"
+                iconColor="#F59E0B"
+                iconBgColor="#FEF3C7"
+                label="Top Category"
+                value={(() => {
+                  const categoryTotals: { [key: string]: number } = {};
+                  transactions
+                    .filter((t: any) => t.from_user_id === currentUser.id)
+                    .forEach((t: any) => {
+                      const cat = t.transaction_type || 'other';
+                      categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.amount || 0);
+                    });
+                  const topCat = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+                  return topCat ? topCat[0].charAt(0).toUpperCase() + topCat[0].slice(1) : 'None';
+                })()}
+                onPress={() => setActiveTab('analysis')}
+              />
+              <MetricCard
+                icon="pie-chart"
+                iconColor="#10B981"
+                iconBgColor="#D1FAE5"
+                label="Savings Rate"
+                value={(() => {
+                  const totalIncome = transactions
+                    .filter((t: any) => t.to_user_id === currentUser.id)
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                  const totalSpent = transactions
+                    .filter((t: any) => t.from_user_id === currentUser.id)
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                  const rate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome * 100) : 0;
+                  return `${Math.max(0, rate).toFixed(0)}%`;
+                })()}
+                trend={{
+                  direction: 'up',
+                  value: '+5%'
+                }}
+                onPress={() => setActiveTab('piggy')}
+              />
+              <MetricCard
+                icon="target"
+                iconColor="#3B82F6"
+                iconBgColor="#DBEAFE"
+                label="Budget Status"
+                value="On Track"
+                onPress={() => setActiveTab('piggy')}
+              />
             </View>
 
-            {/* Cash Wallet Quick Actions */}
-            <View style={styles.quickActions}>
-              <TouchableOpacity
-                style={styles.qrButton}
-                onPress={() => { setCashAction('add'); setShowCashModal(true); }}
-              >
-                <Icon name="plus-circle" size={24} color="#34C759" />
-                <Text style={styles.qrButtonText}>Cash +</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.qrButton}
-                onPress={() => { setCashAction('spend'); setShowCashModal(true); }}
-              >
-                <Icon name="minus-circle" size={24} color="#FF3B30" />
-                <Text style={styles.qrButtonText}>Cash -</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Phase 2: AI-Powered Insights */}
+            {aiInsights && (
+              <>
+                {/* Spending Snapshot */}
+                <SpendingSnapshot
+                  last7Days={(() => {
+                    const last7Days = [];
+                    const today = new Date();
+                    for (let i = 6; i >= 0; i--) {
+                      const date = new Date(today);
+                      date.setDate(date.getDate() - i);
+                      const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+
+                      const daySpending = transactions
+                        .filter((t: any) => {
+                          const tDate = new Date(t.created_at);
+                          return (
+                            t.from_user_id === currentUser.id &&
+                            tDate >= dayStart &&
+                            tDate <= dayEnd
+                          );
+                        })
+                        .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+                      last7Days.push({
+                        date: date.toISOString(),
+                        amount: daySpending
+                      });
+                    }
+                    return last7Days;
+                  })()}
+                  topCategories={(() => {
+                    const categoryTotals: { [key: string]: number } = {};
+                    const weekAgo = new Date();
+                    weekAgo.setDate(weekAgo.getDate() - 7);
+
+                    transactions
+                      .filter((t: any) =>
+                        t.from_user_id === currentUser.id &&
+                        new Date(t.created_at) >= weekAgo
+                      )
+                      .forEach((t: any) => {
+                        const cat = t.transaction_type || 'other';
+                        categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.amount || 0);
+                      });
+
+                    const total = Object.values(categoryTotals).reduce((sum, val) => sum + val, 0);
+
+                    return Object.entries(categoryTotals)
+                      .map(([category, amount]) => ({
+                        category,
+                        amount,
+                        percentage: total > 0 ? (amount / total) * 100 : 0
+                      }))
+                      .sort((a, b) => b.amount - a.amount)
+                      .slice(0, 3);
+                  })()}
+                  weekOverWeekChange={(() => {
+                    const thisWeekStart = new Date();
+                    thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+                    const lastWeekStart = new Date();
+                    lastWeekStart.setDate(lastWeekStart.getDate() - 14);
+
+                    const thisWeek = transactions
+                      .filter((t: any) =>
+                        t.from_user_id === currentUser.id &&
+                        new Date(t.created_at) >= thisWeekStart
+                      )
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+                    const lastWeek = transactions
+                      .filter((t: any) => {
+                        const tDate = new Date(t.created_at);
+                        return (
+                          t.from_user_id === currentUser.id &&
+                          tDate >= lastWeekStart &&
+                          tDate < thisWeekStart
+                        );
+                      })
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+                    return lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek) * 100 : 0;
+                  })()}
+                />
+
+                {/* Anomaly Alerts */}
+                {aiInsights.anomalies.length > 0 && (
+                  <View style={styles.insightsSection}>
+                    <View style={styles.insightsSectionHeader}>
+                      <Text style={styles.insightsSectionTitle}>⚠️ Unusual Spending</Text>
+                      <TouchableOpacity onPress={() => setActiveTab('analysis')}>
+                        <Text style={styles.viewAllLink}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {aiInsights.anomalies.slice(0, 2).map((anomaly, index) => (
+                      <CompactAnomalyAlert
+                        key={index}
+                        anomaly={anomaly}
+                        onPress={() => setActiveTab('analysis')}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                {/* Smart Predictions */}
+                {aiInsights.predictions.length > 0 && (
+                  <View style={styles.insightsSection}>
+                    <View style={styles.insightsSectionHeader}>
+                      <Text style={styles.insightsSectionTitle}>🔮 Smart Predictions</Text>
+                      <TouchableOpacity onPress={() => setActiveTab('analysis')}>
+                        <Text style={styles.viewAllLink}>View All</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {aiInsights.predictions.slice(0, 2).map((prediction, index) => (
+                      <CompactPredictionCard
+                        key={index}
+                        prediction={prediction}
+                      />
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
 
             {/* AI Insights & Activity Cards */}
             {getUserSpiritAnimal(currentUser) && (
@@ -1222,26 +1516,121 @@ export default function MoneyTransferApp() {
                   gradientColors={['#FFF8E1', '#FFFFFF']}
                 />
 
-                {/* Today's Activity */}
-                <TodayActivityCard
-                  income={transactions
-                    .filter((t: any) =>
-                      t.receiver_id === currentUser.id &&
-                      new Date(t.created_at).toDateString() === new Date().toDateString()
-                    )
-                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0)}
-                  spending={transactions
-                    .filter((t: any) =>
-                      t.sender_id === currentUser.id &&
-                      new Date(t.created_at).toDateString() === new Date().toDateString()
-                    )
-                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount), 0)}
-                />
-
                 {/* Personality Tip */}
                 <PersonalityTipCard profile={getUserSpiritAnimal(currentUser)!.profile} />
               </>
             )}
+
+            {/* Phase 3: Tab Navigation Cards */}
+            <View style={styles.tabNavigationSection}>
+              <Text style={styles.tabNavigationTitle}>Explore More</Text>
+
+              {/* Analysis Tab Preview */}
+              <TabPreviewCard
+                icon="bar-chart-2"
+                iconColor="#8B5CF6"
+                iconBgColor="#EDE9FE"
+                title="Financial Analysis"
+                subtitle={aiInsights
+                  ? `${aiInsights.anomalies.length} anomalies, ${aiInsights.predictions.length} predictions`
+                  : 'View detailed spending analysis'}
+                badge={aiInsights?.anomalies.length || 0}
+                onPress={() => setActiveTab('analysis')}
+              />
+
+              {/* Piggy Banks Tab Preview */}
+              <TabPreviewCard
+                icon="grid"
+                iconColor="#10B981"
+                iconBgColor="#D1FAE5"
+                title="Piggy Banks"
+                subtitle={(() => {
+                  const savingsRate = (() => {
+                    const totalIncome = transactions
+                      .filter((t: any) => t.to_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    const totalSpent = transactions
+                      .filter((t: any) => t.from_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    return totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome * 100) : 0;
+                  })();
+                  return `${savingsRate.toFixed(0)}% savings rate • Manage your jars`;
+                })()}
+                onPress={() => setActiveTab('piggy')}
+              />
+
+              {/* Investments Tab Preview */}
+              <TabPreviewCard
+                icon="pie-chart"
+                iconColor="#3B82F6"
+                iconBgColor="#DBEAFE"
+                title="Investments"
+                subtitle="AI-powered investment recommendations"
+                onPress={() => setActiveTab('investments')}
+              />
+            </View>
+
+            {/* Goal Progress */}
+            <View style={styles.goalProgressSection}>
+              <View style={styles.goalHeader}>
+                <Icon name="target" size={20} color={AIStudioTheme.colors.primary} />
+                <Text style={styles.goalTitle}>Monthly Savings Goal</Text>
+              </View>
+              <View style={styles.goalProgressBar}>
+                <View style={[styles.goalProgressFill, {
+                  width: `${Math.min(100, (() => {
+                    const totalIncome = transactions
+                      .filter((t: any) => t.to_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    const totalSpent = transactions
+                      .filter((t: any) => t.from_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    const saved = totalIncome - totalSpent;
+                    const goal = totalIncome * 0.2; // 20% savings goal
+                    return goal > 0 ? (saved / goal) * 100 : 0;
+                  })())}%`
+                }]} />
+              </View>
+              <View style={styles.goalStats}>
+                <Text style={styles.goalStat}>
+                  Saved: ₹{(() => {
+                    const totalIncome = transactions
+                      .filter((t: any) => t.to_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    const totalSpent = transactions
+                      .filter((t: any) => t.from_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    return (totalIncome - totalSpent).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                  })()}
+                </Text>
+                <Text style={styles.goalStat}>
+                  Goal: ₹{(() => {
+                    const totalIncome = transactions
+                      .filter((t: any) => t.to_user_id === currentUser.id)
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                    return (totalIncome * 0.2).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+                  })()}
+                </Text>
+              </View>
+              <Text style={styles.goalMessage}>
+                {(() => {
+                  const totalIncome = transactions
+                    .filter((t: any) => t.to_user_id === currentUser.id)
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                  const totalSpent = transactions
+                    .filter((t: any) => t.from_user_id === currentUser.id)
+                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                  const saved = totalIncome - totalSpent;
+                  const goal = totalIncome * 0.2;
+                  const progress = goal > 0 ? (saved / goal) * 100 : 0;
+
+                  if (progress >= 100) return '🎉 Goal achieved! Great job!';
+                  if (progress >= 75) return '💪 Almost there! Keep it up!';
+                  if (progress >= 50) return '📈 You\'re halfway there!';
+                  return '🎯 Keep saving to reach your goal!';
+                })()}
+              </Text>
+            </View>
 
             {/* QR-only transfers: regular form removed */}
 
@@ -1603,6 +1992,17 @@ export default function MoneyTransferApp() {
 }
 
 const styles = StyleSheet.create({
+  mainContainer: {
+    flex: 1,
+    backgroundColor: AIStudioTheme.colors.background,
+  },
+  tabContent: {
+    flex: 1,
+    backgroundColor: AIStudioTheme.colors.background,
+  },
+  scrollContent: {
+    paddingBottom: 24,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
@@ -1816,30 +2216,6 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   balance: {
-    color: 'white',
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  // Quick Actions Styles
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-  },
-  qrButton: {
-    alignItems: 'center',
-    backgroundColor: AIStudioTheme.colors.surface,
-    padding: 15,
-    borderRadius: 10,
-    width: '45%',
-    elevation: 2,
-    shadowcolor: AIStudioTheme.colors.text,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  qrButtonText: {
-    marginTop: 8,
     fontWeight: 'bold',
     color: '#007AFF',
   },
@@ -2281,5 +2657,135 @@ const styles = StyleSheet.create({
     color: '#0a66c2',
     flex: 1,
     fontWeight: '600',
+  },
+  // New Dashboard Styles
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginHorizontal: 8,
+    marginBottom: 8,
+  },
+  quickActionsSection: {
+    marginHorizontal: 8,
+    marginBottom: 20,
+  },
+  quickActionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+    marginBottom: 12,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  actionCard: {
+    width: '23%',
+    backgroundColor: AIStudioTheme.colors.surface,
+    borderRadius: AIStudioTheme.borderRadius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 0,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: AIStudioTheme.colors.border,
+  },
+  actionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+  },
+  actionLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: AIStudioTheme.colors.text,
+    textAlign: 'center',
+  },
+  // Phase 2: AI Insights Styles
+  insightsSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  insightsSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  insightsSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+  },
+  viewAllLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: AIStudioTheme.colors.primary,
+  },
+  // Phase 3: Tab Navigation & Goal Progress Styles
+  tabNavigationSection: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  tabNavigationTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+    marginBottom: 12,
+  },
+  goalProgressSection: {
+    backgroundColor: AIStudioTheme.colors.surface,
+    borderRadius: AIStudioTheme.borderRadius.lg,
+    padding: AIStudioTheme.spacing.lg,
+    marginHorizontal: AIStudioTheme.spacing.md,
+    marginBottom: AIStudioTheme.spacing.md,
+    borderWidth: 1,
+    borderColor: AIStudioTheme.colors.border,
+    ...AIStudioTheme.shadows.sm,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+  },
+  goalProgressBar: {
+    height: 12,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  goalProgressFill: {
+    height: '100%',
+    backgroundColor: AIStudioTheme.colors.primary,
+    borderRadius: 6,
+  },
+  goalStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  goalStat: {
+    fontSize: 13,
+    color: AIStudioTheme.colors.textSecondary,
+    fontWeight: '600',
+  },
+  goalMessage: {
+    fontSize: 14,
+    color: AIStudioTheme.colors.text,
+    textAlign: 'center',
+    fontWeight: '600',
+    marginTop: 4,
   },
 }); 

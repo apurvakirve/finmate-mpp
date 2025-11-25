@@ -2,6 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 
 interface DailyInsightCardProps {
     title: string;
@@ -42,7 +43,7 @@ export default function DailyInsightCard({
                 {onPress && (
                     <TouchableOpacity style={styles.actionButton} onPress={onPress}>
                         <Text style={styles.actionText}>{actionText}</Text>
-                        <Icon name="arrow-right" size={16} color="#007AFF" />
+                        <Icon name="arrow-right" size={16} color={AIStudioTheme.colors.primary} />
                     </TouchableOpacity>
                 )}
             </LinearGradient>
@@ -53,13 +54,12 @@ export default function DailyInsightCard({
 const styles = StyleSheet.create({
     container: {
         marginVertical: 8,
+        marginHorizontal: 8,
         borderRadius: 16,
         overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        ...AIStudioTheme.shadows.sm,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
     },
     gradient: {
         padding: 16,
@@ -82,12 +82,12 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: AIStudioTheme.colors.text,
         marginBottom: 4,
     },
     description: {
         fontSize: 14,
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
         lineHeight: 20,
     },
     actionButton: {
@@ -96,12 +96,12 @@ const styles = StyleSheet.create({
         marginTop: 12,
         paddingTop: 12,
         borderTopWidth: 1,
-        borderTopColor: 'rgba(0,0,0,0.1)',
+        borderTopColor: AIStudioTheme.colors.border,
     },
     actionText: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#007AFF',
+        color: AIStudioTheme.colors.primary,
         marginRight: 4,
     },
 });

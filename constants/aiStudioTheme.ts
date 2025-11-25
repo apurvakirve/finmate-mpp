@@ -20,11 +20,13 @@ export const AIStudioTheme = {
         success: '#81C995',
         warning: '#FDD663',
         error: '#F28B82',
+        info: '#3B82F6',
 
         // Text
         text: '#E8EAED',
         textSecondary: '#9AA0A6',
         textMuted: '#5F6368',
+        textInverse: '#1F2937',
 
         // Special
         overlay: 'rgba(0, 0, 0, 0.6)',

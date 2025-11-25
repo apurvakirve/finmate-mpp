@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { SpiritAnimalProfile } from '../types/spiritAnimal';
 
 interface PersonalityTipCardProps {
@@ -24,16 +25,15 @@ export default function PersonalityTipCard({ profile }: PersonalityTipCardProps)
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'white',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: 16,
         padding: 16,
         marginVertical: 8,
+        marginHorizontal: 8,
         borderLeftWidth: 4,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        ...AIStudioTheme.shadows.sm,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
     },
     header: {
         flexDirection: 'row',
@@ -47,17 +47,17 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1a1a1a',
+        color: AIStudioTheme.colors.text,
     },
     tip: {
         fontSize: 14,
-        color: '#333',
+        color: AIStudioTheme.colors.textSecondary,
         lineHeight: 20,
         marginBottom: 12,
     },
     philosophy: {
         fontSize: 12,
         fontStyle: 'italic',
-        color: '#666',
+        color: AIStudioTheme.colors.textMuted,
     },
 });
