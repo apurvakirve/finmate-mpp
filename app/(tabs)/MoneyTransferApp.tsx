@@ -1262,7 +1262,7 @@ export default function MoneyTransferApp() {
 
             {/* Quick Actions - Moved to top */}
             <View style={styles.quickActionsSection}>
-              <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+
               <View style={styles.quickActionsGrid}>
                 <TouchableOpacity
                   style={styles.actionCard}
@@ -1308,80 +1308,6 @@ export default function MoneyTransferApp() {
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* Key Metrics Grid */}
-            <View style={styles.metricsGrid}>
-              <MetricCard
-                icon="trending-up"
-                iconColor="#8B5CF6"
-                iconBgColor="#EDE9FE"
-                label="Weekly Spending"
-                value={`₹${transactions
-                  .filter((t: any) => {
-                    const weekAgo = new Date();
-                    weekAgo.setDate(weekAgo.getDate() - 7);
-                    return (
-                      t.from_user_id === currentUser.id &&
-                      new Date(t.created_at) >= weekAgo
-                    );
-                  })
-                  .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0)
-                  .toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-                trend={{
-                  direction: 'down',
-                  value: '12% less'
-                }}
-                onPress={() => setActiveTab('analysis')}
-              />
-              <MetricCard
-                icon="shopping-bag"
-                iconColor="#F59E0B"
-                iconBgColor="#FEF3C7"
-                label="Top Category"
-                value={(() => {
-                  const categoryTotals: { [key: string]: number } = {};
-                  transactions
-                    .filter((t: any) => t.from_user_id === currentUser.id)
-                    .forEach((t: any) => {
-                      const cat = t.transaction_type || 'other';
-                      categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.amount || 0);
-                    });
-                  const topCat = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
-                  return topCat ? topCat[0].charAt(0).toUpperCase() + topCat[0].slice(1) : 'None';
-                })()}
-                onPress={() => setActiveTab('analysis')}
-              />
-              <MetricCard
-                icon="pie-chart"
-                iconColor="#10B981"
-                iconBgColor="#D1FAE5"
-                label="Savings Rate"
-                value={(() => {
-                  const totalIncome = transactions
-                    .filter((t: any) => t.to_user_id === currentUser.id)
-                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
-                  const totalSpent = transactions
-                    .filter((t: any) => t.from_user_id === currentUser.id)
-                    .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
-                  const rate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome * 100) : 0;
-                  return `${Math.max(0, rate).toFixed(0)}%`;
-                })()}
-                trend={{
-                  direction: 'up',
-                  value: '+5%'
-                }}
-                onPress={() => setActiveTab('piggy')}
-              />
-              <MetricCard
-                icon="target"
-                iconColor="#3B82F6"
-                iconBgColor="#DBEAFE"
-                label="Budget Status"
-                value="On Track"
-                onPress={() => setActiveTab('piggy')}
-              />
-            </View>
-
             {/* Phase 2: AI-Powered Insights */}
             {aiInsights && (
               <>
@@ -1466,6 +1392,8 @@ export default function MoneyTransferApp() {
 
                     return lastWeek > 0 ? ((thisWeek - lastWeek) / lastWeek) * 100 : 0;
                   })()}
+                  transactions={transactions}
+                  currentUserId={currentUser.id}
                 />
 
                 {/* Anomaly Alerts */}
@@ -1486,6 +1414,81 @@ export default function MoneyTransferApp() {
                     ))}
                   </View>
                 )}
+
+                {/* Key Metrics Grid */}
+                <View style={styles.metricsGrid}>
+                  <MetricCard
+                    icon="trending-up"
+                    iconColor="#8B5CF6"
+                    iconBgColor="#EDE9FE"
+                    label="Weekly Spending"
+                    value={`₹${transactions
+                      .filter((t: any) => {
+                        const weekAgo = new Date();
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return (
+                          t.from_user_id === currentUser.id &&
+                          new Date(t.created_at) >= weekAgo
+                        );
+                      })
+                      .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0)
+                      .toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+                    trend={{
+                      direction: 'down',
+                      value: '12% less'
+                    }}
+                    onPress={() => setActiveTab('analysis')}
+                  />
+                  <MetricCard
+                    icon="shopping-bag"
+                    iconColor="#F59E0B"
+                    iconBgColor="#FEF3C7"
+                    label="Top Category"
+                    value={(() => {
+                      const categoryTotals: { [key: string]: number } = {};
+                      transactions
+                        .filter((t: any) => t.from_user_id === currentUser.id)
+                        .forEach((t: any) => {
+                          const cat = t.transaction_type || 'other';
+                          categoryTotals[cat] = (categoryTotals[cat] || 0) + parseFloat(t.amount || 0);
+                        });
+                      const topCat = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0];
+                      return topCat ? topCat[0].charAt(0).toUpperCase() + topCat[0].slice(1) : 'None';
+                    })()}
+                    onPress={() => setActiveTab('analysis')}
+                  />
+                  <MetricCard
+                    icon="pie-chart"
+                    iconColor="#10B981"
+                    iconBgColor="#D1FAE5"
+                    label="Savings Rate"
+                    value={(() => {
+                      const totalIncome = transactions
+                        .filter((t: any) => t.to_user_id === currentUser.id)
+                        .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                      const totalSpent = transactions
+                        .filter((t: any) => t.from_user_id === currentUser.id)
+                        .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+                      const rate = totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome * 100) : 0;
+                      return `${Math.max(0, rate).toFixed(0)}%`;
+                    })()}
+                    trend={{
+                      direction: 'up',
+                      value: '+5%'
+                    }}
+                    onPress={() => setActiveTab('piggy')}
+                  />
+                  <MetricCard
+                    icon="target"
+                    iconColor="#3B82F6"
+                    iconBgColor="#DBEAFE"
+                    label="Budget Status"
+                    value="On Track"
+                    onPress={() => setActiveTab('piggy')}
+                  />
+                </View>
+
+
 
                 {/* Smart Predictions */}
                 {aiInsights.predictions.length > 0 && (
@@ -2687,18 +2690,18 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     width: '23%',
-    backgroundColor: AIStudioTheme.colors.surface,
+    backgroundColor: AIStudioTheme.colors.background,
     borderRadius: AIStudioTheme.borderRadius.md,
     paddingVertical: 12,
     paddingHorizontal: 0,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: AIStudioTheme.colors.border,
+
   },
   actionIcon: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,

@@ -8,31 +8,78 @@ interface SpendingSnapshotProps {
     last7Days: { date: string; amount: number }[];
     topCategories: { category: string; amount: number; percentage: number }[];
     weekOverWeekChange: number;
+    transactions?: any[];
+    currentUserId?: string;
 }
 
 export default function SpendingSnapshot({
     last7Days,
     topCategories,
-    weekOverWeekChange
+    weekOverWeekChange,
+    transactions = [],
+    currentUserId
 }: SpendingSnapshotProps) {
     const isIncrease = weekOverWeekChange > 0;
-    const chartWidth = Dimensions.get('window').width - 56;
+    const chartWidth = Dimensions.get('window').width - 90;
 
-    // Prepare chart data
+    // Category colors mapping
+    const categoryColorMap: { [key: string]: string } = {
+        food: 'rgba(239, 68, 68, 1)',
+        transportation: 'rgba(59, 130, 246, 1)',
+        shopping: 'rgba(245, 158, 11, 1)',
+        entertainment: 'rgba(139, 92, 246, 1)',
+        utilities: 'rgba(16, 185, 129, 1)',
+        healthcare: 'rgba(236, 72, 153, 1)',
+        other: 'rgba(156, 163, 175, 1)',
+    };
+
+    // Prepare category-wise data for last 7 days
+    const categoryData: { [key: string]: number[] } = {};
+    const top3Categories = topCategories.slice(0, 3).map(c => c.category);
+
+    top3Categories.forEach(cat => {
+        categoryData[cat] = [];
+    });
+
+    // Calculate spending per category per day
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+
+        top3Categories.forEach(category => {
+            const daySpending = transactions
+                .filter((t: any) => {
+                    const tDate = new Date(t.created_at);
+                    return (
+                        t.from_user_id === currentUserId &&
+                        tDate >= dayStart &&
+                        tDate <= dayEnd &&
+                        (t.transaction_type || 'other') === category
+                    );
+                })
+                .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+
+            categoryData[category].push(daySpending);
+        });
+    }
+
+    // Prepare chart data with multiple datasets
     const chartData = {
         labels: last7Days.map(d => {
             const date = new Date(d.date);
             return date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 1);
         }),
-        datasets: [{
-            data: last7Days.length > 0
-                ? last7Days.map(d => d.amount)
-                : [0, 0, 0, 0, 0, 0, 0]
-        }]
+        datasets: top3Categories.map((category) => ({
+            data: categoryData[category].length > 0 ? categoryData[category] : [0, 0, 0, 0, 0, 0, 0],
+            color: (opacity = 1) => categoryColorMap[category] || `rgba(138, 180, 248, ${opacity})`,
+            strokeWidth: 2,
+        })),
     };
 
     // Get category colors
-    const categoryColors = ['#8B5CF6', '#F59E0B', '#10B981'];
+    const categoryColors = top3Categories.map(cat => categoryColorMap[cat] || '#8B5CF6');
 
     return (
         <View style={styles.container}>
@@ -40,7 +87,7 @@ export default function SpendingSnapshot({
             <View style={styles.header}>
                 <View style={styles.headerLeft}>
                     <Icon name="trending-up" size={20} color={AIStudioTheme.colors.primary} />
-                    <Text style={styles.title}>7-Day Spending</Text>
+                    <Text style={styles.title}>Category Spending Trends</Text>
                 </View>
                 <View style={[styles.changeBadge, {
                     backgroundColor: isIncrease ? '#FEE2E2' : '#D1FAE5'
@@ -58,7 +105,7 @@ export default function SpendingSnapshot({
                 </View>
             </View>
 
-            {/* Mini Chart */}
+            {/* Multi-Line Chart */}
             <View style={styles.chartContainer}>
                 <LineChart
                     data={chartData}
@@ -69,29 +116,25 @@ export default function SpendingSnapshot({
                         backgroundGradientFrom: AIStudioTheme.colors.surface,
                         backgroundGradientTo: AIStudioTheme.colors.surface,
                         decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`, // Google Blue
-                        labelColor: (opacity = 1) => `rgba(232, 234, 237, ${opacity})`, // Light text
+                        color: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`,
+                        labelColor: (opacity = 1) => `rgba(232, 234, 237, ${opacity})`,
                         style: { borderRadius: 16 },
                         propsForDots: {
-                            r: '4',
-                            strokeWidth: '2',
-                            stroke: AIStudioTheme.colors.surface
+                            r: '3',
+                            strokeWidth: '1',
                         },
                         propsForBackgroundLines: {
                             strokeDasharray: '5, 5',
                             stroke: AIStudioTheme.colors.border,
                             strokeWidth: 1
                         },
-                        fillShadowGradient: AIStudioTheme.colors.primary,
-                        fillShadowGradientOpacity: 0.2,
-                        useShadowColorFromDataset: false,
                     }}
                     bezier
                     style={{
                         ...styles.chart,
-                        paddingBottom: 20,
-                        paddingRight: 16,
-                        paddingLeft: 40,
+                        paddingBottom: 10,
+                        paddingRight: 50,
+                        paddingLeft: 10,
                     }}
                     withInnerLines={true}
                     withOuterLines={false}
@@ -102,7 +145,7 @@ export default function SpendingSnapshot({
                     yAxisLabel=""
                     yAxisSuffix=""
                     yAxisInterval={1}
-                    withDots={true}
+                    withDots={false}
                     segments={3}
                     fromZero={true}
                 />
