@@ -1708,6 +1708,7 @@ export default function MoneyTransferApp() {
         )}
       </Animated.View>
 
+
       {/* Bottom Tabs */}
       <View style={styles.bottomTabContainer}>
         <TouchableOpacity
@@ -1717,7 +1718,7 @@ export default function MoneyTransferApp() {
           <Icon
             name="send"
             size={22}
-            color={activeTab === 'transfer' ? '#007AFF' : '#666'}
+            color={activeTab === 'transfer' ? AIStudioTheme.colors.primary : AIStudioTheme.colors.textMuted}
           />
           <Text style={[styles.bottomTabText, activeTab === 'transfer' && styles.bottomTabTextActive]}>Transfer</Text>
         </TouchableOpacity>
@@ -1728,7 +1729,7 @@ export default function MoneyTransferApp() {
           <Icon
             name="grid"
             size={22}
-            color={activeTab === 'piggy' ? '#007AFF' : '#666'}
+            color={activeTab === 'piggy' ? AIStudioTheme.colors.primary : AIStudioTheme.colors.textMuted}
           />
           <Text style={[styles.bottomTabText, activeTab === 'piggy' && styles.bottomTabTextActive]}>Piggy</Text>
         </TouchableOpacity>
@@ -1739,7 +1740,7 @@ export default function MoneyTransferApp() {
           <Icon
             name="bar-chart-2"
             size={22}
-            color={activeTab === 'analysis' ? '#007AFF' : '#666'}
+            color={activeTab === 'analysis' ? AIStudioTheme.colors.primary : AIStudioTheme.colors.textMuted}
           />
           <Text style={[styles.bottomTabText, activeTab === 'analysis' && styles.bottomTabTextActive]}>Analysis</Text>
         </TouchableOpacity>
@@ -1748,9 +1749,9 @@ export default function MoneyTransferApp() {
           onPress={() => setActiveTab('investments')}
         >
           <Icon
-            name="pie-chart"
+            name="trending-up"
             size={22}
-            color={activeTab === 'investments' ? '#007AFF' : '#666'}
+            color={activeTab === 'investments' ? AIStudioTheme.colors.primary : AIStudioTheme.colors.textMuted}
           />
           <Text style={[styles.bottomTabText, activeTab === 'investments' && styles.bottomTabTextActive]}>Invest</Text>
         </TouchableOpacity>
@@ -2185,21 +2186,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: AIStudioTheme.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
+    borderTopColor: AIStudioTheme.colors.border,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 8,
+    paddingTop: 8,
+    ...AIStudioTheme.shadows.sm,
   },
   bottomTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   bottomTabText: {
-    fontSize: 12,
-    color: AIStudioTheme.colors.textSecondary,
-    marginTop: 2,
+    fontSize: 11,
+    color: AIStudioTheme.colors.textMuted,
+    marginTop: 4,
+    fontWeight: '500',
   },
   bottomTabTextActive: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '600',
   },
 
@@ -2662,11 +2667,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginHorizontal: 8,
+    marginHorizontal: 20,
     marginBottom: 8,
   },
   quickActionsSection: {
-    marginHorizontal: 8,
+    marginHorizontal: 20,
     marginBottom: 20,
   },
   quickActionsTitle: {
@@ -2728,7 +2733,7 @@ const styles = StyleSheet.create({
   },
   // Phase 3: Tab Navigation & Goal Progress Styles
   tabNavigationSection: {
-    marginHorizontal: 8,
+    marginHorizontal: 20,
     marginBottom: 16,
   },
   tabNavigationTitle: {

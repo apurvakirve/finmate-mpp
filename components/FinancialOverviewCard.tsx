@@ -68,11 +68,7 @@ export default function FinancialOverviewCard({
                         </Text>
                     </View>
                     <TouchableOpacity onPress={onToggle} style={styles.toggleButton}>
-                        <Icon
-                            name={showTotal ? "eye" : "eye-off"}
-                            size={18}
-                            color={AIStudioTheme.colors.textSecondary}
-                        />
+
                     </TouchableOpacity>
                 </View>
 
@@ -116,8 +112,6 @@ export default function FinancialOverviewCard({
                     </View>
                 </View>
 
-                {/* Tap to toggle hint */}
-                <Text style={styles.tapHint}>Tap to toggle view</Text>
             </View>
         </TouchableOpacity>
     );
@@ -128,32 +122,32 @@ const styles = StyleSheet.create({
         backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: AIStudioTheme.borderRadius.lg,
         padding: AIStudioTheme.spacing.lg,
-        marginHorizontal: 8,
+        marginHorizontal: 20,
         marginTop: AIStudioTheme.spacing.md,
         marginBottom: AIStudioTheme.spacing.sm,
         borderWidth: 1,
         borderColor: AIStudioTheme.colors.border,
         ...AIStudioTheme.shadows.md,
-        overflow: 'hidden', // Ensure image doesn't spill out of card
-        minHeight: 220, // Ensure enough height for the image
+        overflow: 'visible', // Allow image to pop out
+        minHeight: 220,
         position: 'relative',
     },
     separatorLine: {
         position: 'absolute',
         left: 0,
         right: 0,
-        top: 105, // Approximate position between balance and activity
+        top: 120, // Approximate position between balance and activity
         height: 1,
         backgroundColor: AIStudioTheme.colors.border,
         zIndex: 0,
     },
     spiritAnimalContainer: {
         position: 'absolute',
-        right: -20,
-        top: 20,
-        width: 180,
-        height: 180,
-        zIndex: 1, // Above separator
+        right: -40,
+        top: -20, // Center vertically on the card
+        width: 200,
+        height: 200,
+        zIndex: 1,
         opacity: 1,
     },
     spiritAnimalImage: {
@@ -161,7 +155,7 @@ const styles = StyleSheet.create({
         height: '100%',
     },
     contentContainer: {
-        zIndex: 2, // Above image
+        zIndex: 2,
     },
     header: {
         flexDirection: 'row',
@@ -186,12 +180,11 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '700',
         color: AIStudioTheme.colors.text,
-        marginBottom: 24, // Increased to make space for separator
+        marginBottom: 24,
+        zIndex: 1,
     },
     activitySection: {
-        paddingTop: 12,
-        // borderTopWidth: 1, // Removed
-        // borderTopColor: AIStudioTheme.colors.border, // Removed
+        paddingTop: 20,
     },
     activityTitle: {
         fontSize: 13,
