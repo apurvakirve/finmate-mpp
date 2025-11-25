@@ -102,14 +102,19 @@ export class AIFinancialAnalyzer {
             // Calculate patterns for each category
             const categoryPatterns = this.calculateCategoryPatterns(transactions, userId);
 
+            // Calculate advanced patterns (Day of Week, Daily Averages, Income)
+            const advancedPatterns = this.calculateAdvancedPatterns(context);
+
+            const allPatterns = [...categoryPatterns, ...advancedPatterns];
+
             // Use AI to generate insights
             if (!GEMINI_API_KEY) {
-                return this.generateRuleBasedPatterns(categoryPatterns);
+                return this.generateRuleBasedPatterns(allPatterns);
             }
 
             const prompt = `Analyze these spending patterns and generate insights:
 
-${JSON.stringify(categoryPatterns, null, 2)}
+${JSON.stringify(allPatterns, null, 2)}
 
 For each category, provide:
 1. A trend analysis (rising/stable/falling)
@@ -131,7 +136,7 @@ Output JSON array of patterns with: category, trend, insight`;
             const aiPatterns = JSON.parse(response.text || '[]');
 
             // Merge AI insights with calculated data
-            return categoryPatterns.map((pattern, index) => ({
+            return allPatterns.map((pattern, index) => ({
                 ...pattern,
                 trend: aiPatterns[index]?.trend || pattern.trend,
                 insight: aiPatterns[index]?.insight || pattern.insight
@@ -561,6 +566,140 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
         });
     }
 
+    private static calculateAdvancedPatterns(context: FinancialContext): SpendingPattern[] {
+        const { transactions, userId, totalIncome } = context;
+        const patterns: SpendingPattern[] = [];
+        const userTxns = transactions.filter(t => t.from_user_id === userId);
+
+        // Helper to count unique days in the dataset
+        const uniqueDays = new Set<string>();
+        const now = new Date();
+        const day7Ago = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+        userTxns.forEach(t => {
+            uniqueDays.add(new Date(t.created_at).toDateString());
+        });
+
+        const totalDays = Math.max(1, uniqueDays.size);
+        const overallDailyAvg = userTxns.reduce((sum, t) => sum + t.amount, 0) / totalDays;
+
+        // 1. Day of Week Analysis
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayTotals = new Array(7).fill(0);
+        const dayCounts = new Array(7).fill(0);
+
+        userTxns.forEach(t => {
+            const day = new Date(t.created_at).getDay();
+            dayTotals[day] += t.amount;
+            dayCounts[day]++;
+        });
+
+        // Identify significant day patterns
+        days.forEach((dayName, index) => {
+            if (dayCounts[index] > 0) {
+                const numOccurrences = Math.max(1, Math.round(totalDays / 7));
+                const avgOnDay = dayTotals[index] / numOccurrences;
+
+                if (avgOnDay > overallDailyAvg * 1.25) {
+                    const percentHigher = ((avgOnDay - overallDailyAvg) / overallDailyAvg) * 100;
+                    patterns.push({
+                        category: dayName + 's',
+                        currentAmount: avgOnDay,
+                        avg7Days: overallDailyAvg,
+                        avg30Days: overallDailyAvg,
+                        avgWeekday: overallDailyAvg,
+                        percentChange7Days: percentHigher,
+                        percentChange30Days: percentHigher,
+                        percentChangeWeekday: percentHigher,
+                        trend: 'rising',
+                        insight: `You spend ${percentHigher.toFixed(0)}% more on ${dayName}s than your daily average.`
+                    });
+                }
+            }
+        });
+
+        // Weekend vs Weekday
+        const weekendTotal = dayTotals[0] + dayTotals[6];
+        const weekdayTotal = dayTotals.slice(1, 6).reduce((a, b) => a + b, 0);
+        const numWeekends = Math.max(1, Math.round(totalDays * 2 / 7));
+        const numWeekdays = Math.max(1, Math.round(totalDays * 5 / 7));
+
+        const weekendAvg = weekendTotal / numWeekends;
+        const weekdayAvg = weekdayTotal / numWeekdays;
+
+        if (weekendAvg > weekdayAvg * 1.2) {
+            const percentHigher = ((weekendAvg - weekdayAvg) / weekdayAvg) * 100;
+            patterns.push({
+                category: 'Weekends',
+                currentAmount: weekendAvg,
+                avg7Days: overallDailyAvg,
+                avg30Days: overallDailyAvg,
+                avgWeekday: weekdayAvg,
+                percentChange7Days: ((weekendAvg - overallDailyAvg) / overallDailyAvg) * 100,
+                percentChange30Days: ((weekendAvg - overallDailyAvg) / overallDailyAvg) * 100,
+                percentChangeWeekday: percentHigher,
+                trend: 'rising',
+                insight: `You spend ${percentHigher.toFixed(0)}% more on weekends than weekdays.`
+            });
+        }
+
+        // 2. Daily Category Averages (Food, Travel)
+        const categoriesOfInterest = ['Food', 'Travel', 'Transport', 'Dining', 'Groceries'];
+        const categoryStats: Record<string, { total: number, last7Days: number }> = {};
+
+        userTxns.forEach(t => {
+            const cat = t.transaction_type || 'other';
+            if (categoriesOfInterest.some(c => cat.toLowerCase().includes(c.toLowerCase()))) {
+                if (!categoryStats[cat]) categoryStats[cat] = { total: 0, last7Days: 0 };
+                categoryStats[cat].total += t.amount;
+                if (new Date(t.created_at) >= day7Ago) {
+                    categoryStats[cat].last7Days += t.amount;
+                }
+            }
+        });
+
+        Object.entries(categoryStats).forEach(([cat, stats]) => {
+            const dailyAvgOverall = stats.total / totalDays;
+            const dailyAvg7Days = stats.last7Days / 7;
+
+            if (dailyAvgOverall > 0) {
+                const percentChange = dailyAvg7Days > 0 ? ((dailyAvg7Days - dailyAvgOverall) / dailyAvgOverall) * 100 : 0;
+
+                patterns.push({
+                    category: `Daily ${cat}`,
+                    currentAmount: dailyAvgOverall,
+                    avg7Days: dailyAvg7Days,
+                    avg30Days: dailyAvgOverall,
+                    avgWeekday: dailyAvgOverall,
+                    percentChange7Days: percentChange,
+                    percentChange30Days: 0,
+                    percentChangeWeekday: 0,
+                    trend: percentChange > 10 ? 'rising' : percentChange < -10 ? 'falling' : 'stable',
+                    insight: `You spend approx ₹${dailyAvgOverall.toFixed(0)} on ${cat} every day.`
+                });
+            }
+        });
+
+        // 3. Daily Income Analysis
+        if (totalIncome > 0) {
+            const dailyIncome = totalIncome / 30;
+            patterns.push({
+                category: 'Daily Income',
+                currentAmount: dailyIncome,
+                avg7Days: dailyIncome,
+                avg30Days: dailyIncome,
+                avgWeekday: dailyIncome,
+                percentChange7Days: 0,
+                percentChange30Days: 0,
+                percentChangeWeekday: 0,
+                trend: 'stable',
+                insight: `You earn approx ₹${dailyIncome.toFixed(0)} per day.`
+            });
+        }
+
+        return patterns;
+    }
+
     private static calculateCategoryAverages(transactions: Transaction[], userId: string): Record<string, number> {
         const userTxns = transactions.filter(t => t.from_user_id === userId);
         const categories: Record<string, number[]> = {};
@@ -704,7 +843,7 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
             coaching.push({
                 type: 'warning',
                 title: 'Low Savings Rate',
-                message: `Your savings rate is ${context.savingsRate.toFixed(1)}%. Try to save at least 20% of your income.`,
+                message: `Your savings rate is ${context.savingsRate.toFixed(1)}%.Try to save at least 20 % of your income.`,
                 priority: 'high'
             });
         }

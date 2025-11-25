@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        padding: 20,
+        flexGrow: 1,
     },
     header: {
         alignItems: 'center',
@@ -237,21 +237,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#1a1a1a',
         marginLeft: 8,
-    },
-    traitsContainer: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
-    },
-    traitBadge: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
-        borderWidth: 1,
-    },
-    traitText: {
-        fontSize: 14,
-        fontWeight: '600',
     },
     listItem: {
         flexDirection: 'row',

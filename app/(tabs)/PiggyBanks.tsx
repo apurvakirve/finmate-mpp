@@ -1832,7 +1832,7 @@ const styles = StyleSheet.create({
   // --- Layout wrappers
   wrapper: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: AIStudioTheme.colors.background,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -1841,7 +1841,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E6EEF8',
+    borderBottomColor: AIStudioTheme.colors.border,
     gap: 8,
   },
   tab: {
@@ -1855,7 +1855,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabActive: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
   },
   tabText: {
     fontSize: 15,
@@ -1863,7 +1863,7 @@ const styles = StyleSheet.create({
     color: AIStudioTheme.colors.textSecondary,
   },
   tabTextActive: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '700',
   },
   scrollContent: {
@@ -1878,7 +1878,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.06,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 6 },
@@ -1892,7 +1892,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 12,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -1909,7 +1909,7 @@ const styles = StyleSheet.create({
   compactSummaryValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   compactEditButton: {
     padding: 8,
@@ -1963,17 +1963,17 @@ const styles = StyleSheet.create({
   incomeEditInput: {
     flex: 1,
     borderWidth: 2,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 20,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     backgroundColor: AIStudioTheme.colors.surface,
   },
   incomeEditSave: {
-    backgroundColor: '#10B981',
+    backgroundColor: AIStudioTheme.colors.success,
     borderRadius: 10,
     padding: 8,
   },
@@ -1989,7 +1989,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -2010,7 +2010,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   allocDescription: {
     fontSize: 13,
@@ -2026,23 +2026,23 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E6EEF8',
-    backgroundColor: '#FBFDFF',
+    borderColor: AIStudioTheme.colors.border,
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   resetAllocText: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontSize: 13,
     fontWeight: '700',
   },
 
   // --- Alloc summary
   allocSummaryBox: {
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 12,
     padding: 12,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#E8EFFD',
+    borderColor: AIStudioTheme.colors.border,
   },
   allocSummaryRow: {
     flexDirection: 'row',
@@ -2052,11 +2052,11 @@ const styles = StyleSheet.create({
   allocSummaryLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   allocSummaryText: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontSize: 15,
   },
   allocHint: {
@@ -2077,8 +2077,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1.5,
-    borderColor: '#E6EEF8',
-    shadowcolor: AIStudioTheme.colors.text,
+    borderColor: AIStudioTheme.colors.border,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
@@ -2100,7 +2100,7 @@ const styles = StyleSheet.create({
   allocItemLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     flex: 1,
   },
   allocItemAmount: {
@@ -2115,7 +2115,7 @@ const styles = StyleSheet.create({
   allocSliderTrack: {
     position: 'relative',
     height: 8,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 8,
     overflow: 'visible',
   },
@@ -2131,8 +2131,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     borderColor: '#FFFFFF',
-    backgroundColor: '#0F172A',
-    shadowcolor: AIStudioTheme.colors.text,
+    backgroundColor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.18,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -2166,7 +2166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
@@ -2175,7 +2175,7 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginRight: 6,
   },
   allocInputMoney: {
@@ -2187,12 +2187,12 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     textAlign: 'left',
     backgroundColor: 'transparent',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
 
   // --- Buttons
   primaryButton: {
-    backgroundColor: '#0F62FE',
+    backgroundColor: AIStudioTheme.colors.primary,
     borderRadius: 12,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -2211,7 +2211,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   linkButtonText: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '700',
   },
 
@@ -2222,8 +2222,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowcolor: AIStudioTheme.colors.text,
+    borderColor: AIStudioTheme.colors.border,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -2231,7 +2231,7 @@ const styles = StyleSheet.create({
   },
   pendingTitle: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontSize: 16,
     marginBottom: 12,
   },
@@ -2244,7 +2244,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: AIStudioTheme.colors.border,
   },
   pendingRowLeft: {
     flexDirection: 'row',
@@ -2258,7 +2258,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   pendingLabel: {
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontSize: 14,
     fontWeight: '700',
     flex: 1,
@@ -2279,7 +2279,7 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.03,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -2287,7 +2287,7 @@ const styles = StyleSheet.create({
   },
   scheduleTitle: {
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   scheduleSubtitle: {
     color: AIStudioTheme.colors.textSecondary,
@@ -2298,7 +2298,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.02,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -2320,7 +2320,7 @@ const styles = StyleSheet.create({
   bucketGridTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 2,
   },
   bucketGridSubtitle: {
@@ -2331,7 +2331,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#F0F9FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2346,7 +2346,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderLeftWidth: 3,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.03,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -2376,19 +2376,19 @@ const styles = StyleSheet.create({
   jarGridLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 6,
   },
   jarGridAmount: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 8,
   },
   jarGridProgress: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     overflow: 'hidden',
   },
   jarGridProgressBar: {
@@ -2404,7 +2404,7 @@ const styles = StyleSheet.create({
   jarSectionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   jarSectionSubtitle: {
     fontSize: 12,
@@ -2418,12 +2418,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     gap: 6,
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   addJarButtonText: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '700',
     fontSize: 13,
   },
@@ -2434,7 +2434,7 @@ const styles = StyleSheet.create({
   },
   bucketAmount: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   bucketBalance: {
     color: AIStudioTheme.colors.textSecondary,
@@ -2449,8 +2449,8 @@ const styles = StyleSheet.create({
     padding: 14,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowcolor: AIStudioTheme.colors.text,
+    borderColor: AIStudioTheme.colors.border,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
@@ -2476,7 +2476,7 @@ const styles = StyleSheet.create({
   },
   jarCardTitle: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontSize: 13,
     flex: 1,
   },
@@ -2489,14 +2489,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#ECFDF5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 10,
   },
   jarReadyBadge: {
     fontSize: 11,
-    color: '#059669',
+    color: AIStudioTheme.colors.success,
     fontWeight: '800',
   },
   jarAmountSection: {
@@ -2505,7 +2505,7 @@ const styles = StyleSheet.create({
   jarCardAmount: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 4,
   },
   jarTargetRow: {
@@ -2525,7 +2525,7 @@ const styles = StyleSheet.create({
   jarProgressBackground: {
     height: 8,
     borderRadius: 8,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     marginTop: 8,
     marginBottom: 12,
     overflow: 'hidden',
@@ -2545,7 +2545,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#0F62FE',
+    backgroundColor: AIStudioTheme.colors.primary,
     paddingVertical: 8,
     borderRadius: 10,
   },
@@ -2564,7 +2564,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: AIStudioTheme.colors.border,
   },
   jarTargetButtonText: {
     fontSize: 13,
@@ -2578,7 +2578,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8EFFD',
+    borderColor: AIStudioTheme.colors.border,
   },
   readyInvestHeader: {
     flexDirection: 'row',
@@ -2588,7 +2588,7 @@ const styles = StyleSheet.create({
   },
   readyInvestTitle: {
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontSize: 14,
   },
   readyInvestRow: {
@@ -2601,7 +2601,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   readyInvestAmount: {
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     fontWeight: '800',
   },
   readyInvestHint: {
@@ -2613,7 +2613,7 @@ const styles = StyleSheet.create({
   // --- Modals
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(2,6,23,0.45)',
+    backgroundColor: AIStudioTheme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -2629,7 +2629,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     marginBottom: 8,
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   modalLabel: {
     fontSize: 13,
@@ -2640,12 +2640,12 @@ const styles = StyleSheet.create({
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#EEF2F7',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     backgroundColor: AIStudioTheme.colors.surface,
   },
   modalBucketRow: {
@@ -2655,11 +2655,11 @@ const styles = StyleSheet.create({
   },
   bucketChip: {
     borderWidth: 1,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   bucketChipText: {
     fontSize: 12,
@@ -2683,7 +2683,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#0F62FE',
+    backgroundColor: AIStudioTheme.colors.primary,
   },
   modalPrimaryText: {
     color: '#FFFFFF',
@@ -2693,7 +2693,7 @@ const styles = StyleSheet.create({
   // --- Calendar modal
   calendarOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(2,6,23,0.45)',
+    backgroundColor: AIStudioTheme.colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -2714,7 +2714,7 @@ const styles = StyleSheet.create({
   calendarTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -2740,10 +2740,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   calendarDayActive: {
-    backgroundColor: '#0F62FE',
+    backgroundColor: AIStudioTheme.colors.primary,
   },
   calendarDayText: {
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   calendarDayTextActive: {
     color: '#FFFFFF',
@@ -2757,7 +2757,7 @@ const styles = StyleSheet.create({
     backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 18,
     maxHeight: '84%',
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.12,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 10 },
@@ -2769,15 +2769,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: AIStudioTheme.colors.border,
   },
   moveModalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   moveFromCard: {
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderRadius: 12,
     padding: 12,
     margin: 16,
@@ -2805,7 +2805,7 @@ const styles = StyleSheet.create({
   moveJarName: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 4,
   },
   moveJarBalance: {
@@ -2826,12 +2826,12 @@ const styles = StyleSheet.create({
   moveJarOption: {
     width: 120,
     borderWidth: 1,
-    borderColor: '#F1F5F9',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 12,
     padding: 12,
     marginRight: 10,
     alignItems: 'center',
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   moveJarOptionIcon: {
     width: 48,
@@ -2844,7 +2844,7 @@ const styles = StyleSheet.create({
   moveJarOptionLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 4,
     textAlign: 'center',
   },
@@ -2861,7 +2861,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     backgroundColor: AIStudioTheme.colors.surface,
@@ -2870,7 +2870,7 @@ const styles = StyleSheet.create({
   moveCurrencySymbol: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginRight: 8,
   },
   moveAmountInput: {
@@ -2878,17 +2878,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     paddingVertical: 12,
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   moveMaxButton: {
     marginLeft: 10,
-    backgroundColor: '#EEF6FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   moveMaxButtonText: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '800',
   },
   moveModalButtonRow: {
@@ -2897,16 +2897,16 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
+    borderTopColor: AIStudioTheme.colors.border,
   },
   moveCancelButton: {
     flex: 1,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#F1F5F9',
+    borderColor: AIStudioTheme.colors.border,
     alignItems: 'center',
-    backgroundColor: '#FBFDFF',
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   moveCancelButtonText: {
     color: AIStudioTheme.colors.textSecondary,
@@ -2921,10 +2921,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#0F62FE',
+    backgroundColor: AIStudioTheme.colors.primary,
   },
   moveConfirmButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     opacity: 0.6,
   },
   moveConfirmButtonText: {
@@ -2935,18 +2935,18 @@ const styles = StyleSheet.create({
 
   // --- Callout / misc
   sectionCalloutBox: {
-    backgroundColor: '#F1FAFF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
   },
   sectionCallout: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontSize: 13,
     fontWeight: '700',
   },
   sectionCalloutSecondary: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontSize: 13,
     marginTop: 6,
     fontWeight: '700',
@@ -2957,32 +2957,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // --- small utilities (kept for references)
-  jarsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  jarContainer: { width: '48%' },
-  jarBody: {
-    width: '100%',
-    height: 140,
-    borderRadius: 14,
-    backgroundColor: AIStudioTheme.colors.surface,
-    overflow: 'hidden',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  jarContent: {
-    position: 'relative',
-    zIndex: 1,
-    height: '100%',
-    padding: 12,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+
 
   // --- Transfer card
   transferCard: {
@@ -2990,7 +2965,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.03,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
@@ -3000,7 +2975,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#E6EEF8',
+    borderColor: AIStudioTheme.colors.border,
     borderRadius: 12,
     paddingHorizontal: 12,
     backgroundColor: AIStudioTheme.colors.surface,
@@ -3010,17 +2985,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     paddingVertical: 12,
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
   maxButton: {
     marginLeft: 8,
-    backgroundColor: '#EEF6FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   maxButtonText: {
-    color: '#0F62FE',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '800',
     fontSize: 13,
   },
@@ -3035,14 +3010,14 @@ const styles = StyleSheet.create({
   currencySymbolSmall: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
   },
 
   // --- AI Coach styles
   aiBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -3052,7 +3027,7 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
   },
   allocHeaderActions: {
     flexDirection: 'row',
@@ -3066,18 +3041,18 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E6EEF8',
-    backgroundColor: '#FBFDFF',
+    borderColor: AIStudioTheme.colors.border,
+    backgroundColor: AIStudioTheme.colors.surface,
     gap: 4,
   },
   aiToggleButtonActive: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
+    borderColor: AIStudioTheme.colors.primary,
   },
   aiToggleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
   },
   aiToggleTextActive: {
     color: '#FFFFFF',
@@ -3101,7 +3076,7 @@ const styles = StyleSheet.create({
   aiInsightTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0F172A',
+    color: AIStudioTheme.colors.text,
     marginBottom: 2,
   },
   aiInsightText: {
@@ -3110,20 +3085,20 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   aiInsightCardHigh: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderLeftWidth: 3,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: AIStudioTheme.colors.primary,
   },
   overspendingContainer: {
     marginBottom: 12,
   },
   overspendingCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 12,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF3B30',
+    borderLeftColor: AIStudioTheme.colors.error,
     marginBottom: 8,
     gap: 12,
   },
@@ -3133,7 +3108,7 @@ const styles = StyleSheet.create({
   overspendingTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#FF3B30',
+    color: AIStudioTheme.colors.error,
     marginBottom: 4,
   },
   overspendingMessage: {

@@ -8,6 +8,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { QUIZ_QUESTIONS, calculateSpiritAnimal } from '../constants/spiritAnimals';
 import { QuizAnswer, SpiritAnimalType } from '../types/spiritAnimal';
 
@@ -98,12 +99,12 @@ export default function SpiritAnimalQuiz({ onComplete }: SpiritAnimalQuizProps) 
                             <View style={styles.optionContent}>
                                 {option.icon && (
                                     <View style={styles.optionIcon}>
-                                        <Icon name={option.icon as any} size={24} color="#007AFF" />
+                                        <Icon name={option.icon as any} size={20} color={AIStudioTheme.colors.primary} />
                                     </View>
                                 )}
                                 <Text style={styles.optionText}>{option.text}</Text>
                             </View>
-                            <Icon name="chevron-right" size={20} color="#999" />
+                            <Icon name="chevron-right" size={18} color={AIStudioTheme.colors.textMuted} />
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -120,67 +121,70 @@ export default function SpiritAnimalQuiz({ onComplete }: SpiritAnimalQuizProps) 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
-        padding: 20,
+        backgroundColor: AIStudioTheme.colors.background,
     },
     progressContainer: {
-        marginBottom: 30,
+        marginBottom: 20,
     },
     progressBar: {
-        height: 8,
-        backgroundColor: '#E0E0E0',
-        borderRadius: 4,
+        height: 3,
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
+        borderRadius: 2,
         overflow: 'hidden',
-        marginBottom: 8,
+        marginBottom: 6,
     },
     progressFill: {
         height: '100%',
-        backgroundColor: '#007AFF',
-        borderRadius: 4,
+        backgroundColor: AIStudioTheme.colors.primary,
+        borderRadius: 2,
     },
     progressText: {
-        fontSize: 14,
-        color: '#666',
+        fontSize: 12,
+        color: AIStudioTheme.colors.textSecondary,
         textAlign: 'center',
         fontWeight: '500',
     },
     questionCard: {
-        backgroundColor: 'white',
-        borderRadius: 20,
-        padding: 24,
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: 0,
+        padding: 18,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 4,
+        borderWidth: 0,
+        minHeight: 480,
     },
     questionNumber: {
-        fontSize: 14,
-        color: '#007AFF',
+        fontSize: 12,
+        color: AIStudioTheme.colors.primary,
         fontWeight: '600',
-        marginBottom: 8,
+        marginBottom: 6,
         textTransform: 'uppercase',
-        letterSpacing: 1,
+        letterSpacing: 0.5,
     },
     questionText: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#1a1a1a',
-        marginBottom: 24,
-        lineHeight: 32,
+        fontSize: 18,
+        fontWeight: '700',
+        color: AIStudioTheme.colors.text,
+        marginBottom: 18,
+        lineHeight: 26,
     },
     optionsContainer: {
-        gap: 12,
+        gap: 10,
     },
     optionButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: '#F8F9FA',
-        padding: 16,
-        borderRadius: 12,
-        borderWidth: 2,
-        borderColor: 'transparent',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        minHeight: 52,
     },
     optionContent: {
         flexDirection: 'row',
@@ -188,25 +192,28 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     optionIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#E3F2FD',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: AIStudioTheme.colors.surface,
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 12,
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
     },
     optionText: {
-        fontSize: 16,
-        color: '#1a1a1a',
+        fontSize: 14,
+        color: AIStudioTheme.colors.text,
         fontWeight: '500',
         flex: 1,
+        lineHeight: 20,
     },
     helperText: {
-        fontSize: 14,
-        color: '#999',
+        fontSize: 12,
+        color: AIStudioTheme.colors.textMuted,
         textAlign: 'center',
-        marginTop: 20,
+        marginTop: 16,
         fontStyle: 'italic',
     },
 });

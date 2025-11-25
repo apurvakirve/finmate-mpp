@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import {
-    SafeAreaView,
-    StyleSheet
+    StyleSheet,
+    View
 } from 'react-native';
 import SpiritAnimalQuiz from '../components/SpiritAnimalQuiz';
 import SpiritAnimalReveal from '../components/SpiritAnimalReveal';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { SpiritAnimalType } from '../types/spiritAnimal';
 
 interface SpiritAnimalOnboardingProps {
@@ -27,7 +28,7 @@ export default function SpiritAnimalOnboarding({ onComplete }: SpiritAnimalOnboa
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             {stage === 'quiz' && (
                 <SpiritAnimalQuiz onComplete={handleQuizComplete} />
             )}
@@ -38,13 +39,13 @@ export default function SpiritAnimalOnboarding({ onComplete }: SpiritAnimalOnboa
                     onContinue={handleContinue}
                 />
             )}
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
+        backgroundColor: AIStudioTheme.colors.background,
     },
 });

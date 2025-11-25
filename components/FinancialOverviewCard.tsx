@@ -1,7 +1,19 @@
+
 import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AIStudioTheme } from '../constants/aiStudioTheme';
+import { SpiritAnimalType } from '../types/spiritAnimal';
+
+// Map spirit animal types to local images
+const SPIRIT_ANIMAL_IMAGES: Record<SpiritAnimalType, any> = {
+    eagle: require('../assets/spiritanimalsimg/eagle.png'),
+    squirrel: require('../assets/spiritanimalsimg/squirral.png'), // Note: User's filename has typo
+    butterfly: require('../assets/spiritanimalsimg/butterfly.png'),
+    lion: require('../assets/spiritanimalsimg/lion.png'),
+    dolphin: require('../assets/spiritanimalsimg/dolphin.png'),
+    fox: require('../assets/spiritanimalsimg/fox.png'),
+};
 
 interface FinancialOverviewCardProps {
     walletBalance: number;
@@ -10,6 +22,7 @@ interface FinancialOverviewCardProps {
     todaySpending: number;
     showTotal: boolean;
     onToggle: () => void;
+    spiritAnimal?: SpiritAnimalType;
 }
 
 export default function FinancialOverviewCard({
@@ -18,9 +31,11 @@ export default function FinancialOverviewCard({
     todayIncome,
     todaySpending,
     showTotal,
-    onToggle
+    onToggle,
+    spiritAnimal
 }: FinancialOverviewCardProps) {
     const totalBalance = walletBalance + cashBalance;
+    const spiritAnimalImage = spiritAnimal ? SPIRIT_ANIMAL_IMAGES[spiritAnimal] : null;
 
     return (
         <TouchableOpacity
@@ -28,65 +43,82 @@ export default function FinancialOverviewCard({
             onPress={onToggle}
             activeOpacity={0.8}
         >
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Icon name="credit-card" size={16} color={AIStudioTheme.colors.primary} />
-                    <Text style={styles.headerTitle}>
-                        Wallet Balance
-                    </Text>
-                </View>
-                <TouchableOpacity onPress={onToggle} style={styles.toggleButton}>
-                    <Icon
-                        name={showTotal ? "eye" : "eye-off"}
-                        size={18}
-                        color={AIStudioTheme.colors.textSecondary}
+            {/* Separator Line - zIndex 0 (Bottom) */}
+            <View style={styles.separatorLine} />
+
+            {/* Spirit Animal Image - zIndex 1 (Middle) */}
+            {spiritAnimalImage && (
+                <View style={styles.spiritAnimalContainer}>
+                    <Image
+                        source={spiritAnimalImage}
+                        style={styles.spiritAnimalImage}
+                        resizeMode="contain"
                     />
-                </TouchableOpacity>
-            </View>
+                </View>
+            )}
 
-            {/* Main Balance */}
-            <Text style={styles.balanceAmount}>
-                ₹{(showTotal ? totalBalance : walletBalance).toLocaleString('en-IN', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2
-                })}
-            </Text>
-
-            {/* Today's Activity - Side by Side */}
-            <View style={styles.activitySection}>
-                <Text style={styles.activityTitle}>Today's Activity</Text>
-                <View style={styles.activityRow}>
-                    {/* Income */}
-                    <View style={styles.activityItem}>
-                        <View style={[styles.activityIcon, { backgroundColor: '#D1FAE5' }]}>
-                            <Icon name="arrow-down-left" size={16} color="#10B981" />
-                        </View>
-                        <View>
-                            <Text style={styles.activityLabel}>Income</Text>
-                            <Text style={[styles.activityValue, { color: '#10B981' }]}>
-                                +₹{todayIncome.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </Text>
-                        </View>
+            {/* Content - zIndex 2 (Top) */}
+            <View style={styles.contentContainer}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <Icon name="credit-card" size={16} color={AIStudioTheme.colors.primary} />
+                        <Text style={styles.headerTitle}>
+                            Wallet Balance
+                        </Text>
                     </View>
+                    <TouchableOpacity onPress={onToggle} style={styles.toggleButton}>
+                        <Icon
+                            name={showTotal ? "eye" : "eye-off"}
+                            size={18}
+                            color={AIStudioTheme.colors.textSecondary}
+                        />
+                    </TouchableOpacity>
+                </View>
 
-                    {/* Spending */}
-                    <View style={styles.activityItem}>
-                        <View style={[styles.activityIcon, { backgroundColor: '#FEE2E2' }]}>
-                            <Icon name="arrow-up-right" size={16} color="#EF4444" />
+                {/* Main Balance */}
+                <Text style={styles.balanceAmount}>
+                    ₹{(showTotal ? totalBalance : walletBalance).toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    })}
+                </Text>
+
+                {/* Today's Activity - Side by Side */}
+                <View style={styles.activitySection}>
+                    <Text style={styles.activityTitle}>Today's Activity</Text>
+                    <View style={styles.activityRow}>
+                        {/* Income */}
+                        <View style={styles.activityItem}>
+                            <View style={[styles.activityIcon, { backgroundColor: '#D1FAE5' }]}>
+                                <Icon name="arrow-down-left" size={16} color="#10B981" />
+                            </View>
+                            <View>
+                                <Text style={styles.activityLabel}>Income</Text>
+                                <Text style={[styles.activityValue, { color: '#10B981' }]}>
+                                    +₹{todayIncome.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </Text>
+                            </View>
                         </View>
-                        <View>
-                            <Text style={styles.activityLabel}>Spending</Text>
-                            <Text style={[styles.activityValue, { color: '#EF4444' }]}>
-                                -₹{todaySpending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                            </Text>
+
+                        {/* Spending */}
+                        <View style={styles.activityItem}>
+                            <View style={[styles.activityIcon, { backgroundColor: '#FEE2E2' }]}>
+                                <Icon name="arrow-up-right" size={16} color="#EF4444" />
+                            </View>
+                            <View>
+                                <Text style={styles.activityLabel}>Spending</Text>
+                                <Text style={[styles.activityValue, { color: '#EF4444' }]}>
+                                    -₹{todaySpending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </Text>
+                            </View>
                         </View>
                     </View>
                 </View>
-            </View>
 
-            {/* Tap to toggle hint */}
-            <Text style={styles.tapHint}>Tap to toggle view</Text>
+                {/* Tap to toggle hint */}
+                <Text style={styles.tapHint}>Tap to toggle view</Text>
+            </View>
         </TouchableOpacity>
     );
 }
@@ -102,6 +134,34 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: AIStudioTheme.colors.border,
         ...AIStudioTheme.shadows.md,
+        overflow: 'hidden', // Ensure image doesn't spill out of card
+        minHeight: 220, // Ensure enough height for the image
+        position: 'relative',
+    },
+    separatorLine: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        top: 105, // Approximate position between balance and activity
+        height: 1,
+        backgroundColor: AIStudioTheme.colors.border,
+        zIndex: 0,
+    },
+    spiritAnimalContainer: {
+        position: 'absolute',
+        right: -20,
+        top: 20,
+        width: 180,
+        height: 180,
+        zIndex: 1, // Above separator
+        opacity: 1,
+    },
+    spiritAnimalImage: {
+        width: '100%',
+        height: '100%',
+    },
+    contentContainer: {
+        zIndex: 2, // Above image
     },
     header: {
         flexDirection: 'row',
@@ -126,12 +186,12 @@ const styles = StyleSheet.create({
         fontSize: 32,
         fontWeight: '700',
         color: AIStudioTheme.colors.text,
-        marginBottom: 16,
+        marginBottom: 24, // Increased to make space for separator
     },
     activitySection: {
         paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: AIStudioTheme.colors.border,
+        // borderTopWidth: 1, // Removed
+        // borderTopColor: AIStudioTheme.colors.border, // Removed
     },
     activityTitle: {
         fontSize: 13,
@@ -173,3 +233,4 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 });
+

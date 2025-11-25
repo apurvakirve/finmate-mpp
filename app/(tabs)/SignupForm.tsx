@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import SpiritAnimalOnboarding from '../../screens/SpiritAnimalOnboarding';
 import { SpiritAnimalType } from '../../types/spiritAnimal';
 
@@ -63,12 +64,12 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
   };
 
   const getPasswordStrength = (password: string): { strength: 'weak' | 'medium' | 'strong'; color: string; text: string } => {
-    if (password.length < 6) return { strength: 'weak', color: '#FF3B30', text: 'Too short' };
-    if (password.length < 8) return { strength: 'medium', color: '#FF9500', text: 'Medium' };
+    if (password.length < 6) return { strength: 'weak', color: AIStudioTheme.colors.error, text: 'Too short' };
+    if (password.length < 8) return { strength: 'medium', color: AIStudioTheme.colors.warning, text: 'Medium' };
     if (password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /[0-9]/.test(password)) {
-      return { strength: 'strong', color: '#34C759', text: 'Strong' };
+      return { strength: 'strong', color: AIStudioTheme.colors.success, text: 'Strong' };
     }
-    return { strength: 'medium', color: '#FF9500', text: 'Medium' };
+    return { strength: 'medium', color: AIStudioTheme.colors.warning, text: 'Medium' };
   };
 
   const validateStep = (stepNum: number): boolean => {
@@ -140,15 +141,24 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
+      style={{ flex: 1, backgroundColor: AIStudioTheme.colors.background }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
     >
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
-        </View>
-        <Text style={styles.stepIndicator}>Step {step} of 4{step === 4 ? ' - Quiz (7 questions)' : ''}</Text>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={step === 4 ? styles.scrollContentFullScreen : styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {step < 4 && (
+          <>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
+            </View>
+            <Text style={styles.stepIndicator}>Step {step} of 4</Text>
+          </>
+        )}
 
         {step === 1 && (
           <View style={styles.stepContent}>
@@ -160,6 +170,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="Enter your full name"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.name}
                 onChangeText={(v) => updateField('name', v)}
                 autoCapitalize="words"
@@ -174,6 +185,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
                   formData.email && !validateEmail(formData.email) && styles.inputError
                 ]}
                 placeholder="your.email@example.com"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.email}
                 onChangeText={(v) => updateField('email', v)}
                 keyboardType="email-address"
@@ -189,6 +201,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="Minimum 6 characters"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.password}
                 onChangeText={(v) => updateField('password', v)}
                 secureTextEntry
@@ -226,6 +239,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="Enter your age"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.age}
                 onChangeText={(v) => updateField('age', v)}
                 keyboardType="numeric"
@@ -237,6 +251,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="+91 9876543210"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.phone}
                 onChangeText={(v) => updateField('phone', v)}
                 keyboardType="phone-pad"
@@ -248,6 +263,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="Your city"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.city}
                 onChangeText={(v) => updateField('city', v)}
                 autoCapitalize="words"
@@ -259,6 +275,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Delivery Partner, Student, etc."
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.occupation}
                 onChangeText={(v) => updateField('occupation', v)}
               />
@@ -276,6 +293,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="Enter approximate monthly income"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.monthlyIncome}
                 onChangeText={(v) => updateField('monthlyIncome', v)}
                 keyboardType="numeric"
@@ -312,6 +330,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               <TextInput
                 style={styles.input}
                 placeholder="0"
+                placeholderTextColor={AIStudioTheme.colors.textMuted}
                 value={formData.dependents}
                 onChangeText={(v) => updateField('dependents', v)}
                 keyboardType="numeric"
@@ -371,19 +390,14 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
         )}
 
         {step === 4 && (
-          <View style={styles.stepContent}>
-            <Text style={styles.title}>Discover Your Financial Personality</Text>
-            <Text style={styles.subtitle}>Take a quick quiz to personalize your experience</Text>
-
-            <SpiritAnimalOnboarding onComplete={handleSpiritAnimalComplete} />
-          </View>
+          <SpiritAnimalOnboarding onComplete={handleSpiritAnimalComplete} />
         )}
 
         {step < 4 && (
           <View style={styles.buttonRow}>
             {step > 1 && (
               <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
-                <Icon name="arrow-left" size={18} color="#007AFF" />
+                <Icon name="arrow-left" size={18} color={AIStudioTheme.colors.primary} />
                 <Text style={styles.backButtonText}>Back</Text>
               </TouchableOpacity>
             )}
@@ -411,182 +425,204 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: AIStudioTheme.colors.background,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexGrow: 1,
+  },
+  scrollContentFullScreen: {
+    flexGrow: 1,
   },
   progressBar: {
-    height: 4,
-    backgroundColor: '#e5e5ea',
+    height: 3,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 2,
-    marginBottom: 16,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
     borderRadius: 2,
   },
   stepIndicator: {
-    color: '#6c6c70',
-    fontSize: 12,
-    marginBottom: 20,
+    color: AIStudioTheme.colors.textSecondary,
+    fontSize: 11,
+    marginBottom: 16,
   },
   stepContent: {
-    marginBottom: 30,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#1c1c1e',
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: '#6c6c70',
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  inputGroup: {
     marginBottom: 20,
   },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+    marginBottom: 6,
+  },
+  subtitle: {
+    color: AIStudioTheme.colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#1c1c1e',
-    marginBottom: 8,
+    color: AIStudioTheme.colors.text,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#d1d1d6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: 'white',
+    borderColor: AIStudioTheme.colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: AIStudioTheme.colors.surface,
+    color: AIStudioTheme.colors.text,
+    minHeight: 44,
   },
   optionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   optionButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#d1d1d6',
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderColor: AIStudioTheme.colors.border,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   optionButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#e6f0ff',
+    borderColor: AIStudioTheme.colors.primary,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
   },
   optionText: {
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '600',
+    fontSize: 13,
   },
   optionTextActive: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
   },
   goalGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   goalButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#d1d1d6',
-    backgroundColor: 'white',
+    borderColor: AIStudioTheme.colors.border,
+    backgroundColor: AIStudioTheme.colors.surface,
+    minHeight: 36,
+    justifyContent: 'center',
   },
   goalButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#e6f0ff',
+    borderColor: AIStudioTheme.colors.primary,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
   },
   goalText: {
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: 12,
   },
   goalTextActive: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 10,
+    marginBottom: 12,
+    marginTop: 8,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: AIStudioTheme.colors.primary,
     flex: 1,
     justifyContent: 'center',
+    minHeight: 44,
   },
   backButtonText: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '600',
+    fontSize: 14,
     marginLeft: 6,
   },
   nextButton: {
     flex: 2,
-    backgroundColor: '#007AFF',
-    paddingVertical: 14,
-    borderRadius: 12,
+    backgroundColor: AIStudioTheme.colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
   },
   nextButtonDisabled: {
     opacity: 0.6,
   },
   nextButtonText: {
-    color: 'white',
+    color: AIStudioTheme.colors.textInverse,
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: 15,
   },
   cancelButton: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   cancelButtonText: {
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
     fontWeight: '600',
+    fontSize: 13,
   },
   inputError: {
-    borderColor: '#FF3B30',
+    borderColor: AIStudioTheme.colors.error,
   },
   errorText: {
-    color: '#FF3B30',
-    fontSize: 12,
-    marginTop: 4,
+    color: AIStudioTheme.colors.error,
+    fontSize: 11,
+    marginTop: 3,
   },
   passwordStrengthContainer: {
-    marginTop: 8,
+    marginTop: 6,
   },
   passwordStrengthBar: {
-    height: 4,
-    backgroundColor: '#e5e5ea',
+    height: 3,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 2,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   passwordStrengthFill: {
     height: '100%',
     borderRadius: 2,
   },
   passwordStrengthText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   hintText: {
-    fontSize: 12,
-    color: '#8e8e93',
-    marginTop: 4,
+    fontSize: 11,
+    color: AIStudioTheme.colors.textMuted,
+    marginTop: 3,
+    lineHeight: 15,
   },
 });
-

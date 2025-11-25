@@ -419,7 +419,7 @@ export default function MoneyTransferApp() {
       Alert.alert('Seed', `Inserted ~${rows.length} demo transactions`);
     } catch (e) {
       console.log('Seed error', e);
-      Alert.alert('Seed', `Failed to insert demo data: ${e?.message || e}`);
+      Alert.alert('Seed', `Failed to insert demo data: ${(e as any)?.message || e}`);
     } finally {
       setLoading(false);
     }
@@ -1144,6 +1144,7 @@ export default function MoneyTransferApp() {
 
           <TextInput
             placeholder={t('email')}
+            placeholderTextColor={AIStudioTheme.colors.textMuted}
             value={email}
             onChangeText={setEmail}
             style={styles.input}
@@ -1152,6 +1153,7 @@ export default function MoneyTransferApp() {
           />
           <TextInput
             placeholder={t('password')}
+            placeholderTextColor={AIStudioTheme.colors.textMuted}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -1255,6 +1257,7 @@ export default function MoneyTransferApp() {
                 .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0)}
               showTotal={showTotalBalance}
               onToggle={() => setShowTotalBalance(!showTotalBalance)}
+              spiritAnimal={getUserSpiritAnimal(currentUser)?.type}
             />
 
             {/* Quick Actions - Moved to top */}
@@ -1513,7 +1516,7 @@ export default function MoneyTransferApp() {
                   description={`As a ${getUserSpiritAnimal(currentUser)?.profile.name}, focus on ${getUserSpiritAnimal(currentUser)?.profile.tips[0].toLowerCase()}`}
                   icon="lightbulb"
                   iconColor="#FFA000"
-                  gradientColors={['#FFF8E1', '#FFFFFF']}
+                  gradientColors={['#000000ff', '#000000ff']}
                 />
 
                 {/* Personality Tip */}
@@ -1995,6 +1998,7 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     backgroundColor: AIStudioTheme.colors.background,
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
   tabContent: {
     flex: 1,
@@ -2016,11 +2020,7 @@ const styles = StyleSheet.create({
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 20,
   },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: AIStudioTheme.colors.surfaceVariant,
-    paddingTop: Platform.OS === 'android' ? 40 : 0,
-  },
+
   loginBox: {
     width: '100%',
     backgroundColor: AIStudioTheme.colors.surface,
@@ -2042,9 +2042,10 @@ const styles = StyleSheet.create({
     padding: 12,
     marginVertical: 8,
     backgroundColor: AIStudioTheme.colors.surface,
+    color: AIStudioTheme.colors.text,
   },
   loginButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
     padding: 15,
     borderRadius: 8,
     width: '100%',
@@ -2052,10 +2053,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   disabledButton: {
-    backgroundcolor: AIStudioTheme.colors.textMuted,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+    opacity: 0.7,
   },
   loginText: {
-    color: 'white',
+    color: AIStudioTheme.colors.textInverse,
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -2067,7 +2069,7 @@ const styles = StyleSheet.create({
   demoBox: {
     marginTop: 20,
     padding: 15,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     borderRadius: 8,
     width: '100%',
   },
@@ -2200,10 +2202,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
   },
-  tabContent: {
-    flex: 1,
-    padding: 20,
-  },
+
   balanceCard: {
     backgroundColor: '#007AFF',
     padding: 20,
@@ -2438,7 +2437,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     elevation: 5,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
@@ -2547,7 +2546,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 10,
     elevation: 3,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -2729,7 +2728,7 @@ const styles = StyleSheet.create({
   },
   // Phase 3: Tab Navigation & Goal Progress Styles
   tabNavigationSection: {
-    marginHorizontal: 16,
+    marginHorizontal: 8,
     marginBottom: 16,
   },
   tabNavigationTitle: {
