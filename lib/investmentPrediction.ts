@@ -23,6 +23,8 @@ export interface InvestmentFund {
   suitability: RiskLevel[]; // which risk profiles this suits
   growthFactors: string[]; // reasons why it's recommended
   concerns: string[]; // potential risks
+  lockInPeriod?: number; // in years
+  taxBenefits?: boolean;
 }
 
 export interface InvestmentPrediction {
@@ -57,7 +59,7 @@ export function predictInvestmentGrowth(
 ): InvestmentPrediction {
   const baseReturn = fund.expectedReturn;
   const riskFactor = fund.riskLevel === 'high' ? 1.2 : fund.riskLevel === 'medium' ? 1.0 : 0.8;
-  
+
   // Calculate volatility from historical data if available
   let volatility = 0.15; // default volatility
   if (historicalData && historicalData.length > 30) {
@@ -178,14 +180,14 @@ export function calculateSipProjection(
 } {
   const months = years * 12;
   const monthlyRate = annualReturn / 12;
-  
+
   // Future value of SIP: FV = P * [((1 + r)^n - 1) / r] * (1 + r)
   // Guard against zero rate to avoid division by zero
   const growthFactor = monthlyRate === 0
     ? months
     : ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate);
   const futureValue = monthlyAmount * growthFactor;
-  
+
   const totalInvested = monthlyAmount * months;
   const estimatedReturns = futureValue - totalInvested;
 
@@ -247,7 +249,7 @@ export function getRecommendationsByRiskLevel(riskLevel: RiskLevel): InvestmentF
       growthFactors: ['Stable returns', 'Lower risk', 'Regular income'],
       concerns: ['Interest rate sensitivity'],
     },
-    
+
     // Moderate - Medium Risk
     {
       id: 'hybrid-1',
@@ -294,7 +296,7 @@ export function getRecommendationsByRiskLevel(riskLevel: RiskLevel): InvestmentF
       growthFactors: ['Rupee cost averaging', 'Disciplined investing', 'Long-term wealth creation'],
       concerns: ['Market volatility', 'Long lock-in period'],
     },
-    
+
     // Aggressive - High Risk
     {
       id: 'equity-1',
@@ -347,9 +349,13 @@ export function getRecommendationsByRiskLevel(riskLevel: RiskLevel): InvestmentF
   return allFunds
     .filter(fund => fund.suitability.includes(riskLevel))
     .sort((a, b) => {
+      // Map risk levels for comparison
+      const targetRisk = riskLevel === 'conservative' ? 'low' :
+        riskLevel === 'moderate' ? 'medium' : 'high';
+
       // Sort by recommendation score (would be calculated with predictions)
-      if (a.riskLevel === riskLevel && b.riskLevel !== riskLevel) return -1;
-      if (b.riskLevel === riskLevel && a.riskLevel !== riskLevel) return 1;
+      if (a.riskLevel === targetRisk && b.riskLevel !== targetRisk) return -1;
+      if (b.riskLevel === targetRisk && a.riskLevel !== targetRisk) return 1;
       return b.expectedReturn - a.expectedReturn;
     });
 }

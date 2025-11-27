@@ -1,4 +1,6 @@
 import { RiskLevel } from '../app/(tabs)/RiskProfile';
+import { SpiritAnimalType } from '../types/spiritAnimal';
+import { FundSearchService } from './FundSearchService';
 import { getRecommendationsByRiskLevel, InvestmentFund, InvestmentPrediction, predictInvestmentGrowth } from './investmentPrediction';
 
 export interface InvestmentInsight {
@@ -46,8 +48,19 @@ export interface IncomeAnalysis {
     savingsRate: number; // percentage
 }
 
+export interface PersonalityInvestmentStrategy {
+    spiritAnimal: SpiritAnimalType;
+    preferredAssetMix: { equity: number; debt: number; gold: number; hybrid: number; liquid: number };
+    investmentHorizon: number; // years
+    rebalanceFrequency: 'monthly' | 'quarterly' | 'yearly';
+    communicationStyle: string;
+    specificAdvice: string[];
+    riskAppetite: string;
+}
+
 interface UserInvestmentProfile {
     riskLevel: RiskLevel;
+    spiritAnimal?: SpiritAnimalType;
     monthlyInvestmentCapacity: number;
     investmentHorizon: number; // years
     goals: string[];
@@ -89,6 +102,183 @@ export class AgenticInvestmentCoach {
             rejections: new Map(),
             averageSipAmount: 5000,
         };
+    }
+
+    /**
+     * Get personality-based investment strategy
+     */
+    getPersonalityStrategy(spiritAnimal: SpiritAnimalType): PersonalityInvestmentStrategy {
+        const strategies: Record<SpiritAnimalType, PersonalityInvestmentStrategy> = {
+            eagle: {
+                spiritAnimal: 'eagle',
+                preferredAssetMix: { equity: 70, debt: 15, gold: 10, hybrid: 5, liquid: 0 },
+                investmentHorizon: 10,
+                rebalanceFrequency: 'yearly',
+                communicationStyle: 'Focus on long-term wealth creation and growth opportunities',
+                specificAdvice: [
+                    'Prioritize high-growth equity funds',
+                    'Think in decades, not years',
+                    'Diversify across sectors for strategic growth',
+                    'Review portfolio annually, avoid frequent changes'
+                ],
+                riskAppetite: 'High - You understand calculated risks lead to rewards'
+            },
+            squirrel: {
+                spiritAnimal: 'squirrel',
+                preferredAssetMix: { equity: 30, debt: 50, gold: 10, hybrid: 0, liquid: 10 },
+                investmentHorizon: 5,
+                rebalanceFrequency: 'quarterly',
+                communicationStyle: 'Emphasize safety, stability, and capital preservation',
+                specificAdvice: [
+                    'Focus on low-risk debt and liquid funds',
+                    'Build emergency fund first',
+                    'Choose funds with proven track records',
+                    'Avoid high volatility investments'
+                ],
+                riskAppetite: 'Low - Safety and security are your priorities'
+            },
+            butterfly: {
+                spiritAnimal: 'butterfly',
+                preferredAssetMix: { equity: 50, debt: 20, gold: 20, hybrid: 10, liquid: 0 },
+                investmentHorizon: 5,
+                rebalanceFrequency: 'quarterly',
+                communicationStyle: 'Balance growth with flexibility and freedom',
+                specificAdvice: [
+                    'Choose funds with no lock-in periods',
+                    'Maintain liquidity for spontaneous opportunities',
+                    'Balanced approach to enjoy life while building wealth',
+                    'SIP allows you to invest without restricting lifestyle'
+                ],
+                riskAppetite: 'Medium-High - Comfortable with moderate risks for experiences'
+            },
+            lion: {
+                spiritAnimal: 'lion',
+                preferredAssetMix: { equity: 60, debt: 25, gold: 10, hybrid: 5, liquid: 0 },
+                investmentHorizon: 7,
+                rebalanceFrequency: 'quarterly',
+                communicationStyle: 'Align investments with specific goals and milestones',
+                specificAdvice: [
+                    'Set clear investment goals with timelines',
+                    'Choose funds that match your goal horizons',
+                    'Track progress monthly',
+                    'Adjust allocations as you achieve milestones'
+                ],
+                riskAppetite: 'Medium - Goal-focused, calculated approach'
+            },
+            capybara: {
+                spiritAnimal: 'capybara',
+                preferredAssetMix: { equity: 50, debt: 30, gold: 10, hybrid: 10, liquid: 0 },
+                investmentHorizon: 7,
+                rebalanceFrequency: 'quarterly',
+                communicationStyle: 'Provide balanced, adaptable strategies',
+                specificAdvice: [
+                    'Maintain perfect balance across asset types',
+                    'Stay flexible with market conditions',
+                    'Diversify to manage all scenarios',
+                    'Adapt strategy as life changes'
+                ],
+                riskAppetite: 'Medium - Balanced approach to risk and reward'
+            },
+            fox: {
+                spiritAnimal: 'fox',
+                preferredAssetMix: { equity: 45, debt: 35, gold: 15, hybrid: 5, liquid: 0 },
+                investmentHorizon: 7,
+                rebalanceFrequency: 'monthly',
+                communicationStyle: 'Optimize for maximum value and efficiency',
+                specificAdvice: [
+                    'Choose funds with lowest expense ratios',
+                    'Maximize tax benefits (ELSS, 80C)',
+                    'Rebalance monthly for optimal allocation',
+                    'Research and compare before every decision'
+                ],
+                riskAppetite: 'Medium-Low - Minimize risk, maximize returns'
+            }
+        };
+
+        return strategies[spiritAnimal];
+    }
+
+    /**
+     * Get personality-specific reasoning for why a fund is suitable
+     */
+    private getPersonalityFundReasoning(
+        fund: InvestmentFund,
+        spiritAnimal: SpiritAnimalType,
+        prediction: InvestmentPrediction
+    ): string[] {
+        const reasoning: string[] = [];
+
+        switch (spiritAnimal) {
+            case 'eagle':
+                if (fund.type === 'equity' || fund.type === 'sip') {
+                    reasoning.push('🦅 High growth potential aligns with your visionary mindset');
+                }
+                if (prediction.predictedGrowth.threeYear > 0.3) {
+                    reasoning.push('🦅 Long-term horizon matches your patient investment style');
+                }
+                if (fund.riskLevel === 'high' || fund.riskLevel === 'medium') {
+                    reasoning.push('🦅 Calculated risk fits your strategic approach');
+                }
+                break;
+
+            case 'squirrel':
+                if (fund.type === 'debt' || fund.type === 'liquid') {
+                    reasoning.push('🐿️ Low volatility provides the security you value');
+                }
+                if (fund.riskLevel === 'low') {
+                    reasoning.push('🐿️ Capital preservation protects your savings');
+                }
+                if (prediction.confidence > 80) {
+                    reasoning.push('🐿️ Proven track record gives peace of mind');
+                }
+                break;
+
+            case 'butterfly':
+                if (!fund.lockInPeriod || fund.lockInPeriod === 0) {
+                    reasoning.push('🦋 No lock-in period maintains your freedom');
+                }
+                if (fund.type === 'hybrid') {
+                    reasoning.push('🦋 Balanced growth supports future experiences');
+                }
+                if (fund.riskLevel === 'medium') {
+                    reasoning.push('🦋 Moderate risk allows for adventure with safety net');
+                }
+                break;
+
+            case 'lion':
+                if (fund.type === 'equity' && prediction.predictedGrowth.threeYear > 0.25) {
+                    reasoning.push('🦁 Strong growth helps achieve your goals faster');
+                }
+                if (fund.riskLevel === 'medium' || fund.riskLevel === 'high') {
+                    reasoning.push('🦁 Goal-focused risk aligns with your determined approach');
+                }
+                reasoning.push('🦁 Systematic investment keeps you on track to milestones');
+                break;
+
+            case 'capybara':
+                if (fund.type === 'hybrid') {
+                    reasoning.push('🦫 Perfect balance of growth and stability');
+                }
+                if (fund.riskLevel === 'medium') {
+                    reasoning.push('🦫 Moderate risk matches your balanced philosophy');
+                }
+                reasoning.push('🦫 Flexible strategy adapts to your changing needs');
+                break;
+
+            case 'fox':
+                if (fund.expenseRatio && fund.expenseRatio < 1.5) {
+                    reasoning.push('🦊 Low expense ratio maximizes your returns');
+                }
+                if (fund.type === 'equity' && fund.taxBenefits) {
+                    reasoning.push('🦊 Tax benefits optimize your overall gains');
+                }
+                if (prediction.recommendationScore > 80) {
+                    reasoning.push('🦊 High AI score confirms this is a smart choice');
+                }
+                break;
+        }
+
+        return reasoning;
     }
 
     /**
@@ -294,6 +484,16 @@ export class AgenticInvestmentCoach {
                 reasoning.push('Fits within your investment budget');
             }
 
+            // Add personality-specific reasoning
+            if (this.userProfile.spiritAnimal) {
+                const personalityReasoning = this.getPersonalityFundReasoning(
+                    fund,
+                    this.userProfile.spiritAnimal,
+                    prediction
+                );
+                reasoning.push(...personalityReasoning);
+            }
+
             // Assign tags
             const tags: AIFundRecommendation['tags'] = [];
             if (score >= 85) tags.push('top-pick');
@@ -421,31 +621,50 @@ export class AgenticInvestmentCoach {
     async answerQuestion(question: string, context: {
         selectedFunds: InvestmentFund[];
         riskLevel: RiskLevel;
+        spiritAnimal?: SpiritAnimalType;
     }): Promise<string> {
         const lowerQ = question.toLowerCase();
+        const spiritAnimal = context.spiritAnimal;
+
+        // Personality-specific prefixes
+        const prefixes: Record<string, string> = {
+            eagle: "As a visionary Eagle, ",
+            squirrel: "For a careful Squirrel Saver like you, ",
+            butterfly: "To support your Butterfly lifestyle, ",
+            lion: "To achieve your Lion-sized goals, ",
+            capybara: "For a balanced Capybara approach, ",
+            fox: "Strategically speaking, "
+        };
+
+        const prefix = spiritAnimal ? prefixes[spiritAnimal] || "" : "";
 
         // Diversification questions
         if (lowerQ.includes('diversif')) {
             const types = new Set(context.selectedFunds.map(f => f.type));
             if (types.size < 2) {
-                return "Your portfolio needs better diversification. I recommend spreading investments across equity, debt, and gold funds. This reduces risk while maintaining growth potential. Would you like me to suggest a balanced mix?";
+                return `${prefix}your portfolio needs better diversification. I recommend spreading investments across equity, debt, and gold funds. This reduces risk while maintaining growth potential. Would you like me to suggest a balanced mix?`;
             }
-            return `Your portfolio is diversified across ${types.size} asset types. This is good for risk management. Consider maintaining this balance as you add more funds.`;
+            return `${prefix}your portfolio is diversified across ${types.size} asset types. This is good for risk management. Consider maintaining this balance as you add more funds.`;
         }
 
         // Timing questions
         if (lowerQ.includes('good time') || lowerQ.includes('when to invest')) {
-            return "The best time to invest is now! With SIP (Systematic Investment Plan), you invest regularly regardless of market conditions. This averages out market volatility and builds wealth over time. Start with small amounts and increase gradually.";
+            if (spiritAnimal === 'eagle') {
+                return "The best time is always now! Eagles look at the long horizon. Market dips are just opportunities to buy more units at lower prices.";
+            } else if (spiritAnimal === 'squirrel') {
+                return "Start small and steady. You don't need to time the market - just be consistent with your SIPs to build that safety net safely.";
+            }
+            return "The best time to invest is now! With SIP (Systematic Investment Plan), you invest regularly regardless of market conditions. This averages out market volatility and builds wealth over time.";
         }
 
         // Risk questions
         if (lowerQ.includes('risk') || lowerQ.includes('safe')) {
             if (context.riskLevel === 'conservative') {
-                return "For your conservative profile, focus on debt and liquid funds with some hybrid funds. These offer stable returns with lower volatility. Avoid pure equity or small-cap funds.";
+                return `${prefix}focus on debt and liquid funds with some hybrid funds. These offer stable returns with lower volatility. Avoid pure equity or small-cap funds.`;
             } else if (context.riskLevel === 'aggressive') {
-                return "Your aggressive profile allows for higher equity exposure. Consider large-cap and mid-cap equity funds for growth. Balance with some debt funds for stability during market downturns.";
+                return `${prefix}your profile allows for higher equity exposure. Consider large-cap and mid-cap equity funds for growth. Balance with some debt funds for stability.`;
             }
-            return "Your moderate risk profile suggests a balanced mix of equity and debt funds. Aim for 60% equity and 40% debt for optimal growth with manageable risk.";
+            return `${prefix}your moderate risk profile suggests a balanced mix of equity and debt funds. Aim for 60% equity and 40% debt for optimal growth with manageable risk.`;
         }
 
         // Returns questions
@@ -455,11 +674,27 @@ export class AgenticInvestmentCoach {
 
         // SIP questions
         if (lowerQ.includes('sip') || lowerQ.includes('how much')) {
-            return `Based on your profile, I recommend starting with ₹${this.userProfile.monthlyInvestmentCapacity.toLocaleString('en-IN')}/month split across 2-3 funds. You can increase this amount as your income grows. Even ₹500/month can create significant wealth over 10+ years!`;
+            return `${prefix}I recommend starting with ₹${this.userProfile.monthlyInvestmentCapacity.toLocaleString('en-IN')}/month split across 2-3 funds. You can increase this amount as your income grows. Even ₹500/month can create significant wealth over 10+ years!`;
+        }
+
+        // Fund suggestion questions
+        if (lowerQ.includes('suggest') || lowerQ.includes('recommend') || lowerQ.includes('what to buy') || lowerQ.includes('invest in') || lowerQ.includes('funds')) {
+            try {
+                const dynamicFunds = await FundSearchService.getDynamicRecommendations(context.riskLevel, context.spiritAnimal);
+
+                if (dynamicFunds.length > 0) {
+                    const fundList = dynamicFunds.slice(0, 5).map(f => `• ${f.name}`).join('\n');
+                    return `${prefix}based on your ${context.riskLevel} profile${context.spiritAnimal ? ` and ${context.spiritAnimal} traits` : ''}, I've found these relevant funds in the market:\n\n${fundList}\n\nThese align with your strategy. Would you like to analyze any specific one?`;
+                }
+            } catch (e) {
+                console.error("Error fetching dynamic funds", e);
+            }
+            // Fallback if search fails or returns empty
+            return `${prefix}for your ${context.riskLevel} profile, I recommend looking into ${context.riskLevel === 'aggressive' ? 'Small Cap and Mid Cap' : context.riskLevel === 'conservative' ? 'Liquid and Debt' : 'Large Cap and Flexi Cap'} funds. Check the "Top Picks" section for my curated recommendations.`;
         }
 
         // Default response
-        return "I'm here to help with your investment decisions! You can ask me about diversification, risk management, SIP amounts, fund selection, or market timing. What specific aspect would you like to know more about?";
+        return `${prefix}I'm here to help with your investment decisions! You can ask me about diversification, risk management, SIP amounts, fund selection, or market timing. What specific aspect would you like to know more about?`;
     }
 
     /**

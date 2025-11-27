@@ -133,7 +133,7 @@ Output JSON array of patterns with: category, trend, insight`;
                 }
             });
 
-            const aiPatterns = JSON.parse(response.text || '[]');
+            const aiPatterns = JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
             // Merge AI insights with calculated data
             return allPatterns.map((pattern, index) => ({
@@ -189,7 +189,7 @@ Output JSON array with: type, title, message, severity, daysUntil (optional), am
                 }
             });
 
-            return JSON.parse(response.text || '[]');
+            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
         } catch (error) {
             console.error('Error generating predictions:', error);
@@ -229,7 +229,7 @@ Output JSON array with: category, status, recommendation, priority`;
                 }
             });
 
-            const aiRecommendations = JSON.parse(response.text || '[]');
+            const aiRecommendations = JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
             return categoryData.map((cat, index) => ({
                 ...cat,
@@ -294,7 +294,7 @@ Output JSON array with: type (tip/warning/action/kudos), title, message, priorit
                 }
             });
 
-            return JSON.parse(response.text || '[]');
+            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
         } catch (error) {
             console.error('Error generating coaching:', error);
@@ -338,7 +338,7 @@ Output JSON with: suggestions (array of {fromCategory, toCategory, amount, reaso
                 }
             });
 
-            const rebalancing = JSON.parse(response.text || 'null');
+            const rebalancing = JSON.parse(this.cleanAIResponse(response.text || 'null'));
 
             if (rebalancing && rebalancing.suggestions) {
                 // Mark all as not approved initially
@@ -443,7 +443,7 @@ Output JSON array with: category, currentSpending, suggestedReduction, strategie
                 }
             });
 
-            return JSON.parse(response.text || '[]');
+            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
         } catch (error) {
             console.error('Error generating reduction suggestions:', error);
@@ -489,7 +489,7 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
                 }
             });
 
-            const rules = JSON.parse(response.text || '[]');
+            const rules = JSON.parse(this.cleanAIResponse(response.text || '[]'));
 
             return rules.map((rule: any, index: number) => ({
                 ...rule,
@@ -508,6 +508,33 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
     // ============================================
     // HELPER METHODS
     // ============================================
+
+    private static cleanAIResponse(text: string): string {
+        try {
+            if (!text) return '[]';
+
+            // Remove markdown code blocks
+            let clean = text.replace(/```json\n?|```/g, '').trim();
+
+            // Find the first '[' or '{'
+            const firstBracket = clean.search(/\[|\{/);
+            if (firstBracket !== -1) {
+                clean = clean.substring(firstBracket);
+            }
+
+            // Find the last ']' or '}'
+            const lastBracket = clean.search(/\]|\}(?=[^\]\}]*$)/);
+            if (lastBracket !== -1) {
+                clean = clean.substring(0, lastBracket + 1);
+            }
+
+            if (!clean) return '[]';
+
+            return clean;
+        } catch (e) {
+            return '[]';
+        }
+    }
 
     private static calculateCategoryPatterns(transactions: Transaction[], userId: string) {
         const now = new Date();

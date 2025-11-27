@@ -122,9 +122,9 @@ export const SPIRIT_ANIMAL_PROFILES: Record<SpiritAnimalType, SpiritAnimalProfil
         coachingStyle: 'Focus on goal-based planning, milestone tracking, and achievement strategies'
     },
 
-    dolphin: {
-        type: 'dolphin',
-        name: 'Dolphin Balancer',
+    capybara: {
+        type: 'capybara',
+        name: 'capybara Balancer',
         emoji: '🐬',
         color: '#3498DB',
         accentColor: '#AED6F1',
@@ -214,9 +214,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'target'
             },
             {
-                id: 'q1_dolphin',
+                id: 'q1_capybara',
                 text: 'Balance today\'s joy with tomorrow\'s security',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'activity'
             },
             {
@@ -256,9 +256,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'flag'
             },
             {
-                id: 'q2_dolphin',
+                id: 'q2_capybara',
                 text: 'Split between fun and savings',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'pie-chart'
             },
             {
@@ -298,9 +298,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'crosshair'
             },
             {
-                id: 'q3_dolphin',
+                id: 'q3_capybara',
                 text: 'Moderate risk is fine',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'sliders'
             },
             {
@@ -340,9 +340,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'clipboard'
             },
             {
-                id: 'q4_dolphin',
+                id: 'q4_capybara',
                 text: 'Balance need vs want',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'scale'
             },
             {
@@ -382,9 +382,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'map'
             },
             {
-                id: 'q5_dolphin',
+                id: 'q5_capybara',
                 text: 'Flexible with general direction',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'navigation'
             },
             {
@@ -424,9 +424,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'award'
             },
             {
-                id: 'q6_dolphin',
+                id: 'q6_capybara',
                 text: 'Maintaining flexibility and options',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'compass'
             },
             {
@@ -466,9 +466,9 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
                 icon: 'check-circle'
             },
             {
-                id: 'q7_dolphin',
+                id: 'q7_capybara',
                 text: 'It supports a well-rounded, fulfilling life',
-                animal: 'dolphin',
+                animal: 'capybara',
                 icon: 'life-buoy'
             },
             {
@@ -488,7 +488,7 @@ export function calculateSpiritAnimal(answers: { animal: SpiritAnimalType }[]): 
         squirrel: 0,
         butterfly: 0,
         lion: 0,
-        dolphin: 0,
+        capybara: 0,
         fox: 0
     };
 
@@ -499,7 +499,7 @@ export function calculateSpiritAnimal(answers: { animal: SpiritAnimalType }[]): 
 
     // Find the animal with highest score
     let maxScore = 0;
-    let winningAnimal: SpiritAnimalType = 'dolphin'; // Default to balanced
+    let winningAnimal: SpiritAnimalType = 'capybara'; // Default to balanced
 
     Object.entries(scores).forEach(([animal, score]) => {
         if (score > maxScore) {

@@ -28,9 +28,11 @@ import MetricCard from '../../components/MetricCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
 import SpendingSnapshot from '../../components/SpendingSnapshot';
 import TabPreviewCard from '../../components/TabPreviewCard';
+import UpcomingBillsCard from '../../components/UpcomingBillsCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { AIFinancialAnalyzer } from '../../lib/aiFinancialAnalyzer';
+import { Bill } from '../../lib/BillTracker';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
@@ -98,6 +100,10 @@ export default function MoneyTransferApp() {
   // AI Insights State
   const [aiInsights, setAiInsights] = useState<AIInsights | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+
+  // Bill Tracking State
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [upcomingBills, setUpcomingBills] = useState<Bill[]>([]);
 
   // Use refs to prevent infinite loops
   const currentUserRef = useRef(currentUser);
@@ -273,6 +279,28 @@ export default function MoneyTransferApp() {
   useEffect(() => {
     if (currentUser && transactions.length > 0) {
       loadAIInsights();
+    }
+  }, [transactions.length, currentUser?.id]);
+
+  // Detect bills from transactions and track payments
+  useEffect(() => {
+    if (!currentUser || transactions.length < 2) return;
+
+    try {
+      // Detect bills from transaction history
+      const detectionResult = detectBills(transactions);
+
+      if (detectionResult.bills.length > 0) {
+        // Process any new payments against existing bills
+        const updatedBills = processBillPayments(detectionResult.bills, transactions);
+        setBills(updatedBills);
+
+        // Get upcoming bills (next 30 days)
+        const upcoming = getUpcomingBills(updatedBills, 30);
+        setUpcomingBills(upcoming);
+      }
+    } catch (error) {
+      console.log('Error detecting bills:', error);
     }
   }, [transactions.length, currentUser?.id]);
 
@@ -1507,6 +1535,24 @@ export default function MoneyTransferApp() {
                     ))}
                   </View>
                 )}
+
+                {/* Upcoming Bills */}
+                {upcomingBills.length > 0 && (
+                  <UpcomingBillsCard
+                    bills={upcomingBills}
+                    onViewAll={() => {
+                      // TODO: Navigate to full bills management screen
+                      Alert.alert('Bills', 'Full bill management coming soon!');
+                    }}
+                    onBillPress={(bill) => {
+                      Alert.alert(
+                        bill.name,
+                        `Amount: $${bill.amount}\nDue: ${new Date(bill.nextDueDate).toLocaleDateString()}\nFrequency: ${bill.frequency}`,
+                        [{ text: 'OK' }]
+                      );
+                    }}
+                  />
+                )}
               </>
             )}
 
@@ -1517,7 +1563,7 @@ export default function MoneyTransferApp() {
                 <DailyInsightCard
                   title="Smart Spending Tip"
                   description={`As a ${getUserSpiritAnimal(currentUser)?.profile.name}, focus on ${getUserSpiritAnimal(currentUser)?.profile.tips[0].toLowerCase()}`}
-                  icon="lightbulb"
+                  icon="zap"
                   iconColor="#FFA000"
                   gradientColors={['#000000ff', '#000000ff']}
                 />
@@ -1707,7 +1753,12 @@ export default function MoneyTransferApp() {
 
         {/* Investments Tab */}
         {activeTab === 'investments' && (
-          <InvestmentsTab userId={currentUser.id} />
+          <InvestmentsTab
+            userId={currentUser.id}
+            spiritAnimal={getUserSpiritAnimal(currentUser)?.type}
+            transactions={transactions}
+            monthlyIncome={75000} // Default estimated income
+          />
         )}
       </Animated.View>
 

@@ -1,11 +1,17 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
+import InsuranceRecommendationsCard from '../../components/InsuranceRecommendationsCard';
+import PersonalityInsightCard from '../../components/PersonalityInsightCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
-import { AgenticInvestmentCoach, AIFundRecommendation, IncomeAnalysis, InvestmentInsight, PortfolioAnalysis } from '../../lib/AgenticInvestmentCoach';
-import { getRecommendationsByRiskLevel, InvestmentFund } from '../../lib/investmentPrediction';
+import { AgenticInvestmentCoach, AIFundRecommendation, IncomeAnalysis, InvestmentInsight, PersonalityInvestmentStrategy, PortfolioAnalysis } from '../../lib/AgenticInvestmentCoach';
+import { FundSearchResult, FundSearchService } from '../../lib/FundSearchService';
+import { generateInsuranceRecommendations, getPersonalityInsuranceAdvice, InsuranceRecommendation, UserInsuranceProfile } from '../../lib/InsuranceRecommendation';
+import { getRecommendationsByRiskLevel, InvestmentFund, InvestmentPrediction } from '../../lib/investmentPrediction';
+import { PersonalizedRiskProfile, RiskScore, UserFinancialProfile } from '../../lib/PersonalizedRiskProfile';
+import { SpiritAnimalType } from '../../types/spiritAnimal';
 import RiskProfile, { computeRiskScore, riskProfileStorageKey, type RiskLevel } from './RiskProfile';
 
 interface FundDetail {
@@ -82,13 +88,17 @@ function formatCurrency(amount: number) {
 
 interface InvestmentsTabProps {
   userId: string | number;
+  spiritAnimal?: SpiritAnimalType;
+  transactions?: any[];
+  monthlyIncome?: number;
 }
 
-export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
+export default function InvestmentsTab({ userId, spiritAnimal, transactions = [], monthlyIncome = 50000 }: InvestmentsTabProps) {
   const [riskLevel, setRiskLevel] = useState<RiskLevel>('moderate');
   const [loading, setLoading] = useState(true);
   const [funds, setFunds] = useState<Record<string, FundDetail | null>>({});
   const [refreshing, setRefreshing] = useState(false);
+  // AI Coach State
 
   // AI Coach State
   const [aiCoach] = useState(() => new AgenticInvestmentCoach(String(userId)));
@@ -104,21 +114,119 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
   const [chatResponse, setChatResponse] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
 
+  // Personality & Insurance State
+  const [personalityStrategy, setPersonalityStrategy] = useState<PersonalityInvestmentStrategy | null>(null);
+  const [insuranceRecommendations, setInsuranceRecommendations] = useState<InsuranceRecommendation[]>([]);
+
+  // Personalized Risk State
+  const [personalizedRiskScore, setPersonalizedRiskScore] = useState<RiskScore | null>(null);
+  const [userProfileData, setUserProfileData] = useState<{ age: number; dependents: number; monthlyIncome: number } | null>(null);
+
   const fetchAll = async (level: RiskLevel) => {
     setLoading(true);
 
-    // Get AI-powered recommendations
-    const baseFunds = getRecommendationsByRiskLevel(level);
+    // 0. Load user's financial profile and calculate personalized risk
+    let personalizedRiskLevel: RiskLevel = level;
+    let riskScoreData: RiskScore | null = null;
+
+    try {
+      const profileKey = riskProfileStorageKey(userId);
+      const profileData = await AsyncStorage.getItem(profileKey);
+
+      if (profileData) {
+        const profile = JSON.parse(profileData);
+
+        // Convert to UserFinancialProfile format
+        const userProfile: UserFinancialProfile = {
+          age: profile.age || 25,
+          dependents: profile.dependents || 0,
+          monthlyIncome: profile.monthlyIncome || 50000,
+          monthlyEMI: profile.monthlyEMI || 0,
+          emergencyFund: (profile.emergencyFundMonths || 0) * (profile.monthlyIncome || 50000),
+          spiritAnimal: spiritAnimal
+        };
+
+        // Calculate personalized risk score
+        riskScoreData = PersonalizedRiskProfile.calculatePersonalizedRisk(userProfile);
+        personalizedRiskLevel = riskScoreData.category;
+
+        // Store for UI display
+        setPersonalizedRiskScore(riskScoreData);
+        setUserProfileData({
+          age: userProfile.age,
+          dependents: userProfile.dependents,
+          monthlyIncome: userProfile.monthlyIncome
+        });
+      }
+    } catch (e) {
+      console.log('Error loading personalized risk profile', e);
+    }
+
+    // 1. Get Dynamic Funds using personalized risk level
+    let dynamicFundsList: FundSearchResult[] = [];
+    try {
+      dynamicFundsList = await FundSearchService.getDynamicRecommendations(personalizedRiskLevel, spiritAnimal);
+    } catch (e) {
+      console.log('Dynamic search failed', e);
+    }
+
     const entries: Record<string, FundDetail | null> = {};
     const historicalDataMap = new Map<string, Array<{ date: string; nav: number }>>();
+    const investmentFunds: InvestmentFund[] = [];
 
-    await Promise.all(baseFunds.map(async (fund) => {
+    // Helper to calculate returns (CAGR)
+    const calculateCAGR = (data: FundDetail['data'], years: number) => {
+      if (!data || data.length < years * 250) return 12; // Approx trading days
+      const latest = parseFloat(data[0].nav);
+      // Find data point approx 'years' ago
+      const pastIdx = Math.min(data.length - 1, Math.floor(years * 365));
+      const past = parseFloat(data[pastIdx].nav);
+      if (past <= 0) return 12;
+      return ((Math.pow(latest / past, 1 / years) - 1) * 100);
+    };
+
+    // Fetch details for all dynamic funds
+    await Promise.all(dynamicFundsList.map(async (fund) => {
       const detail = await fetchFund(fund.code);
       entries[fund.code] = detail;
+
       if (detail) {
-        historicalDataMap.set(fund.code, detail.data.map(d => ({ date: d.date, nav: parseFloat(d.nav) })));
+        const history = detail.data.map(d => ({ date: d.date, nav: parseFloat(d.nav) }));
+        historicalDataMap.set(fund.code, history);
+
+        // Create InvestmentFund object
+        investmentFunds.push({
+          id: fund.code,
+          code: fund.code,
+          name: fund.name,
+          type: FundSearchService.inferFundType(fund.name),
+          riskLevel: FundSearchService.inferRiskLevel(fund.name),
+          minInvestment: 500,
+          expectedReturn: calculateCAGR(detail.data, 1), // 1Y CAGR
+          category: 'Dynamic',
+          expenseRatio: 0.75, // Estimated average
+          description: 'A dynamically selected mutual fund that aligns with your investment goals and risk profile.',
+          suitability: [level],
+          growthFactors: ['Consistent historical returns', 'Professional management'],
+          concerns: ['Market volatility risks'],
+          lockInPeriod: fund.name.includes('ELSS') ? 3 : 0,
+          taxBenefits: fund.name.includes('ELSS')
+        });
       }
     }));
+
+    // Fallback to static if no dynamic funds found
+    if (investmentFunds.length === 0) {
+      const baseFunds = getRecommendationsByRiskLevel(level);
+      await Promise.all(baseFunds.map(async (fund) => {
+        const detail = await fetchFund(fund.code);
+        entries[fund.code] = detail;
+        if (detail) {
+          historicalDataMap.set(fund.code, detail.data.map(d => ({ date: d.date, nav: parseFloat(d.nav) })));
+        }
+        investmentFunds.push(fund);
+      }));
+    }
 
     setFunds(entries);
 
@@ -140,17 +248,65 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
       incomeAnalysisResult.recommendedMonthlyInvestment,
       historicalDataMap
     );
-    setAiRecommendations(recommendations);
-
-    // Analyze portfolio (using recommended funds as selected for demo)
-    const analysis = aiCoach.analyzePortfolio(baseFunds);
+    // Override recommendations to use our dynamic list if available (since generateRecommendations might pull static)
+    const analysis = aiCoach.analyzePortfolio(investmentFunds);
     setPortfolioAnalysis(analysis);
 
     // Generate insights
-    const insights = aiCoach.generateInsights(baseFunds, analysis);
+    const insights = aiCoach.generateInsights(investmentFunds, analysis);
     setAiInsights(insights);
 
-    setSelectedFunds(baseFunds);
+    // Get personality strategy if spirit animal is available
+    if (spiritAnimal) {
+      const strategy = aiCoach.getPersonalityStrategy(spiritAnimal);
+      setPersonalityStrategy(strategy);
+    }
+
+    // Generate insurance recommendations
+    const insuranceProfile: UserInsuranceProfile = {
+      age: 30, // Default, can be passed as prop
+      monthlyIncome: monthlyIncome,
+      dependents: 0, // Can be passed as prop
+      hasExistingHealth: false,
+      hasExistingLife: false,
+      monthlyEMI: 0, // Can be calculated from transactions
+      emergencyFund: mockJarBalance,
+      spiritAnimal: spiritAnimal
+    };
+    const insurance = generateInsuranceRecommendations(insuranceProfile);
+    setInsuranceRecommendations(insurance);
+
+    // Create AI recommendations from investment funds
+    const dynamicRecommendations: AIFundRecommendation[] = investmentFunds.map(fund => {
+      const history = historicalDataMap.get(fund.code);
+      const prediction: InvestmentPrediction = {
+        fund: fund,
+        predictedGrowth: {
+          oneYear: fund.expectedReturn / 100,
+          threeYear: fund.expectedReturn * 3 / 100,
+          fiveYear: fund.expectedReturn * 5 / 100
+        },
+        confidence: 85,
+        recommendationScore: 85,
+        reasons: {
+          positive: ['Strong historical performance', 'Matches your risk profile'],
+          negative: []
+        }
+      };
+
+      return {
+        fund,
+        prediction,
+        score: 85,
+        reasoning: [`Matches your ${spiritAnimal || level} profile`, 'Consistent returns'],
+        tags: ['top-pick', 'high-growth'],
+        sipSuggestion: Math.floor(incomeAnalysisResult.recommendedMonthlyInvestment / Math.max(investmentFunds.length, 1)),
+        allocationPercentage: 100 / Math.max(investmentFunds.length, 1)
+      };
+    });
+
+    setAiRecommendations(dynamicRecommendations);
+    setSelectedFunds(investmentFunds);
     setLoading(false);
   };
 
@@ -175,6 +331,7 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
     const response = await aiCoach.answerQuestion(question, {
       selectedFunds,
       riskLevel,
+      spiritAnimal,
     });
     setChatResponse(response);
     setChatLoading(false);
@@ -234,6 +391,31 @@ export default function InvestmentsTab({ userId }: InvestmentsTabProps) {
             await fetchAll(level);
           }} />
         </View>
+
+        {/* Personality Strategy Card */}
+        {spiritAnimal && personalityStrategy && (
+          <PersonalityInsightCard
+            spiritAnimal={spiritAnimal}
+            strategy={personalityStrategy}
+          />
+        )}
+
+        {/* Insurance Recommendations */}
+        {insuranceRecommendations.length > 0 && (
+          <InsuranceRecommendationsCard
+            recommendations={insuranceRecommendations}
+            onLearnMore={(insurance) => {
+              Alert.alert(
+                insurance.type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+                `Coverage: ₹${(insurance.suggestedCoverage / 100000).toFixed(0)} lakhs\n` +
+                `Premium: ₹${insurance.monthlyPremium}/month\n\n` +
+                `Benefits:\n${insurance.benefits.map(b => `• ${b}`).join('\n')}\n\n` +
+                `${spiritAnimal ? getPersonalityInsuranceAdvice(spiritAnimal) : ''}`,
+                [{ text: 'Got it' }]
+              );
+            }}
+          />
+        )}
 
         {/* Income Analysis Card */}
         {incomeAnalysis && (
@@ -764,7 +946,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderLeftWidth: 4,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -791,7 +973,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -1030,7 +1212,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderTopLeftRadius: 4,
     maxWidth: '80%',
-    shadowcolor: AIStudioTheme.colors.text,
+    shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -1100,5 +1282,58 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#d1d1d6',
+  },
+  dynamicSection: {
+    marginBottom: 24,
+  },
+  dynamicHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  dynamicTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
+  },
+  dynamicSubtitle: {
+    fontSize: 13,
+    color: AIStudioTheme.colors.textSecondary,
+    marginBottom: 12,
+  },
+  dynamicCard: {
+    backgroundColor: AIStudioTheme.colors.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    width: 160,
+    height: 110,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(175, 82, 222, 0.2)', // Purple tint
+    shadowColor: '#AF52DE',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  dynamicFundName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: AIStudioTheme.colors.text,
+    lineHeight: 16,
+  },
+  dynamicBadge: {
+    backgroundColor: 'rgba(175, 82, 222, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  dynamicBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#AF52DE',
   },
 });

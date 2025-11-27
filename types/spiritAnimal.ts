@@ -5,7 +5,7 @@ export type SpiritAnimalType =
     | 'squirrel'   // Squirrel Saver - Conservative
     | 'butterfly'  // Butterfly Spender - YOLO
     | 'lion'       // Lion Achiever - Goal-Oriented
-    | 'dolphin'    // Dolphin Balancer - Balanced
+    | 'capybara'   // Capybara Balancer - Balanced
     | 'fox';       // Fox Optimizer - Strategic
 
 export interface QuizQuestion {

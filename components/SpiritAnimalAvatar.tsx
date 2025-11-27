@@ -15,7 +15,7 @@ const ANIMAL_GRADIENTS: Record<SpiritAnimalType, string[]> = {
     squirrel: ['#8B6914', '#D4AF37'],
     butterfly: ['#9B59B6', '#E8DAEF'],
     lion: ['#E67E22', '#F8C471'],
-    dolphin: ['#3498DB', '#AED6F1'],
+    capybara: ['#3498DB', '#AED6F1'],
     fox: ['#E74C3C', '#F5B7B1'],
 };
 

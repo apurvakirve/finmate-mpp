@@ -11,7 +11,7 @@ const SPIRIT_ANIMAL_IMAGES: Record<SpiritAnimalType, any> = {
     squirrel: require('../assets/spiritanimalsimg/squirral.png'), // Note: User's filename has typo
     butterfly: require('../assets/spiritanimalsimg/butterfly.png'),
     lion: require('../assets/spiritanimalsimg/lion.png'),
-    dolphin: require('../assets/spiritanimalsimg/dolphin.png'),
+    capybara: require('../assets/spiritanimalsimg/capybara.png'),
     fox: require('../assets/spiritanimalsimg/fox.png'),
 };
 

@@ -1,6 +1,6 @@
 import { Feather as Icon } from '@expo/vector-icons';
-import React from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { AIStudioTheme } from '../constants/aiStudioTheme';
 
@@ -19,6 +19,7 @@ export default function SpendingSnapshot({
     transactions = [],
     currentUserId
 }: SpendingSnapshotProps) {
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const isIncrease = weekOverWeekChange > 0;
     const chartWidth = Dimensions.get('window').width - 90;
 
@@ -71,15 +72,24 @@ export default function SpendingSnapshot({
             const date = new Date(d.date);
             return date.toLocaleDateString('en-US', { weekday: 'short' }).substring(0, 1);
         }),
-        datasets: top3Categories.map((category) => ({
-            data: categoryData[category].length > 0 ? categoryData[category] : [0, 0, 0, 0, 0, 0, 0],
-            color: (opacity = 1) => categoryColorMap[category] || `rgba(138, 180, 248, ${opacity})`,
-            strokeWidth: 2,
-        })),
+        datasets: top3Categories.map((category) => {
+            const isSelected = selectedCategory === null || selectedCategory === category;
+            const baseColor = categoryColorMap[category] || 'rgba(138, 180, 248, 1)';
+
+            return {
+                data: categoryData[category].length > 0 ? categoryData[category] : [0, 0, 0, 0, 0, 0, 0],
+                color: (opacity = 1) => isSelected ? baseColor : baseColor.replace('1)', '0.2)'),
+                strokeWidth: isSelected ? 3 : 1,
+            };
+        }),
     };
 
     // Get category colors
     const categoryColors = top3Categories.map(cat => categoryColorMap[cat] || '#8B5CF6');
+
+    const handleCategoryPress = (category: string) => {
+        setSelectedCategory(selectedCategory === category ? null : category);
+    };
 
     return (
         <View style={styles.container}>
@@ -142,7 +152,7 @@ export default function SpendingSnapshot({
                     withHorizontalLabels={true}
                     withVerticalLines={false}
                     withHorizontalLines={true}
-                    yAxisLabel=""
+                    yAxisLabel="₹"
                     yAxisSuffix=""
                     yAxisInterval={1}
                     withDots={false}
@@ -151,30 +161,51 @@ export default function SpendingSnapshot({
                 />
             </View>
 
-            {/* Top Categories */}
+            {/* Interactive Top Categories */}
             <View style={styles.categoriesSection}>
-                <Text style={styles.categoriesTitle}>Top Spending Categories</Text>
+                <Text style={styles.categoriesTitle}>Tap to highlight category</Text>
                 <View style={styles.categoriesList}>
-                    {topCategories.slice(0, 3).map((cat, index) => (
-                        <View key={cat.category} style={styles.categoryItem}>
-                            <View style={styles.categoryLeft}>
-                                <View style={[styles.categoryDot, {
-                                    backgroundColor: categoryColors[index]
-                                }]} />
-                                <Text style={styles.categoryName}>
-                                    {cat.category.charAt(0).toUpperCase() + cat.category.slice(1)}
-                                </Text>
-                            </View>
-                            <View style={styles.categoryRight}>
-                                <Text style={styles.categoryAmount}>
-                                    ₹{cat.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                                </Text>
-                                <Text style={styles.categoryPercentage}>
-                                    {cat.percentage.toFixed(0)}%
-                                </Text>
-                            </View>
-                        </View>
-                    ))}
+                    {topCategories.slice(0, 3).map((cat, index) => {
+                        const isActive = selectedCategory === null || selectedCategory === cat.category;
+                        return (
+                            <TouchableOpacity
+                                key={cat.category}
+                                style={[
+                                    styles.categoryItem,
+                                    selectedCategory === cat.category && styles.categoryItemSelected
+                                ]}
+                                onPress={() => handleCategoryPress(cat.category)}
+                                activeOpacity={0.7}
+                            >
+                                <View style={styles.categoryLeft}>
+                                    <View style={[styles.categoryDot, {
+                                        backgroundColor: categoryColors[index],
+                                        opacity: isActive ? 1 : 0.3
+                                    }]} />
+                                    <Text style={[
+                                        styles.categoryName,
+                                        { opacity: isActive ? 1 : 0.5 }
+                                    ]}>
+                                        {cat.category.charAt(0).toUpperCase() + cat.category.slice(1)}
+                                    </Text>
+                                </View>
+                                <View style={styles.categoryRight}>
+                                    <Text style={[
+                                        styles.categoryAmount,
+                                        { opacity: isActive ? 1 : 0.5 }
+                                    ]}>
+                                        ₹{cat.amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                    </Text>
+                                    <Text style={[
+                                        styles.categoryPercentage,
+                                        { opacity: isActive ? 1 : 0.5 }
+                                    ]}>
+                                        {cat.percentage.toFixed(0)}%
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
             </View>
         </View>
@@ -186,7 +217,7 @@ const styles = StyleSheet.create({
         backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: AIStudioTheme.borderRadius.lg,
         padding: AIStudioTheme.spacing.md,
-        marginHorizontal: 8,
+        marginHorizontal: 20,
         marginBottom: AIStudioTheme.spacing.md,
         borderWidth: 1,
         borderColor: AIStudioTheme.colors.border,
@@ -246,6 +277,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: 'transparent',
+    },
+    categoryItemSelected: {
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
     },
     categoryLeft: {
         flexDirection: 'row',
@@ -254,9 +292,9 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     categoryDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
     },
     categoryName: {
         fontSize: 13,

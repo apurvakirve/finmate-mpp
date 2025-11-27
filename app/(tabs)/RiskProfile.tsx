@@ -14,6 +14,8 @@ interface RiskProfileData {
   emergencyFundMonths: number;
   age: number;
   insuranceCover: 'none' | 'partial' | 'full';
+  monthlyIncome: number;
+  monthlyEMI: number;
 }
 
 const defaultProfile: RiskProfileData = {
@@ -25,6 +27,8 @@ const defaultProfile: RiskProfileData = {
   emergencyFundMonths: 1,
   age: 25,
   insuranceCover: 'partial',
+  monthlyIncome: 50000,
+  monthlyEMI: 0,
 };
 
 interface RiskProfileProps {
@@ -80,7 +84,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
           setProfile(stored);
           setDraft(stored);
         }
-      } catch {}
+      } catch { }
     })();
   }, [userId]);
 
@@ -197,7 +201,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
           <ScrollView style={{ paddingHorizontal: 20 }}>
             <Text style={styles.questionLabel}>Marital Status</Text>
             <View style={styles.optionRow}>
-              {['single','married'].map((value) => (
+              {['single', 'married'].map((value) => (
                 <TouchableOpacity
                   key={value}
                   style={[styles.optionButton, draft.maritalStatus === value && styles.optionButtonActive]}
@@ -218,7 +222,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
 
             <Text style={styles.questionLabel}>Primary Financial Goal</Text>
             <View style={styles.optionWrap}>
-              {['emergency','education','home','vacation','retirement','wealth'].map((value) => (
+              {['emergency', 'education', 'home', 'vacation', 'retirement', 'wealth'].map((value) => (
                 <TouchableOpacity
                   key={value}
                   style={[styles.optionButtonWide, draft.primaryGoal === value && styles.optionButtonActive]}
@@ -248,7 +252,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
 
             <Text style={styles.questionLabel}>Investment Experience</Text>
             <View style={styles.optionRow}>
-              {['none','basic','experienced'].map((value) => (
+              {['none', 'basic', 'experienced'].map((value) => (
                 <TouchableOpacity
                   key={value}
                   style={[styles.optionButtonWide, draft.investmentExperience === value && styles.optionButtonActive]}
@@ -277,7 +281,7 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
 
             <Text style={styles.questionLabel}>Insurance Coverage</Text>
             <View style={styles.optionRow}>
-              {['none','partial','full'].map((value) => (
+              {['none', 'partial', 'full'].map((value) => (
                 <TouchableOpacity
                   key={value}
                   style={[styles.optionButton, draft.insuranceCover === value && styles.optionButtonActive]}
@@ -287,6 +291,24 @@ export default function RiskProfile({ userId, onRiskLevelChange, variant = 'card
                 </TouchableOpacity>
               ))}
             </View>
+
+            <Text style={styles.questionLabel}>Monthly Income (₹)</Text>
+            <TextInput
+              keyboardType="numeric"
+              value={String(draft.monthlyIncome)}
+              onChangeText={(v) => setDraft({ ...draft, monthlyIncome: Math.max(0, parseInt(v || '0', 10)) })}
+              style={styles.input}
+              placeholder="e.g., 50000"
+            />
+
+            <Text style={styles.questionLabel}>Monthly EMI/Loan Payments (₹)</Text>
+            <TextInput
+              keyboardType="numeric"
+              value={String(draft.monthlyEMI)}
+              onChangeText={(v) => setDraft({ ...draft, monthlyEMI: Math.max(0, parseInt(v || '0', 10)) })}
+              style={styles.input}
+              placeholder="e.g., 15000"
+            />
 
             <TouchableOpacity style={styles.saveButton} onPress={saveProfile}>
               <Text style={styles.saveButtonText}>Save Profile</Text>

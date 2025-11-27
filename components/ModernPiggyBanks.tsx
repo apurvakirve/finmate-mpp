@@ -62,12 +62,26 @@ const ModernPiggyBanks: React.FC<ModernPiggyBanksProps> = ({
         { id: '2', name: 'EMIs & Loans', amount: 1200, target: 2000, color: '#A855F7' },
     ]);
 
+    // State for confirmed allocation
+    const [isConfirmed, setIsConfirmed] = useState(false);
+    const [confirmedAllocations, setConfirmedAllocations] = useState<Allocation[]>([]);
+    const [confirmedTotal, setConfirmedTotal] = useState(0);
+    const [confirmedNetEarned, setConfirmedNetEarned] = useState(0);
+
     const totalAllocated = allocations.reduce((sum, a) => sum + a.amount, 0);
 
     const updateAllocation = (id: string, newAmount: number) => {
         setAllocations(prev =>
             prev.map(a => (a.id === id ? { ...a, amount: newAmount } : a))
         );
+    };
+
+    const handleConfirmAllocation = () => {
+        // Save the current allocation plan
+        setConfirmedAllocations([...allocations]);
+        setConfirmedTotal(totalAllocated);
+        setConfirmedNetEarned(netEarned);
+        setIsConfirmed(true);
     };
 
     return (
@@ -161,10 +175,59 @@ const ModernPiggyBanks: React.FC<ModernPiggyBanksProps> = ({
                     </View>
                 ))}
 
-                <TouchableOpacity style={styles.confirmButton}>
+                <TouchableOpacity style={styles.confirmButton} onPress={handleConfirmAllocation}>
                     <Text style={styles.confirmButtonText}>Confirm Allocation for Today</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Confirmed Allocation Display */}
+            {isConfirmed && (
+                <View style={styles.confirmedCard}>
+                    <View style={styles.confirmedHeader}>
+                        <Feather name="check-circle" size={24} color="#10B981" />
+                        <Text style={styles.confirmedTitle}>Allocation Confirmed!</Text>
+                    </View>
+
+                    <View style={styles.confirmedSummary}>
+                        <Text style={styles.confirmedLabel}>Total Allocated</Text>
+                        <Text style={styles.confirmedAmount}>
+                            ${confirmedTotal} / ${confirmedNetEarned}
+                        </Text>
+                        <Text style={styles.confirmedPercentage}>
+                            {Math.round((confirmedTotal / confirmedNetEarned) * 100)}% of today's earnings
+                        </Text>
+                    </View>
+
+                    <View style={styles.confirmedDivider} />
+
+                    <Text style={styles.confirmedBreakdownTitle}>Allocation Breakdown</Text>
+
+                    {confirmedAllocations.map((allocation) => (
+                        <View key={allocation.id} style={styles.confirmedAllocationItem}>
+                            <View style={styles.confirmedAllocationLeft}>
+                                <View style={[styles.colorDot, { backgroundColor: allocation.color }]} />
+                                <Text style={styles.confirmedAllocationName}>{allocation.name}</Text>
+                            </View>
+                            <View style={styles.confirmedAllocationRight}>
+                                <Text style={[styles.confirmedAllocationAmount, { color: allocation.color }]}>
+                                    ${allocation.amount}
+                                </Text>
+                                <Text style={styles.confirmedAllocationPercent}>
+                                    {Math.round((allocation.amount / confirmedNetEarned) * 100)}%
+                                </Text>
+                            </View>
+                        </View>
+                    ))}
+
+                    <TouchableOpacity
+                        style={styles.editConfirmedButton}
+                        onPress={() => setIsConfirmed(false)}
+                    >
+                        <Feather name="edit-2" size={16} color={Colors.primary.solid} />
+                        <Text style={styles.editConfirmedButtonText}>Edit Allocation</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Fixed Needs */}
             <View style={styles.card}>
@@ -425,6 +488,110 @@ const styles = StyleSheet.create({
         color: Colors.text.inverse,
     },
     actionButtonTextOutline: {
+        color: Colors.primary.solid,
+    },
+    // Confirmed Allocation Styles
+    confirmedCard: {
+        backgroundColor: '#F0FDF4', // Light green background
+        borderRadius: BorderRadius.lg,
+        padding: Spacing.lg,
+        marginBottom: Spacing.md,
+        borderWidth: 2,
+        borderColor: '#10B981',
+        ...Shadows.md,
+    },
+    confirmedHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: Spacing.md,
+        gap: Spacing.sm,
+    },
+    confirmedTitle: {
+        ...Typography.title,
+        color: '#10B981',
+        fontWeight: '700',
+    },
+    confirmedSummary: {
+        alignItems: 'center',
+        paddingVertical: Spacing.md,
+        marginBottom: Spacing.sm,
+    },
+    confirmedLabel: {
+        ...Typography.caption,
+        color: Colors.text.secondary,
+        marginBottom: Spacing.xs,
+    },
+    confirmedAmount: {
+        ...Typography.display,
+        color: '#10B981',
+        fontWeight: '700',
+        marginBottom: 4,
+    },
+    confirmedPercentage: {
+        ...Typography.body,
+        color: Colors.text.secondary,
+        fontWeight: '600',
+    },
+    confirmedDivider: {
+        height: 1,
+        backgroundColor: '#10B981',
+        opacity: 0.3,
+        marginVertical: Spacing.md,
+    },
+    confirmedBreakdownTitle: {
+        ...Typography.body,
+        fontWeight: '700',
+        color: Colors.text.primary,
+        marginBottom: Spacing.md,
+    },
+    confirmedAllocationItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: Colors.card.light,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        marginBottom: Spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.border.light,
+    },
+    confirmedAllocationLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    confirmedAllocationName: {
+        ...Typography.body,
+        color: Colors.text.primary,
+        fontWeight: '600',
+    },
+    confirmedAllocationRight: {
+        alignItems: 'flex-end',
+    },
+    confirmedAllocationAmount: {
+        ...Typography.body,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    confirmedAllocationPercent: {
+        ...Typography.small,
+        color: Colors.text.secondary,
+    },
+    editConfirmedButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: Colors.card.light,
+        borderRadius: BorderRadius.md,
+        padding: Spacing.md,
+        marginTop: Spacing.md,
+        borderWidth: 1,
+        borderColor: Colors.primary.solid,
+        gap: Spacing.sm,
+    },
+    editConfirmedButtonText: {
+        ...Typography.body,
+        fontWeight: '600',
         color: Colors.primary.solid,
     },
 });
