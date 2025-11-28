@@ -26,6 +26,7 @@ import DailyInsightCard from '../../components/DailyInsightCard';
 import FinancialOverviewCard from '../../components/FinancialOverviewCard';
 import MetricCard from '../../components/MetricCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
+import QRCategorySelector from '../../components/QRCategorySelector';
 import SpendingSnapshot from '../../components/SpendingSnapshot';
 import TabPreviewCard from '../../components/TabPreviewCard';
 import UpcomingBillsCard from '../../components/UpcomingBillsCard';
@@ -33,6 +34,7 @@ import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { AIFinancialAnalyzer } from '../../lib/aiFinancialAnalyzer';
 import { Bill } from '../../lib/BillTracker';
+import { CategoryMemoryService } from '../../lib/CategoryMemoryService';
 import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
@@ -95,6 +97,8 @@ export default function MoneyTransferApp() {
   const [qrRecipient, setQrRecipient] = useState<any>(null);
   const [qrAmount, setQrAmount] = useState('');
   const [qrCategory, setQrCategory] = useState('other');
+  const [rememberedCategory, setRememberedCategory] = useState<string | null>(null);
+  const [showCategoryHint, setShowCategoryHint] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
   // AI Insights State
@@ -523,7 +527,7 @@ export default function MoneyTransferApp() {
     return JSON.stringify(qrData);
   };
 
-  // Handle QR Code Scan
+  // Handle QR Code Scan - Optimized for speed
   const handleQRScan = ({ data }: { data: string }) => {
     setShowQRScanner(false);
 
@@ -533,6 +537,27 @@ export default function MoneyTransferApp() {
       if (qrData.type === 'money_request') {
         setQrRecipient(qrData);
         setShowAmountModal(true);
+
+        // Load category memory in background (non-blocking)
+        if (currentUser) {
+          CategoryMemoryService.getCategory(currentUser.id, qrData.userId)
+            .then(remembered => {
+              if (remembered) {
+                setQrCategory(remembered);
+                setRememberedCategory(remembered);
+                setShowCategoryHint(true);
+              } else {
+                setQrCategory('other');
+                setRememberedCategory(null);
+                setShowCategoryHint(false);
+              }
+            })
+            .catch(() => {
+              setQrCategory('other');
+              setRememberedCategory(null);
+              setShowCategoryHint(false);
+            });
+        }
       } else {
         Alert.alert('Invalid QR', 'This is not a valid money transfer QR code.');
       }
@@ -603,15 +628,32 @@ export default function MoneyTransferApp() {
         transaction_type: qrCategory,
       });
 
+      // Save category preference for future transactions
+      await CategoryMemoryService.saveCategory(
+        sender.id,
+        receiver.id,
+        qrCategory
+      );
+
       // Update current user immediately
       if (currentUser.id === sender.id) {
         setCurrentUser({ ...currentUser, balance: senderNewBalance });
       }
 
-      Alert.alert('Success', `₹${amt} sent to ${receiver.name} via QR code!`);
+      // Show success message with category saved confirmation
+      const categoryLabel = TRANSACTION_TYPES.find(t => t.value === qrCategory)?.label || qrCategory;
+      const wasRemembered = rememberedCategory === qrCategory;
+      const message = wasRemembered
+        ? `₹${amt} sent to ${receiver.name} via QR code!`
+        : `₹${amt} sent to ${receiver.name}! Category "${categoryLabel}" saved for future payments.`;
+
+      Alert.alert('Success', message);
+
       setQrAmount('');
       setQrRecipient(null);
       setQrCategory('other');
+      setRememberedCategory(null);
+      setShowCategoryHint(false);
 
     } catch (error) {
       console.log('QR Transaction error:', error);
@@ -957,39 +999,13 @@ export default function MoneyTransferApp() {
 
   // Render category selector for QR payment
   const renderQRCategorySelector = () => (
-    <View style={styles.qrCategorySection}>
-      <Text style={styles.qrCategoryTitle}>Select Category</Text>
-      <View style={styles.qrCategoryGrid}>
-        {TRANSACTION_TYPES.map((type) => (
-          <TouchableOpacity
-            key={type.value}
-            style={[
-              styles.qrCategoryButton,
-              qrCategory === type.value && styles.qrCategoryButtonActive
-            ]}
-            onPress={() => setQrCategory(type.value)}
-          >
-            <View style={[
-              styles.radioCircle,
-              qrCategory === type.value && styles.radioCircleActive
-            ]}>
-              {qrCategory === type.value && <View style={styles.radioInnerCircle} />}
-            </View>
-            <Icon
-              name={type.icon as any}
-              size={20}
-              color={qrCategory === type.value ? '#007AFF' : '#666'}
-            />
-            <Text style={[
-              styles.qrCategoryButtonText,
-              qrCategory === type.value && styles.qrCategoryButtonTextActive
-            ]}>
-              {type.label.split(' ')[0]}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
+    <QRCategorySelector
+      categories={TRANSACTION_TYPES}
+      selectedCategory={qrCategory}
+      onSelectCategory={setQrCategory}
+      rememberedCategory={rememberedCategory}
+      recipientName={qrRecipient?.userName}
+    />
   );
 
   // Render category selector for regular transfer

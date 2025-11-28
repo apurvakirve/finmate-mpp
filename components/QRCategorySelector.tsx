@@ -1,7 +1,6 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Colors } from '../constants/theme';
 
 interface CategoryType {
     value: string;
@@ -13,19 +12,32 @@ interface QRCategorySelectorProps {
     categories: CategoryType[];
     selectedCategory: string;
     onSelectCategory: (value: string) => void;
+    rememberedCategory?: string | null;
+    recipientName?: string;
 }
 
 const QRCategorySelector: React.FC<QRCategorySelectorProps> = ({
     categories,
     selectedCategory,
     onSelectCategory,
+    rememberedCategory,
+    recipientName,
 }) => {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>What's this payment for?</Text>
+            {rememberedCategory && (
+                <View style={styles.hintBox}>
+                    <Icon name="clock" size={14} color="#8B5CF6" />
+                    <Text style={styles.hintText}>
+                        Last time you sent money to {recipientName || 'this person'}, you selected "{categories.find(c => c.value === rememberedCategory)?.label.split(' ').slice(1).join(' ')}"
+                    </Text>
+                </View>
+            )}
             <View style={styles.grid}>
                 {categories.map((category) => {
                     const isSelected = selectedCategory === category.value;
+                    const isRemembered = rememberedCategory === category.value;
                     const emoji = category.label.split(' ')[0]; // Extract emoji
                     const label = category.label.split(' ').slice(1).join(' '); // Rest of label
 
@@ -56,6 +68,11 @@ const QRCategorySelector: React.FC<QRCategorySelectorProps> = ({
                                     <Icon name="check" size={14} color="#fff" />
                                 </View>
                             )}
+                            {isRemembered && !isSelected && (
+                                <View style={styles.rememberedBadge}>
+                                    <Text style={styles.rememberedText}>Last used</Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                     );
                 })}
@@ -73,6 +90,21 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#1a1a1a',
         marginBottom: 16,
+    },
+    hintBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3E8FF',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 16,
+        gap: 8,
+    },
+    hintText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#6B21A8',
+        lineHeight: 18,
     },
     grid: {
         flexDirection: 'row',
@@ -92,9 +124,9 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     cardActive: {
-        backgroundColor: Colors.primary + '15',
-        borderColor: Colors.primary,
-        shadowColor: Colors.primary,
+        backgroundColor: '#007AFF' + '15',
+        borderColor: '#007AFF',
+        shadowColor: '#007AFF',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.2,
         shadowRadius: 8,
@@ -110,7 +142,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     iconContainerActive: {
-        backgroundColor: Colors.primary,
+        backgroundColor: '#007AFF',
     },
     emoji: {
         fontSize: 28,
@@ -122,7 +154,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     labelActive: {
-        color: Colors.primary,
+        color: '#007AFF',
         fontWeight: '600',
     },
     checkmark: {
@@ -132,9 +164,27 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 12,
-        backgroundColor: Colors.primary,
+        backgroundColor: '#007AFF',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    rememberedBadge: {
+        position: 'absolute',
+        bottom: 6,
+        left: 6,
+        right: 6,
+        backgroundColor: '#8B5CF6',
+        borderRadius: 6,
+        paddingVertical: 3,
+        paddingHorizontal: 6,
+    },
+    rememberedText: {
+        fontSize: 9,
+        fontWeight: '700',
+        color: '#fff',
+        textAlign: 'center',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
 });
 

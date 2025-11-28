@@ -670,6 +670,10 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
             });
         }
 
+        // Category-Specific Weekend vs Weekday Analysis
+        const categoryWeekendPatterns = this.calculateCategoryWeekendPatterns(userTxns, totalDays);
+        patterns.push(...categoryWeekendPatterns);
+
         // 2. Daily Category Averages (Food, Travel)
         const categoriesOfInterest = ['Food', 'Travel', 'Transport', 'Dining', 'Groceries'];
         const categoryStats: Record<string, { total: number, last7Days: number }> = {};
@@ -795,6 +799,84 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
         if (context.savingsRate < 10) {
             patterns.push('Low savings rate');
         }
+
+        return patterns;
+    }
+
+    /**
+     * Calculate category-specific weekend vs weekday patterns
+     * Identifies which categories drive weekend spending
+     */
+    private static calculateCategoryWeekendPatterns(
+        transactions: Transaction[],
+        totalDays: number
+    ): SpendingPattern[] {
+        const patterns: SpendingPattern[] = [];
+
+        // Group transactions by category
+        const categoryMap = new Map<string, { weekend: number[], weekday: number[] }>();
+
+        transactions.forEach(t => {
+            const category = t.transaction_type || 'other';
+            const day = new Date(t.created_at).getDay();
+            const isWeekend = day === 0 || day === 6;
+
+            if (!categoryMap.has(category)) {
+                categoryMap.set(category, { weekend: [], weekday: [] });
+            }
+
+            const catData = categoryMap.get(category)!;
+            if (isWeekend) {
+                catData.weekend.push(t.amount);
+            } else {
+                catData.weekday.push(t.amount);
+            }
+        });
+
+        // Analyze each category
+        const numWeekends = Math.max(1, Math.round(totalDays * 2 / 7));
+        const numWeekdays = Math.max(1, Math.round(totalDays * 5 / 7));
+
+        categoryMap.forEach((data, category) => {
+            if (data.weekend.length === 0 || data.weekday.length === 0) return;
+
+            const weekendTotal = data.weekend.reduce((sum, amt) => sum + amt, 0);
+            const weekdayTotal = data.weekday.reduce((sum, amt) => sum + amt, 0);
+
+            const weekendAvg = weekendTotal / numWeekends;
+            const weekdayAvg = weekdayTotal / numWeekdays;
+
+            // Only report if there's a significant difference (30%+)
+            if (weekendAvg > weekdayAvg * 1.3) {
+                const percentHigher = ((weekendAvg - weekdayAvg) / weekdayAvg) * 100;
+                patterns.push({
+                    category: `${category} (Weekends)`,
+                    currentAmount: weekendAvg,
+                    avg7Days: weekendAvg,
+                    avg30Days: weekendAvg,
+                    avgWeekday: weekdayAvg,
+                    percentChange7Days: percentHigher,
+                    percentChange30Days: percentHigher,
+                    percentChangeWeekday: percentHigher,
+                    trend: 'rising',
+                    insight: `Your ${category} spending is ${percentHigher.toFixed(0)}% higher on weekends (₹${weekendAvg.toFixed(0)}) vs weekdays (₹${weekdayAvg.toFixed(0)}).`
+                });
+            } else if (weekdayAvg > weekendAvg * 1.3) {
+                const percentHigher = ((weekdayAvg - weekendAvg) / weekendAvg) * 100;
+                patterns.push({
+                    category: `${category} (Weekdays)`,
+                    currentAmount: weekdayAvg,
+                    avg7Days: weekdayAvg,
+                    avg30Days: weekdayAvg,
+                    avgWeekday: weekdayAvg,
+                    percentChange7Days: percentHigher,
+                    percentChange30Days: percentHigher,
+                    percentChangeWeekday: percentHigher,
+                    trend: 'rising',
+                    insight: `Your ${category} spending is ${percentHigher.toFixed(0)}% higher on weekdays (₹${weekdayAvg.toFixed(0)}) vs weekends (₹${weekendAvg.toFixed(0)}).`
+                });
+            }
+        });
 
         return patterns;
     }
