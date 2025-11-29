@@ -5,6 +5,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../constants/spiritAnimals';
 import { SpiritAnimalType } from '../types/spiritAnimal';
 
@@ -102,15 +103,12 @@ export default function SpiritAnimalCard({
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: 'white',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: 16,
         padding: 20,
-        borderWidth: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
     },
     header: {
         flexDirection: 'row',
@@ -133,7 +131,7 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: 12,
-        color: '#999',
+        color: AIStudioTheme.colors.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 4,
@@ -141,18 +139,19 @@ const styles = StyleSheet.create({
     name: {
         fontSize: 20,
         fontWeight: 'bold',
+        color: AIStudioTheme.colors.text,
     },
     philosophyContainer: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: '#F8F9FA',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         padding: 12,
         borderRadius: 8,
         marginBottom: 16,
     },
     philosophy: {
         fontSize: 14,
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
         fontStyle: 'italic',
         marginLeft: 8,
         flex: 1,
@@ -188,15 +187,12 @@ const styles = StyleSheet.create({
     compactCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'white',
+        backgroundColor: AIStudioTheme.colors.surface,
         padding: 12,
         borderRadius: 12,
         borderWidth: 1,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
     },
     compactEmoji: {
         width: 44,
@@ -215,12 +211,12 @@ const styles = StyleSheet.create({
     compactName: {
         fontSize: 16,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: AIStudioTheme.colors.text,
         marginBottom: 2,
     },
     compactPhilosophy: {
         fontSize: 13,
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
         fontStyle: 'italic',
     },
 });

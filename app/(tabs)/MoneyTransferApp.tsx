@@ -2,6 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -125,6 +126,11 @@ export default function MoneyTransferApp() {
       const lang = await getLanguage();
       setCurrentLang(lang);
     })();
+
+    if (Platform.OS === 'android') {
+      NavigationBar.setBackgroundColorAsync(AIStudioTheme.colors.surface);
+      NavigationBar.setButtonStyleAsync('light');
+    }
   }, []);
 
   // Animate tab changes
@@ -1170,7 +1176,7 @@ export default function MoneyTransferApp() {
   if (!currentUser) {
     if (showSignupForm) {
       return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={styles.signupContainer}>
           <SignupForm
             onSubmit={handleSignup}
             onCancel={() => setShowSignupForm(false)}
@@ -1838,7 +1844,7 @@ export default function MoneyTransferApp() {
             <Text style={styles.modalTitle}>Scan QR Code</Text>
             <View style={styles.headerRight}>
               <TouchableOpacity onPress={() => setShowQRScanner(false)}>
-                <Icon name="x" size={24} color="#000" />
+                <Icon name="x" size={24} color={AIStudioTheme.colors.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1878,7 +1884,7 @@ export default function MoneyTransferApp() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>My QR Code</Text>
             <TouchableOpacity onPress={() => setShowMyQR(false)}>
-              <Icon name="x" size={24} color="#000" />
+              <Icon name="x" size={24} color={AIStudioTheme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -1957,7 +1963,7 @@ export default function MoneyTransferApp() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Send Money</Text>
             <TouchableOpacity onPress={() => setShowAmountModal(false)}>
-              <Icon name="x" size={24} color="#000" />
+              <Icon name="x" size={24} color={AIStudioTheme.colors.text} />
             </TouchableOpacity>
           </View>
 
@@ -2028,7 +2034,7 @@ export default function MoneyTransferApp() {
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{cashAction === 'add' ? 'Add Cash' : 'Cash Spend'}</Text>
             <TouchableOpacity onPress={() => setShowCashModal(false)}>
-              <Icon name="x" size={24} color="#000" />
+              <Icon name="x" size={24} color={AIStudioTheme.colors.text} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.amountModalContent}>
@@ -2089,31 +2095,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
-    padding: 20,
+    padding: AIStudioTheme.spacing.lg,
+  },
+  signupContainer: {
+    flex: 1,
+    backgroundColor: AIStudioTheme.colors.background,
+    paddingTop: Platform.OS === 'android' ? 40 : 0,
   },
 
   loginBox: {
     width: '100%',
     backgroundColor: AIStudioTheme.colors.surface,
-    padding: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: AIStudioTheme.colors.text,
-  },
-  input: {
-    width: '100%',
+    padding: AIStudioTheme.spacing.lg,
+    borderRadius: AIStudioTheme.borderRadius.md,
     borderWidth: 1,
     borderColor: AIStudioTheme.colors.border,
-    borderRadius: 8,
-    padding: 12,
-    marginVertical: 8,
-    backgroundColor: AIStudioTheme.colors.surface,
-    color: AIStudioTheme.colors.text,
+    alignItems: 'center',
   },
   loginButton: {
     backgroundColor: AIStudioTheme.colors.primary,
@@ -2133,7 +2130,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   toggleAuthText: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -2157,40 +2154,40 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingTop: 2,
     borderTopWidth: 1,
-    borderTopColor: '#e5e5ea',
+    borderTopColor: AIStudioTheme.colors.border,
   },
   languageLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
   },
   langButton: {
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#d1d1d6',
+    borderColor: AIStudioTheme.colors.border,
     marginRight: 6,
     backgroundColor: AIStudioTheme.colors.surface,
     minWidth: 40,
   },
   langButtonActive: {
-    borderColor: '#007AFF',
-    backgroundColor: '#e6f0ff',
+    borderColor: AIStudioTheme.colors.primary,
+    backgroundColor: AIStudioTheme.colors.primary + '20',
   },
   langText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6c6c70',
+    color: AIStudioTheme.colors.textSecondary,
   },
   langTextActive: {
-    color: '#007AFF',
+    color: AIStudioTheme.colors.primary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: AIStudioTheme.spacing.lg,
     backgroundColor: AIStudioTheme.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#e5e5e5',
@@ -2280,9 +2277,9 @@ const styles = StyleSheet.create({
 
   balanceCard: {
     backgroundColor: '#007AFF',
-    padding: 20,
+    padding: AIStudioTheme.spacing.lg,
     borderRadius: 10,
-    marginBottom: 20,
+    marginBottom: AIStudioTheme.spacing.lg,
   },
   balanceLabel: {
     color: 'white',
@@ -2521,7 +2518,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#1F2937',
+    color: AIStudioTheme.colors.text,
     textAlign: 'center',
   },
   menuOption: {
@@ -2532,7 +2529,7 @@ const styles = StyleSheet.create({
   },
   menuOptionText: {
     fontSize: 16,
-    color: '#4B5563',
+    color: AIStudioTheme.colors.textSecondary,
     marginLeft: 10,
   },
   menuOptionTextActive: {
@@ -2541,7 +2538,7 @@ const styles = StyleSheet.create({
   },
   menuDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: AIStudioTheme.colors.border,
     marginVertical: 5,
   },
   modalContainer: {
@@ -2554,11 +2551,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: AIStudioTheme.colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
+    color: AIStudioTheme.colors.text,
   },
   camera: {
     flex: 1,
@@ -2573,7 +2571,7 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: AIStudioTheme.colors.primary,
     backgroundColor: 'transparent',
   },
   scannerText: {
@@ -2591,14 +2589,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginBottom: 20,
     textAlign: 'center',
+    color: AIStudioTheme.colors.text,
   },
   permissionButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
     padding: 15,
     borderRadius: 8,
   },
   permissionButtonText: {
-    color: 'white',
+    color: AIStudioTheme.colors.textInverse,
     fontWeight: 'bold',
   },
   qrContainer: {
@@ -2610,6 +2609,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: AIStudioTheme.colors.text,
   },
   qrSubtitle: {
     fontSize: 18,
@@ -2643,6 +2643,7 @@ const styles = StyleSheet.create({
   qrInfoText: {
     fontSize: 14,
     marginBottom: 5,
+    color: AIStudioTheme.colors.text,
   },
   // Amount Modal Styles
   amountModalContent: {
@@ -2654,6 +2655,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 5,
+    color: AIStudioTheme.colors.text,
   },
   amountModalEmail: {
     fontSize: 16,
@@ -2674,7 +2676,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: AIStudioTheme.colors.primary,
     borderRadius: 10,
     paddingHorizontal: 15,
     paddingVertical: 15,
@@ -2707,7 +2709,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   quickAmountButton: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
     padding: 12,
     borderRadius: 8,
     marginBottom: 10,
@@ -2737,12 +2739,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
+    marginHorizontal: AIStudioTheme.spacing.lg,
     marginBottom: 8,
   },
   quickActionsSection: {
-    marginHorizontal: 20,
-    marginBottom: 20,
+    marginHorizontal: AIStudioTheme.spacing.lg,
+    marginBottom: AIStudioTheme.spacing.lg,
   },
   quickActionsTitle: {
     fontSize: 16,
@@ -2803,8 +2805,8 @@ const styles = StyleSheet.create({
   },
   // Phase 3: Tab Navigation & Goal Progress Styles
   tabNavigationSection: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    marginHorizontal: AIStudioTheme.spacing.lg,
+    marginBottom: AIStudioTheme.spacing.md,
   },
   tabNavigationTitle: {
     fontSize: 16,

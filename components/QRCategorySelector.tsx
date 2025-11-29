@@ -1,6 +1,7 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 
 interface CategoryType {
     value: string;
@@ -83,27 +84,27 @@ const QRCategorySelector: React.FC<QRCategorySelectorProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        marginVertical: 20,
+        marginVertical: AIStudioTheme.spacing.lg,
     },
     title: {
         fontSize: 18,
         fontWeight: '600',
-        color: '#1a1a1a',
-        marginBottom: 16,
+        color: AIStudioTheme.colors.text,
+        marginBottom: AIStudioTheme.spacing.md,
     },
     hintBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F3E8FF',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         borderRadius: 12,
         padding: 12,
-        marginBottom: 16,
+        marginBottom: AIStudioTheme.spacing.md,
         gap: 8,
     },
     hintText: {
         flex: 1,
         fontSize: 13,
-        color: '#6B21A8',
+        color: AIStudioTheme.colors.accent,
         lineHeight: 18,
     },
     grid: {
@@ -114,35 +115,31 @@ const styles = StyleSheet.create({
     card: {
         width: '30%',
         aspectRatio: 1,
-        backgroundColor: '#f8f9fa',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: 16,
         padding: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 2,
-        borderColor: 'transparent',
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
         position: 'relative',
     },
     cardActive: {
-        backgroundColor: '#007AFF' + '15',
-        borderColor: '#007AFF',
-        shadowColor: '#007AFF',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        backgroundColor: AIStudioTheme.colors.primary + '15',
+        borderColor: AIStudioTheme.colors.primary,
+        ...AIStudioTheme.shadows.sm,
     },
     iconContainer: {
         width: 56,
         height: 56,
         borderRadius: 28,
-        backgroundColor: '#fff',
+        backgroundColor: AIStudioTheme.colors.surfaceVariant,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 8,
     },
     iconContainerActive: {
-        backgroundColor: '#007AFF',
+        backgroundColor: AIStudioTheme.colors.primary,
     },
     emoji: {
         fontSize: 28,
@@ -150,11 +147,11 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 12,
         fontWeight: '500',
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
         textAlign: 'center',
     },
     labelActive: {
-        color: '#007AFF',
+        color: AIStudioTheme.colors.primary,
         fontWeight: '600',
     },
     checkmark: {
@@ -164,7 +161,7 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 12,
-        backgroundColor: '#007AFF',
+        backgroundColor: AIStudioTheme.colors.primary,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -173,7 +170,7 @@ const styles = StyleSheet.create({
         bottom: 6,
         left: 6,
         right: 6,
-        backgroundColor: '#8B5CF6',
+        backgroundColor: AIStudioTheme.colors.accent,
         borderRadius: 6,
         paddingVertical: 3,
         paddingHorizontal: 6,

@@ -9,6 +9,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../constants/spiritAnimals';
 import { SpiritAnimalType } from '../types/spiritAnimal';
 
@@ -153,7 +154,7 @@ export default function SpiritAnimalReveal({ animalType, onContinue }: SpiritAni
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
+        backgroundColor: AIStudioTheme.colors.background,
     },
     scrollView: {
         flex: 1,
@@ -168,12 +169,12 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontSize: 28,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: AIStudioTheme.colors.text,
         marginBottom: 4,
     },
     headerSubtitle: {
         fontSize: 16,
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
     },
     emojiContainer: {
         width: 160,
@@ -203,12 +204,12 @@ const styles = StyleSheet.create({
     },
     philosophy: {
         fontSize: 18,
-        color: '#666',
+        color: AIStudioTheme.colors.textSecondary,
         fontStyle: 'italic',
         textAlign: 'center',
     },
     descriptionCard: {
-        backgroundColor: 'white',
+        backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: 16,
         padding: 20,
         marginBottom: 24,
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
     },
     descriptionText: {
         fontSize: 16,
-        color: '#333',
+        color: AIStudioTheme.colors.text,
         lineHeight: 24,
         textAlign: 'center',
     },
@@ -235,8 +236,23 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#1a1a1a',
+        color: AIStudioTheme.colors.text,
         marginLeft: 8,
+    },
+    traitsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 16,
+    },
+    traitBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    traitText: {
+        fontSize: 12,
+        fontWeight: '600',
     },
     listItem: {
         flexDirection: 'row',
@@ -246,7 +262,7 @@ const styles = StyleSheet.create({
     },
     listItemText: {
         fontSize: 15,
-        color: '#333',
+        color: AIStudioTheme.colors.text,
         marginLeft: 12,
         flex: 1,
         lineHeight: 22,
@@ -254,7 +270,7 @@ const styles = StyleSheet.create({
     tipItem: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: 'white',
+        backgroundColor: AIStudioTheme.colors.surface,
         padding: 16,
         borderRadius: 12,
         marginBottom: 12,
@@ -280,7 +296,7 @@ const styles = StyleSheet.create({
     },
     tipText: {
         fontSize: 15,
-        color: '#333',
+        color: AIStudioTheme.colors.text,
         flex: 1,
         lineHeight: 22,
     },

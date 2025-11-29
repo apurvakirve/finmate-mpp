@@ -146,14 +146,11 @@ const styles = StyleSheet.create({
     },
     questionCard: {
         backgroundColor: AIStudioTheme.colors.surface,
-        borderRadius: 0,
+        borderRadius: 16,
         padding: 18,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 4,
-        borderWidth: 0,
+        ...AIStudioTheme.shadows.lg,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
         minHeight: 480,
     },
     questionNumber: {

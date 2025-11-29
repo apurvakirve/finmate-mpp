@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+    SafeAreaView,
     StyleSheet,
     View
 } from 'react-native';
@@ -28,18 +29,20 @@ export default function SpiritAnimalOnboarding({ onComplete }: SpiritAnimalOnboa
     };
 
     return (
-        <View style={styles.container}>
-            {stage === 'quiz' && (
-                <SpiritAnimalQuiz onComplete={handleQuizComplete} />
-            )}
+        <SafeAreaView style={styles.container}>
+            <View style={styles.content}>
+                {stage === 'quiz' && (
+                    <SpiritAnimalQuiz onComplete={handleQuizComplete} />
+                )}
 
-            {stage === 'reveal' && selectedAnimal && (
-                <SpiritAnimalReveal
-                    animalType={selectedAnimal}
-                    onContinue={handleContinue}
-                />
-            )}
-        </View>
+                {stage === 'reveal' && selectedAnimal && (
+                    <SpiritAnimalReveal
+                        animalType={selectedAnimal}
+                        onContinue={handleContinue}
+                    />
+                )}
+            </View>
+        </SafeAreaView>
     );
 }
 
@@ -47,5 +50,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: AIStudioTheme.colors.background,
+    },
+    content: {
+        flex: 1,
+        padding: AIStudioTheme.spacing.md,
     },
 });

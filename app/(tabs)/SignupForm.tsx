@@ -428,8 +428,8 @@ const styles = StyleSheet.create({
     backgroundColor: AIStudioTheme.colors.background,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
     flexGrow: 1,
   },
   scrollContentFullScreen: {
@@ -587,6 +587,7 @@ const styles = StyleSheet.create({
   cancelButton: {
     alignItems: 'center',
     paddingVertical: 10,
+    marginBottom: 20,
   },
   cancelButtonText: {
     color: AIStudioTheme.colors.textSecondary,

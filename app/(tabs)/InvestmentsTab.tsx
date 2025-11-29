@@ -1,8 +1,7 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { ActivityIndicator, Alert, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import InsuranceRecommendationsCard from '../../components/InsuranceRecommendationsCard';
 import PersonalityInsightCard from '../../components/PersonalityInsightCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
@@ -276,8 +275,114 @@ export default function InvestmentsTab({ userId, spiritAnimal, transactions = []
     const insurance = generateInsuranceRecommendations(insuranceProfile);
     setInsuranceRecommendations(insurance);
 
-    // Create AI recommendations from investment funds
-    const dynamicRecommendations: AIFundRecommendation[] = investmentFunds.map(fund => {
+    // Smart Allocation Algorithm
+    const calculateSmartAllocation = (funds: InvestmentFund[], riskLevel: RiskLevel, totalInvestment: number) => {
+      if (funds.length === 0) return [];
+
+      // Step 1: Assign base weights based on fund type and risk profile
+      const getBaseWeight = (fund: InvestmentFund) => {
+        const fundType = fund.type.toLowerCase();
+        const fundRisk = fund.riskLevel;
+
+        // Risk alignment score
+        let riskScore = 1.0;
+        if (riskLevel === 'conservative') {
+          if (fundRisk === 'low') riskScore = 1.5;
+          else if (fundRisk === 'medium') riskScore = 1.0;
+          else riskScore = 0.5;
+        } else if (riskLevel === 'moderate') {
+          if (fundRisk === 'medium') riskScore = 1.5;
+          else riskScore = 1.0;
+        } else { // aggressive
+          if (fundRisk === 'high') riskScore = 1.5;
+          else if (fundRisk === 'medium') riskScore = 1.0;
+          else riskScore = 0.7;
+        }
+
+        // Fund type base allocation
+        let typeWeight = 1.0;
+        if (fundType.includes('equity') || fundType.includes('stock')) {
+          typeWeight = riskLevel === 'aggressive' ? 1.5 : riskLevel === 'moderate' ? 1.2 : 0.8;
+        } else if (fundType.includes('debt') || fundType.includes('bond')) {
+          typeWeight = riskLevel === 'conservative' ? 1.5 : riskLevel === 'moderate' ? 1.2 : 0.8;
+        } else if (fundType.includes('hybrid') || fundType.includes('balanced')) {
+          typeWeight = 1.3;
+        } else if (fundType.includes('gold') || fundType.includes('commodity')) {
+          typeWeight = 0.6;
+        }
+
+        return riskScore * typeWeight;
+      };
+
+      // Step 2: Calculate performance multiplier
+      const getPerformanceMultiplier = (fund: InvestmentFund) => {
+        const expectedReturn = fund.expectedReturn || 12;
+        // Normalize returns: 8-20% range maps to 0.8-1.2 multiplier
+        return 0.8 + ((expectedReturn - 8) / 12) * 0.4;
+      };
+
+      // Step 3: Calculate raw scores
+      const fundScores = funds.map(fund => ({
+        fund,
+        score: getBaseWeight(fund) * getPerformanceMultiplier(fund)
+      }));
+
+      // Step 4: Normalize to percentages with caps
+      const totalScore = fundScores.reduce((sum, item) => sum + item.score, 0);
+      const MAX_ALLOCATION = 40; // Max 40% per fund
+      const MIN_ALLOCATION = 5;  // Min 5% per fund
+
+      let allocations = fundScores.map(item => ({
+        fund: item.fund,
+        percentage: Math.min(MAX_ALLOCATION, (item.score / totalScore) * 100)
+      }));
+
+      // Redistribute if we have capped allocations
+      let totalAllocated = allocations.reduce((sum, item) => sum + item.percentage, 0);
+      if (totalAllocated < 100) {
+        const remaining = 100 - totalAllocated;
+        const uncappedFunds = allocations.filter(a => a.percentage < MAX_ALLOCATION);
+        if (uncappedFunds.length > 0) {
+          const addPerFund = remaining / uncappedFunds.length;
+          allocations = allocations.map(a => ({
+            ...a,
+            percentage: a.percentage < MAX_ALLOCATION ?
+              Math.min(MAX_ALLOCATION, a.percentage + addPerFund) : a.percentage
+          }));
+        }
+      }
+
+      // Ensure minimum allocations
+      allocations = allocations.map(a => ({
+        ...a,
+        percentage: Math.max(MIN_ALLOCATION, a.percentage)
+      }));
+
+      // Final normalization to ensure exactly 100%
+      const finalTotal = allocations.reduce((sum, item) => sum + item.percentage, 0);
+      allocations = allocations.map(a => ({
+        ...a,
+        percentage: (a.percentage / finalTotal) * 100
+      }));
+
+      // Calculate SIP amounts
+      return allocations.map(a => ({
+        fund: a.fund,
+        allocationPercentage: Math.round(a.percentage * 10) / 10,
+        sipSuggestion: Math.max(500, Math.round((totalInvestment * a.percentage / 100) / 100) * 100)
+      }));
+    };
+
+    // Apply smart allocation
+    const smartAllocations = calculateSmartAllocation(
+      investmentFunds,
+      personalizedRiskLevel,
+      incomeAnalysisResult.recommendedMonthlyInvestment
+    );
+
+    // Create AI recommendations from investment funds with smart allocation
+    const dynamicRecommendations: AIFundRecommendation[] = smartAllocations.map(allocation => {
+      const fund = allocation.fund;
       const history = historicalDataMap.get(fund.code);
       const prediction: InvestmentPrediction = {
         fund: fund,
@@ -298,10 +403,10 @@ export default function InvestmentsTab({ userId, spiritAnimal, transactions = []
         fund,
         prediction,
         score: 85,
-        reasoning: [`Matches your ${spiritAnimal || level} profile`, 'Consistent returns'],
+        reasoning: [`Matches your ${spiritAnimal || personalizedRiskLevel} profile`, 'Consistent returns'],
         tags: ['top-pick', 'high-growth'],
-        sipSuggestion: Math.floor(incomeAnalysisResult.recommendedMonthlyInvestment / Math.max(investmentFunds.length, 1)),
-        allocationPercentage: 100 / Math.max(investmentFunds.length, 1)
+        sipSuggestion: allocation.sipSuggestion,
+        allocationPercentage: allocation.allocationPercentage
       };
     });
 
