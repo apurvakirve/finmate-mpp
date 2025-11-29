@@ -62,7 +62,7 @@ A modern, AI-powered personal finance management application built with React Na
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/finmate-group.git
+   git clone https://github.com/swayamgode/finmate-group.git
    cd money-transfer
    ```
 
@@ -80,7 +80,7 @@ A modern, AI-powered personal finance management application built with React Na
    
    Add your Gemini API key to `.env`:
    ```env
-   EXPO_PUBLIC_GEMINI_API_KEY=your_api_key_here
+   EXPO_PUBLIC_GEMINI_API_KEY=AIzaSyA40MxmO40lUhcENJxyWO1B58B5EMeypAg
    ```
    
    Get your free API key from: [Google AI Studio](https://aistudio.google.com/app/apikey)
@@ -261,9 +261,7 @@ npm run reset-project
 - [ ] Credit score tracking
 - [ ] Tax calculation assistance
 
-## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👥 Team
 
@@ -279,7 +277,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email swayamgode@example.com or open an issue in the repository.
+For support, email swayamgode@gmail.com or open an issue in the repository.
 
 ---
 
