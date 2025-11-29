@@ -1,5 +1,4 @@
 import { Feather as Icon } from '@expo/vector-icons';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -24,6 +23,7 @@ import AppHeader from '../../components/AppHeader';
 import CompactAnomalyAlert from '../../components/CompactAnomalyAlert';
 import CompactPredictionCard from '../../components/CompactPredictionCard';
 import DailyInsightCard from '../../components/DailyInsightCard';
+import FinanceBot from '../../components/FinanceBot';
 import FinancialOverviewCard from '../../components/FinancialOverviewCard';
 import MetricCard from '../../components/MetricCard';
 import PersonalityTipCard from '../../components/PersonalityTipCard';
@@ -36,7 +36,7 @@ import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { AIFinancialAnalyzer } from '../../lib/aiFinancialAnalyzer';
 import { Bill } from '../../lib/BillTracker';
 import { CategoryMemoryService } from '../../lib/CategoryMemoryService';
-import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
+import { getLanguage, Language } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
 import { AIInsights, FinancialContext } from '../../types/aiInsights';
@@ -82,6 +82,7 @@ export default function MoneyTransferApp() {
   const [cashAction, setCashAction] = useState<'add' | 'spend'>('spend');
   const [showSignupForm, setShowSignupForm] = useState(false);
   const [currentLang, setCurrentLang] = useState<Language>('en');
+  const [showChatbot, setShowChatbot] = useState(false);
 
   // Demo Mode State
   const [demoMode, setDemoMode] = useState<'off' | '1w' | '1m' | '1y'>('off');
@@ -1176,97 +1177,121 @@ export default function MoneyTransferApp() {
   if (!currentUser) {
     if (showSignupForm) {
       return (
-        <SafeAreaView style={styles.signupContainer}>
-          <SignupForm
-            onSubmit={handleSignup}
-            onCancel={() => setShowSignupForm(false)}
-            loading={loading}
-          />
-        </SafeAreaView>
+        <SignupForm
+          onSubmit={handleSignup}
+          onCancel={() => setShowSignupForm(false)}
+          loading={loading}
+        />
       );
     }
 
     return (
-      <SafeAreaView style={styles.container}>
-        <Animated.View style={[styles.loginBox, { opacity: fadeAnim }]}>
-          <MaterialCommunityIcons name="currency-inr" size={18} color="#007AFF" />
-          <Text style={styles.title}>{t('appName')}</Text>
+      <SafeAreaView style={styles.signupContainer}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+          <Animated.View style={[styles.loginBox, { opacity: fadeAnim, backgroundColor: AIStudioTheme.colors.surface, borderWidth: 1, borderColor: AIStudioTheme.colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 10, padding: 32 }]}>
+            <View style={{ marginBottom: 32, alignItems: 'center' }}>
+              <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: AIStudioTheme.colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: AIStudioTheme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 }}>
+                <Icon name="zap" size={36} color="white" />
+              </View>
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: AIStudioTheme.colors.text, marginBottom: 8 }}>FinMate AI</Text>
+              <Text style={{ fontSize: 16, color: AIStudioTheme.colors.textSecondary }}>Smart Finance for Gen Z</Text>
+            </View>
 
-          <TextInput
-            placeholder={t('email')}
-            placeholderTextColor={AIStudioTheme.colors.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            style={styles.input}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            placeholder={t('password')}
-            placeholderTextColor={AIStudioTheme.colors.textMuted}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity
-            style={[styles.loginButton, loading && styles.disabledButton]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.loginText}>{t('login')}</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={() => setShowSignupForm(true)} style={{ marginTop: 12 }}>
-            <Text style={styles.toggleAuthText}>
-              {t('signup')} - {t('welcome')}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Language Selector */}
-          <View style={styles.languageSelector}>
-            <Text style={styles.languageLabel}>Language:</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginTop: 8, maxHeight: 32 }}
-            >
-              {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
-                <TouchableOpacity
-                  key={lang}
-                  style={[
-                    styles.langButton,
-                    currentLang === lang && styles.langButtonActive,
-                  ]}
-                  onPress={async () => {
-                    await setLanguage(lang);
-                    setCurrentLang(lang);
+            <View style={{ width: '100%', gap: 20 }}>
+              <View>
+                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>Email Address</Text>
+                <TextInput
+                  placeholder="name@example.com"
+                  placeholderTextColor={AIStudioTheme.colors.textMuted}
+                  value={email}
+                  onChangeText={setEmail}
+                  style={{
+                    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+                    borderRadius: 12,
+                    padding: 16,
+                    color: AIStudioTheme.colors.text,
+                    fontSize: 16,
+                    borderWidth: 1,
+                    borderColor: 'transparent'
                   }}
-                >
-                  <Text style={[
-                    styles.langText,
-                    currentLang === lang && styles.langTextActive,
-                  ]}>
-                    {lang.toUpperCase()}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
 
-          <View style={styles.demoBox}>
-            <Text style={styles.demoTitle}>Demo Accounts:</Text>
-            <Text style={styles.demoText}>user1@example.com / user123</Text>
-            <Text style={styles.demoText}>user2@example.com / user123</Text>
-            <Text style={styles.demoText}>bank@example.com / bank123</Text>
-          </View>
-        </Animated.View>
+              <View>
+                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>Password</Text>
+                <TextInput
+                  placeholder="••••••••"
+                  placeholderTextColor={AIStudioTheme.colors.textMuted}
+                  secureTextEntry
+                  value={password}
+                  onChangeText={setPassword}
+                  style={{
+                    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+                    borderRadius: 12,
+                    padding: 16,
+                    color: AIStudioTheme.colors.text,
+                    fontSize: 16,
+                    borderWidth: 1,
+                    borderColor: 'transparent'
+                  }}
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.loginButton, loading && styles.disabledButton, { marginTop: 32, borderRadius: 14, paddingVertical: 16, shadowColor: AIStudioTheme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }]}
+              onPress={handleLogin}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Log In</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => setShowSignupForm(true)} style={{ marginTop: 24, alignItems: 'center' }}>
+              <Text style={{ color: AIStudioTheme.colors.textSecondary, fontSize: 14 }}>
+                New here? <Text style={{ color: AIStudioTheme.colors.primary, fontWeight: 'bold' }}>Create Account</Text>
+              </Text>
+            </TouchableOpacity>
+
+            {/* Language Selector */}
+            <View style={{ marginTop: 40, alignItems: 'center', width: '100%' }}>
+              <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 11, marginBottom: 12, letterSpacing: 1 }}>SELECT LANGUAGE</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8, paddingHorizontal: 4 }}
+              >
+                {(['en', 'hi', 'ta', 'te', 'bn', 'mr', 'gu'] as Language[]).map((lang) => (
+                  <TouchableOpacity
+                    key={lang}
+                    style={[
+                      styles.langButton,
+                      currentLang === lang && styles.langButtonActive,
+                      { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }
+                    ]}
+                    onPress={async () => {
+                      await setLanguage(lang);
+                      setCurrentLang(lang);
+                    }}
+                  >
+                    <Text style={[
+                      styles.langText,
+                      currentLang === lang && styles.langTextActive,
+                    ]}>
+                      {lang.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </Animated.View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -1747,13 +1772,6 @@ export default function MoneyTransferApp() {
 
         {activeTab === 'piggy' && (
           <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-            <View style={styles.infoBanner}>
-              <Icon name="sun" size={18} color="#007AFF" />
-              <Text style={styles.infoBannerText}>
-                Today’s recorded income: ₹{todayIncome.toFixed(0)} • Risk profile: {piggyRiskLevel.toUpperCase()}.
-                Adjust jars or edit your profile below.
-              </Text>
-            </View>
             <PiggyBanks
               userId={currentUser.id}
               todayIncome={todayIncome}
@@ -2067,6 +2085,56 @@ export default function MoneyTransferApp() {
           </ScrollView>
         </SafeAreaView>
       </Modal>
+      {/* Chatbot Toggle Button */}
+      {currentUser && (
+        <TouchableOpacity
+          style={{
+            position: 'absolute',
+            bottom: 90,
+            right: 20,
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: AIStudioTheme.colors.primary,
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: AIStudioTheme.colors.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 5,
+            zIndex: 1000,
+          }}
+          onPress={() => setShowChatbot(true)}
+        >
+          <Icon name="message-circle" size={28} color="white" />
+        </TouchableOpacity>
+      )}
+
+      {/* Finance Chatbot */}
+      <FinanceBot
+        userId={currentUser?.id}
+        userSpendingData={{
+          totalIncome: transactions
+            .filter((t: any) => t.to_user_id === currentUser?.id)
+            .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0),
+          totalSpent: transactions
+            .filter((t: any) => t.from_user_id === currentUser?.id)
+            .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0),
+          transactionCount: transactions.length,
+          savingsRate: (() => {
+            const totalIncome = transactions
+              .filter((t: any) => t.to_user_id === currentUser?.id)
+              .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+            const totalSpent = transactions
+              .filter((t: any) => t.from_user_id === currentUser?.id)
+              .reduce((sum: number, t: any) => sum + parseFloat(t.amount || 0), 0);
+            return totalIncome > 0 ? ((totalIncome - totalSpent) / totalIncome * 100) : 0;
+          })()
+        }}
+        isVisible={showChatbot}
+        onClose={() => setShowChatbot(false)}
+      />
     </SafeAreaView >
   );
 }

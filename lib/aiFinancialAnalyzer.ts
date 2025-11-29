@@ -133,7 +133,7 @@ Output JSON array of patterns with: category, trend, insight`;
                 }
             });
 
-            const aiPatterns = JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            const aiPatterns = this.safeJsonParse(response.text || '[]', []);
 
             // Merge AI insights with calculated data
             return allPatterns.map((pattern, index) => ({
@@ -189,7 +189,7 @@ Output JSON array with: type, title, message, severity, daysUntil (optional), am
                 }
             });
 
-            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            return this.safeJsonParse(response.text || '[]', []);
 
         } catch (error) {
             console.error('Error generating predictions:', error);
@@ -229,7 +229,7 @@ Output JSON array with: category, status, recommendation, priority`;
                 }
             });
 
-            const aiRecommendations = JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            const aiRecommendations = this.safeJsonParse(response.text || '[]', []);
 
             return categoryData.map((cat, index) => ({
                 ...cat,
@@ -294,7 +294,7 @@ Output JSON array with: type (tip/warning/action/kudos), title, message, priorit
                 }
             });
 
-            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            return this.safeJsonParse(response.text || '[]', []);
 
         } catch (error) {
             console.error('Error generating coaching:', error);
@@ -338,7 +338,7 @@ Output JSON with: suggestions (array of {fromCategory, toCategory, amount, reaso
                 }
             });
 
-            const rebalancing = JSON.parse(this.cleanAIResponse(response.text || 'null'));
+            const rebalancing = this.safeJsonParse(response.text || 'null', null);
 
             if (rebalancing && rebalancing.suggestions) {
                 // Mark all as not approved initially
@@ -443,7 +443,7 @@ Output JSON array with: category, currentSpending, suggestedReduction, strategie
                 }
             });
 
-            return JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            return this.safeJsonParse(response.text || '[]', []);
 
         } catch (error) {
             console.error('Error generating reduction suggestions:', error);
@@ -489,7 +489,7 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
                 }
             });
 
-            const rules = JSON.parse(this.cleanAIResponse(response.text || '[]'));
+            const rules = this.safeJsonParse(response.text || '[]', []);
 
             return rules.map((rule: any, index: number) => ({
                 ...rule,
@@ -508,6 +508,16 @@ Output JSON array with: type, title, description, condition, action, learnedFrom
     // ============================================
     // HELPER METHODS
     // ============================================
+
+    private static safeJsonParse(text: string, fallback: any): any {
+        try {
+            const cleaned = this.cleanAIResponse(text);
+            return JSON.parse(cleaned);
+        } catch (e) {
+            console.warn('JSON Parse Error:', e);
+            return fallback;
+        }
+    }
 
     private static cleanAIResponse(text: string): string {
         try {

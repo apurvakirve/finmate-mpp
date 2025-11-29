@@ -1,7 +1,8 @@
 import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LineChart } from 'react-native-chart-kit';
 import InsuranceRecommendationsCard from '../../components/InsuranceRecommendationsCard';
 import PersonalityInsightCard from '../../components/PersonalityInsightCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
@@ -658,44 +659,75 @@ export default function InvestmentsTab({ userId, spiritAnimal, transactions = []
 
                   <View style={styles.chartContainer}>
                     {chartData.length > 0 ? (
-                      <LineChart
-                        data={{
-                          labels: [],
-                          datasets: [{
-                            data: chartData.map(d => {
-                              const val = parseFloat(d.nav);
-                              return isNaN(val) ? 0 : val;
-                            })
-                          }]
-                        }}
-                        width={Dimensions.get('window').width - 80}
-                        height={100}
-                        withDots={false}
-                        withInnerLines={false}
-                        withOuterLines={false}
-                        withVerticalLabels={false}
-                        withHorizontalLabels={false}
-                        chartConfig={{
-                          ...chartConfig,
-                          color: (opacity = 1) => recommendation.score >= 85 ? `rgba(52, 199, 89, ${opacity})` : `rgba(138, 180, 248, ${opacity})`,
-                          backgroundGradientFrom: AIStudioTheme.colors.surface,
-                          backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
-                        }}
-                        bezier
-                        style={{ paddingRight: 0, paddingLeft: 0 }}
-                      />
+                      <>
+                        {/* NAV Value Labels */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 11, color: AIStudioTheme.colors.textSecondary, fontWeight: '600' }}>
+                            Min: ₹{Math.min(...chartData.map(d => parseFloat(d.nav))).toFixed(2)}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: AIStudioTheme.colors.primary, fontWeight: '700' }}>
+                            Current: ₹{parseFloat(chartData[0].nav).toFixed(2)}
+                          </Text>
+                          <Text style={{ fontSize: 11, color: AIStudioTheme.colors.textSecondary, fontWeight: '600' }}>
+                            Max: ₹{Math.max(...chartData.map(d => parseFloat(d.nav))).toFixed(2)}
+                          </Text>
+                        </View>
+                        <LineChart
+                          data={{
+                            labels: [],
+                            datasets: [{
+                              data: chartData.map(d => {
+                                const val = parseFloat(d.nav);
+                                return isNaN(val) ? 0 : val;
+                              })
+                            }]
+                          }}
+                          width={Dimensions.get('window').width - 48}
+                          height={120}
+                          withDots={true}
+                          withInnerLines={true}
+                          withOuterLines={false}
+                          withVerticalLabels={false}
+                          withHorizontalLabels={false}
+                          chartConfig={{
+                            backgroundColor: AIStudioTheme.colors.surface,
+                            backgroundGradientFrom: AIStudioTheme.colors.surface,
+                            backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
+                            decimalPlaces: 2,
+                            color: (opacity = 1) => recommendation.score >= 85 ? `rgba(52, 199, 89, ${opacity})` : `rgba(138, 180, 248, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`,
+                            strokeWidth: 2,
+                            propsForDots: {
+                              r: '4',
+                              strokeWidth: '2',
+                              stroke: recommendation.score >= 85 ? '#34C759' : AIStudioTheme.colors.primary,
+                              fill: AIStudioTheme.colors.surface,
+                            },
+                            propsForBackgroundLines: {
+                              strokeDasharray: '5,5',
+                              stroke: AIStudioTheme.colors.border,
+                              strokeWidth: 1,
+                            },
+                          }}
+                          bezier
+                          style={{ marginVertical: 4, borderRadius: 8 }}
+                        />
+                        {/* 30-Day Range Label */}
+                        <Text style={{ fontSize: 10, color: AIStudioTheme.colors.textMuted, textAlign: 'center', marginTop: 4 }}>
+                          30-day NAV trend
+                        </Text>
+                      </>
                     ) : (
-                      <View style={{ height: 100, justifyContent: 'center', alignItems: 'center', backgroundColor: AIStudioTheme.colors.surfaceVariant, borderRadius: 12 }}>
-                        <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 12 }}>Chart data unavailable</Text>
+                      <View style={{ height: 140, justifyContent: 'center', alignItems: 'center', backgroundColor: AIStudioTheme.colors.surfaceVariant, borderRadius: 8 }}>
+                        <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 11 }}>Chart unavailable</Text>
                       </View>
                     )}
                   </View>
 
                   <View style={styles.reasoningBox}>
-                    <Text style={styles.reasoningTitle}>Why this fund?</Text>
-                    {recommendation.reasoning.slice(0, 2).map((reason, idx) => (
+                    {recommendation.reasoning.slice(0, 1).map((reason, idx) => (
                       <View key={idx} style={styles.reasonRow}>
-                        <Icon name="check" size={14} color="#34C759" />
+                        <Icon name="check" size={12} color="#34C759" />
                         <Text style={styles.reasonText}>{reason}</Text>
                       </View>
                     ))}
@@ -1075,14 +1107,14 @@ const styles = StyleSheet.create({
   },
   fundCard: {
     backgroundColor: AIStudioTheme.colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 12,
     shadowColor: AIStudioTheme.colors.text,
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
     borderWidth: 1,
     borderColor: AIStudioTheme.colors.border,
   },
@@ -1109,17 +1141,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   fundName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: AIStudioTheme.colors.text,
-    marginBottom: 4,
-    lineHeight: 24,
+    marginBottom: 2,
+    lineHeight: 20,
   },
   fundCategory: {
-    fontSize: 13,
+    fontSize: 12,
     color: AIStudioTheme.colors.textSecondary,
     fontWeight: '500',
   },
@@ -1145,72 +1177,72 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   chartContainer: {
-    marginVertical: 16,
+    marginVertical: 8,
     alignItems: 'center',
   },
   reasoningBox: {
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
   },
   reasoningTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: AIStudioTheme.colors.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   reasonRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 4,
+    gap: 6,
+    marginBottom: 0,
   },
   reasonText: {
-    fontSize: 13,
+    fontSize: 12,
     color: AIStudioTheme.colors.textSecondary,
     flex: 1,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   returnsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 8,
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
-    padding: 12,
-    borderRadius: 12,
+    padding: 8,
+    borderRadius: 8,
   },
   returnCell: {
     alignItems: 'center',
   },
   returnLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: AIStudioTheme.colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
     fontWeight: '600',
   },
   returnValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   green: { color: '#34C759' },
   red: { color: '#FF3B30' },
   sipContainer: {
     backgroundColor: AIStudioTheme.colors.surfaceVariant,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: AIStudioTheme.colors.border,
   },
   sipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 4,
+    marginBottom: 2,
   },
   sipTitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#007AFF',
   },
@@ -1220,12 +1252,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sipAmount: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     color: '#007AFF',
   },
   sipFrequency: {
-    fontSize: 13,
+    fontSize: 12,
     color: AIStudioTheme.colors.textSecondary,
     fontWeight: '500',
   },
@@ -1246,18 +1278,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
     shadowColor: '#007AFF',
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
   investButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
   },
   loaderBox: {

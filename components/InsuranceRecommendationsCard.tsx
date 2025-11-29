@@ -141,10 +141,10 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: AIStudioTheme.borderRadius.lg,
-        padding: AIStudioTheme.spacing.lg,
+        padding: AIStudioTheme.spacing.md,
         marginHorizontal: AIStudioTheme.spacing.md,
         marginBottom: AIStudioTheme.spacing.md,
-        ...AIStudioTheme.shadows.md,
+        ...AIStudioTheme.shadows.sm,
     },
     header: {
         flexDirection: 'row',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
         gap: AIStudioTheme.spacing.sm,
     },
     title: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '700',
         color: AIStudioTheme.colors.text,
     },
@@ -174,20 +174,20 @@ const styles = StyleSheet.create({
         color: '#3B82F6',
     },
     subtitle: {
-        fontSize: 13,
+        fontSize: 12,
         color: AIStudioTheme.colors.textSecondary,
-        marginBottom: AIStudioTheme.spacing.md,
+        marginBottom: AIStudioTheme.spacing.sm,
     },
     cardsContainer: {
         marginHorizontal: -AIStudioTheme.spacing.lg,
         paddingHorizontal: AIStudioTheme.spacing.lg,
     },
     insuranceCard: {
-        width: 280,
+        width: 220,
         backgroundColor: AIStudioTheme.colors.surfaceVariant,
         borderRadius: AIStudioTheme.borderRadius.md,
-        padding: AIStudioTheme.spacing.md,
-        marginRight: AIStudioTheme.spacing.md,
+        padding: AIStudioTheme.spacing.sm,
+        marginRight: AIStudioTheme.spacing.sm,
         borderWidth: 1,
         borderColor: AIStudioTheme.colors.border,
     },

@@ -112,11 +112,11 @@ const styles = StyleSheet.create({
     container: {
         backgroundColor: AIStudioTheme.colors.surface,
         borderRadius: AIStudioTheme.borderRadius.lg,
-        padding: AIStudioTheme.spacing.lg,
+        padding: AIStudioTheme.spacing.md,
         marginHorizontal: AIStudioTheme.spacing.md,
         marginBottom: AIStudioTheme.spacing.md,
-        borderLeftWidth: 4,
-        ...AIStudioTheme.shadows.md,
+        borderLeftWidth: 3,
+        ...AIStudioTheme.shadows.sm,
     },
     header: {
         flexDirection: 'row',
@@ -131,15 +131,15 @@ const styles = StyleSheet.create({
         gap: AIStudioTheme.spacing.sm,
     },
     emoji: {
-        fontSize: 40,
+        fontSize: 32,
     },
     title: {
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: '700',
         color: AIStudioTheme.colors.text,
     },
     subtitle: {
-        fontSize: 13,
+        fontSize: 12,
         color: AIStudioTheme.colors.textSecondary,
         fontStyle: 'italic',
         marginTop: 2,

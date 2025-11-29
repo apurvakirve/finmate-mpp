@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { AIStudioTheme } from '../constants/aiStudioTheme';
 
 // Get API key from environment variable
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -331,7 +332,7 @@ export default function FinanceBot({
           <View style={styles.chatHeader}>
             <View style={styles.chatHeaderLeft}>
               <View style={styles.botAvatar}>
-                <Icon name="message-circle" size={24} color="#007AFF" />
+                <Icon name="message-circle" size={24} color={AIStudioTheme.colors.primary} />
               </View>
               <View>
                 <Text style={styles.chatHeaderTitle}>Finance Assistant</Text>
@@ -339,7 +340,7 @@ export default function FinanceBot({
               </View>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="x" size={24} color="#666" />
+              <Icon name="x" size={24} color={AIStudioTheme.colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -361,7 +362,7 @@ export default function FinanceBot({
               >
                 {!message.isUser && (
                   <View style={styles.botMessageIcon}>
-                    <Icon name="message-circle" size={16} color="#007AFF" />
+                    <Icon name="message-circle" size={16} color={AIStudioTheme.colors.primary} />
                   </View>
                 )}
                 <View
@@ -384,10 +385,10 @@ export default function FinanceBot({
             {isLoading && (
               <View style={[styles.messageContainer, styles.botMessage]}>
                 <View style={styles.botMessageIcon}>
-                  <Icon name="message-circle" size={16} color="#007AFF" />
+                  <Icon name="message-circle" size={16} color={AIStudioTheme.colors.primary} />
                 </View>
                 <View style={[styles.messageBubble, styles.botBubble]}>
-                  <ActivityIndicator size="small" color="#007AFF" />
+                  <ActivityIndicator size="small" color={AIStudioTheme.colors.primary} />
                 </View>
               </View>
             )}
@@ -397,7 +398,7 @@ export default function FinanceBot({
             <TextInput
               style={styles.input}
               placeholder="Ask about your finances..."
-              placeholderTextColor="#999"
+              placeholderTextColor={AIStudioTheme.colors.textMuted}
               value={inputText}
               onChangeText={setInputText}
               multiline
@@ -410,9 +411,9 @@ export default function FinanceBot({
               disabled={!inputText.trim() || isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={AIStudioTheme.colors.background} />
               ) : (
-                <Icon name="send" size={20} color="#fff" />
+                <Icon name="send" size={20} color={AIStudioTheme.colors.background} />
               )}
             </TouchableOpacity>
           </View>
@@ -429,30 +430,26 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: AIStudioTheme.colors.overlay,
   },
   chatContainer: {
-    backgroundColor: 'white',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: AIStudioTheme.colors.surface,
+    borderTopLeftRadius: AIStudioTheme.borderRadius.xl,
+    borderTopRightRadius: AIStudioTheme.borderRadius.xl,
     height: '85%',
     maxHeight: 700,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 16,
+    ...AIStudioTheme.shadows.lg,
   },
   chatHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: AIStudioTheme.spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-    backgroundColor: '#f8f9fa',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderBottomColor: AIStudioTheme.colors.border,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
+    borderTopLeftRadius: AIStudioTheme.borderRadius.xl,
+    borderTopRightRadius: AIStudioTheme.borderRadius.xl,
   },
   chatHeaderLeft: {
     flexDirection: 'row',
@@ -463,19 +460,21 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#E3F2FD',
+    backgroundColor: AIStudioTheme.colors.glow,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: AIStudioTheme.colors.primary,
   },
   chatHeaderTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a1a1a',
+    fontWeight: '700',
+    color: AIStudioTheme.colors.text,
   },
   chatHeaderSubtitle: {
     fontSize: 12,
-    color: '#666',
+    color: AIStudioTheme.colors.textSecondary,
     marginTop: 2,
   },
   closeButton: {
@@ -483,15 +482,15 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: AIStudioTheme.colors.background,
   },
   messagesContent: {
-    padding: 16,
+    padding: AIStudioTheme.spacing.md,
     paddingBottom: 8,
   },
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: AIStudioTheme.spacing.md,
     alignItems: 'flex-start',
   },
   userMessage: {
@@ -501,73 +500,75 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   botMessageIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E3F2FD',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: AIStudioTheme.colors.glow,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
     marginTop: 4,
+    borderWidth: 1,
+    borderColor: AIStudioTheme.colors.primary,
   },
   messageBubble: {
     maxWidth: '80%',
-    paddingHorizontal: 16,
+    paddingHorizontal: AIStudioTheme.spacing.md,
     paddingVertical: 12,
-    borderRadius: 18,
+    borderRadius: AIStudioTheme.borderRadius.md,
   },
   userBubble: {
-    backgroundColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
     borderBottomRightRadius: 4,
   },
   botBubble: {
-    backgroundColor: 'white',
+    backgroundColor: AIStudioTheme.colors.surface,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#e5e5e5',
+    borderColor: AIStudioTheme.colors.border,
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 22,
   },
   userMessageText: {
-    color: 'white',
+    color: AIStudioTheme.colors.background,
   },
   botMessageText: {
-    color: '#1a1a1a',
+    color: AIStudioTheme.colors.text,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 16,
+    padding: AIStudioTheme.spacing.md,
     borderTopWidth: 1,
-    borderTopColor: '#e5e5e5',
-    backgroundColor: 'white',
+    borderTopColor: AIStudioTheme.colors.border,
+    backgroundColor: AIStudioTheme.colors.surfaceVariant,
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#e5e5e5',
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    borderColor: AIStudioTheme.colors.border,
+    borderRadius: AIStudioTheme.borderRadius.xl,
+    paddingHorizontal: AIStudioTheme.spacing.md,
     paddingVertical: 12,
     marginRight: 8,
     maxHeight: 100,
     fontSize: 15,
-    color: '#1a1a1a',
-    backgroundColor: '#f8f9fa',
+    color: AIStudioTheme.colors.text,
+    backgroundColor: AIStudioTheme.colors.surface,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#007AFF',
+    backgroundColor: AIStudioTheme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonDisabled: {
-    backgroundColor: '#ccc',
-    opacity: 0.6,
+    backgroundColor: AIStudioTheme.colors.textMuted,
+    opacity: 0.5,
   },
   // Alert Styles
   alertOverlay: {

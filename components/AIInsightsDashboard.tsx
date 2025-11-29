@@ -10,16 +10,10 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
+import { LineChart } from 'react-native-chart-kit';
 import { AIStudioTheme } from '../constants/aiStudioTheme';
 import { AIFinancialAnalyzer } from '../lib/aiFinancialAnalyzer';
-import { AIInsights, FinancialContext } from '../types/aiInsights';
-import AnomalyAlert from './AnomalyAlert';
-import BudgetRebalanceCard from './BudgetRebalanceCard';
-import PersonalizedRuleCard from './PersonalizedRuleCard';
 import PredictionCard from './PredictionCard';
-import SpendingPatternCard from './SpendingPatternCard';
-import SpendingReductionCard from './SpendingReductionCard';
 
 interface AIInsightsDashboardProps {
     context: FinancialContext;
@@ -30,7 +24,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
     const [insights, setInsights] = useState<AIInsights | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [selectedTab, setSelectedTab] = useState<'overview' | 'predictions' | 'anomalies' | 'coaching' | 'patterns' | 'rebalancing' | 'reduction' | 'rules'>('overview');
+    const [selectedTab, setSelectedTab] = useState<'overview' | 'predictions'>('overview');
 
     useEffect(() => {
         loadInsights();
@@ -93,7 +87,7 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
 
             {/* Tab Navigation */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
-                {(['overview', 'predictions', 'anomalies', 'coaching', 'patterns', 'rebalancing', 'reduction', 'rules'] as const).map(tab => (
+                {(['overview', 'predictions'] as const).map(tab => (
                     <TouchableOpacity
                         key={tab}
                         style={[styles.tab, selectedTab === tab && styles.activeTab]}
@@ -102,16 +96,6 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                         <Text style={[styles.tabText, selectedTab === tab && styles.activeTabText]}>
                             {tab.charAt(0).toUpperCase() + tab.slice(1)}
                         </Text>
-                        {tab === 'anomalies' && insights.anomalies.length > 0 && (
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>{insights.anomalies.length}</Text>
-                            </View>
-                        )}
-                        {tab === 'rules' && insights.personalizedRules.filter(r => !r.approved).length > 0 && (
-                            <View style={styles.badge}>
-                                <Text style={styles.badgeText}>{insights.personalizedRules.filter(r => !r.approved).length}</Text>
-                            </View>
-                        )}
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -137,61 +121,132 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                             </View>
                         )}
 
-                        {/* Spending Trend Chart */}
+                        {/* Category Spending Trends Chart */}
                         <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Spending Trend</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 10 }}>
+                                <Text style={styles.chartTitle}>Category Spending Trends</Text>
+                                <View style={[styles.badge, { backgroundColor: '#FEE2E2' }]}>
+                                    <Text style={[styles.badgeText, { color: '#EF4444' }]}>
+                                        ↑ {Math.round((context.totalSpent / context.totalIncome) * 100)}%
+                                    </Text>
+                                </View>
+                            </View>
+
                             <LineChart
                                 data={{
-                                    labels: ["W1", "W2", "W3", "W4"],
-                                    datasets: [{
-                                        data: [
-                                            context.totalSpent * 0.2,
-                                            context.totalSpent * 0.3,
-                                            context.totalSpent * 0.25,
-                                            context.totalSpent * 0.25
-                                        ]
-                                    }]
+                                    labels: Array.from({ length: 7 }, (_, i) => {
+                                        const d = new Date();
+                                        d.setDate(d.getDate() - (6 - i));
+                                        return d.toLocaleDateString('en-US', { weekday: 'narrow' });
+                                    }),
+                                    datasets: context.topCategories.slice(0, 3).map((cat: any, index: number) => ({
+                                        data: Array.from({ length: 7 }, (_, i) => {
+                                            const d = new Date();
+                                            d.setDate(d.getDate() - (6 - i));
+                                            const dayStr = d.toDateString();
+                                            return context.transactions
+                                                .filter((t: any) =>
+                                                    (t.transaction_type === cat.category) &&
+                                                    new Date(t.created_at).toDateString() === dayStr
+                                                )
+                                                .reduce((sum: number, t: any) => sum + t.amount, 0);
+                                        }),
+                                        color: (opacity = 1) => [
+                                            `rgba(139, 92, 246, ${opacity})`, // Purple
+                                            `rgba(107, 114, 128, ${opacity})`, // Gray
+                                            `rgba(59, 130, 246, ${opacity})`  // Blue
+                                        ][index % 3],
+                                        strokeWidth: 2
+                                    }))
                                 }}
-                                width={Dimensions.get("window").width - 32}
+                                width={Dimensions.get("window").width - 48}
                                 height={220}
                                 yAxisLabel="₹"
                                 chartConfig={{
                                     backgroundColor: AIStudioTheme.colors.surface,
                                     backgroundGradientFrom: AIStudioTheme.colors.surface,
-                                    backgroundGradientTo: AIStudioTheme.colors.surfaceVariant,
+                                    backgroundGradientTo: AIStudioTheme.colors.surface,
                                     decimalPlaces: 0,
-                                    color: (opacity = 1) => `rgba(138, 180, 248, ${opacity})`,
-                                    labelColor: (opacity = 1) => `rgba(232, 234, 237, ${opacity})`,
+                                    color: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
+                                    labelColor: (opacity = 1) => `rgba(156, 163, 175, ${opacity})`,
                                     style: { borderRadius: 16 },
-                                    propsForDots: { r: "6", strokeWidth: "2", stroke: AIStudioTheme.colors.primary }
+                                    propsForDots: { r: "0" },
+                                    propsForBackgroundLines: {
+                                        strokeDasharray: "5, 5",
+                                        stroke: "#374151"
+                                    }
                                 }}
                                 bezier
                                 style={{ marginVertical: 8, borderRadius: 16 }}
+                                withDots={false}
+                                withShadow={false}
                             />
+
+                            {/* Custom Legend */}
+                            <View style={{ width: '100%', marginTop: 10 }}>
+                                <Text style={{ color: '#9CA3AF', marginBottom: 10, fontSize: 14 }}>Tap to highlight category</Text>
+                                {context.topCategories.slice(0, 3).map((cat, index) => (
+                                    <View key={index} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <View style={{
+                                                width: 12,
+                                                height: 12,
+                                                borderRadius: 6,
+                                                backgroundColor: [
+                                                    '#8B5CF6', // Purple
+                                                    '#9CA3AF', // Gray
+                                                    '#3B82F6'  // Blue
+                                                ][index % 3]
+                                            }} />
+                                            <Text style={{ color: '#E5E7EB', fontSize: 14 }}>{cat.category}</Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                            <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 }}>
+                                                ₹{cat.amount.toLocaleString('en-IN')}
+                                            </Text>
+                                            <Text style={{ color: '#6B7280', fontSize: 12, width: 30, textAlign: 'right' }}>
+                                                {cat.percentage}%
+                                            </Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
 
-                        {/* Category Breakdown Chart */}
-                        <View style={styles.chartContainer}>
-                            <Text style={styles.chartTitle}>Category Breakdown</Text>
-                            <PieChart
-                                data={context.topCategories.map((c, i) => ({
-                                    name: c.category,
-                                    population: c.amount,
-                                    color: [AIStudioTheme.colors.primary, AIStudioTheme.colors.accent, AIStudioTheme.colors.warning, AIStudioTheme.colors.success, '#9966FF'][i % 5],
-                                    legendFontColor: AIStudioTheme.colors.textSecondary,
-                                    legendFontSize: 12
-                                }))}
-                                width={Dimensions.get("window").width - 32}
-                                height={220}
-                                chartConfig={{
-                                    color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                }}
-                                accessor={"population"}
-                                backgroundColor={"transparent"}
-                                paddingLeft={"15"}
-                                absolute
-                            />
-                        </View>
+                        {/* Spending Patterns - Moved Here */}
+                        {insights.patterns.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>Spending Patterns</Text>
+                                {insights.patterns.slice(0, 3).map((pattern, index) => (
+                                    <View key={index} style={styles.patternCard}>
+                                        <View style={styles.patternHeader}>
+                                            <Text style={styles.patternCategory}>{pattern.category}</Text>
+                                            <View style={[
+                                                styles.trendBadge,
+                                                { backgroundColor: pattern.trend === 'rising' ? '#FEE2E2' : pattern.trend === 'falling' ? '#D1FAE5' : '#E5E7EB' }
+                                            ]}>
+                                                <Icon
+                                                    name={pattern.trend === 'rising' ? 'trending-up' : pattern.trend === 'falling' ? 'trending-down' : 'minus'}
+                                                    size={12}
+                                                    color={pattern.trend === 'rising' ? '#DC2626' : pattern.trend === 'falling' ? '#10B981' : '#6B7280'}
+                                                />
+                                                <Text style={[
+                                                    styles.trendText,
+                                                    { color: pattern.trend === 'rising' ? '#DC2626' : pattern.trend === 'falling' ? '#10B981' : '#6B7280' }
+                                                ]}>
+                                                    {pattern.trend}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Text style={styles.patternInsight}>{pattern.insight}</Text>
+                                        <View style={styles.patternStats}>
+                                            <Text style={styles.patternStat}>Current: ₹{pattern.currentAmount.toFixed(0)}</Text>
+                                            <Text style={styles.patternStat}>7-day avg: ₹{pattern.avg7Days.toFixed(0)}</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
 
                         {/* Quick Stats */}
                         <View style={styles.statsGrid}>
@@ -237,51 +292,6 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                             </View>
                         </View>
 
-                        {/* Recent Anomalies */}
-                        {insights.anomalies.length > 0 && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Recent Anomalies</Text>
-                                {insights.anomalies.slice(0, 2).map((anomaly, index) => (
-                                    <AnomalyAlert key={index} anomaly={anomaly} />
-                                ))}
-                            </View>
-                        )}
-
-                        {/* Spending Patterns */}
-                        {insights.patterns.length > 0 && (
-                            <View style={styles.section}>
-                                <Text style={styles.sectionTitle}>Spending Patterns</Text>
-                                {insights.patterns.slice(0, 3).map((pattern, index) => (
-                                    <View key={index} style={styles.patternCard}>
-                                        <View style={styles.patternHeader}>
-                                            <Text style={styles.patternCategory}>{pattern.category}</Text>
-                                            <View style={[
-                                                styles.trendBadge,
-                                                { backgroundColor: pattern.trend === 'rising' ? '#FEE2E2' : pattern.trend === 'falling' ? '#D1FAE5' : '#E5E7EB' }
-                                            ]}>
-                                                <Icon
-                                                    name={pattern.trend === 'rising' ? 'trending-up' : pattern.trend === 'falling' ? 'trending-down' : 'minus'}
-                                                    size={12}
-                                                    color={pattern.trend === 'rising' ? '#DC2626' : pattern.trend === 'falling' ? '#10B981' : '#6B7280'}
-                                                />
-                                                <Text style={[
-                                                    styles.trendText,
-                                                    { color: pattern.trend === 'rising' ? '#DC2626' : pattern.trend === 'falling' ? '#10B981' : '#6B7280' }
-                                                ]}>
-                                                    {pattern.trend}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                        <Text style={styles.patternInsight}>{pattern.insight}</Text>
-                                        <View style={styles.patternStats}>
-                                            <Text style={styles.patternStat}>Current: ₹{pattern.currentAmount.toFixed(0)}</Text>
-                                            <Text style={styles.patternStat}>7-day avg: ₹{pattern.avg7Days.toFixed(0)}</Text>
-                                        </View>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-
                         {/* Budget Rebalancing */}
                         {insights.rebalancing && insights.rebalancing.suggestions.length > 0 && (
                             <View style={styles.section}>
@@ -305,196 +315,113 @@ export default function AIInsightsDashboard({ context, onRefresh }: AIInsightsDa
                     </View>
                 )}
 
-                {/* Predictions Tab */}
+                {/* Predictions Tab - Enhanced */}
                 {selectedTab === 'predictions' && (
                     <View>
-                        {insights.predictions.length > 0 ? (
-                            insights.predictions.map((prediction, index) => (
-                                <PredictionCard key={index} prediction={prediction} />
-                            ))
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="check-circle" size={48} color="#10B981" />
-                                <Text style={styles.emptyStateText}>No predictions at this time</Text>
-                                <Text style={styles.emptyStateSubtext}>Your spending is on track!</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Anomalies Tab */}
-                {selectedTab === 'anomalies' && (
-                    <View>
-                        {insights.anomalies.length > 0 ? (
-                            insights.anomalies.map((anomaly, index) => (
-                                <AnomalyAlert key={index} anomaly={anomaly} />
-                            ))
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="shield" size={48} color="#10B981" />
-                                <Text style={styles.emptyStateText}>No anomalies detected</Text>
-                                <Text style={styles.emptyStateSubtext}>All transactions look normal</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Coaching Tab */}
-                {selectedTab === 'coaching' && (
-                    <View>
-                        {insights.coaching.length > 0 ? (
-                            insights.coaching.map((advice, index) => (
-                                <View key={index} style={styles.coachingCard}>
-                                    <View style={styles.coachingHeader}>
-                                        <Icon
-                                            name={
-                                                advice.type === 'kudos' ? 'award' :
-                                                    advice.type === 'warning' ? 'alert-triangle' :
-                                                        advice.type === 'action' ? 'zap' : 'info'
-                                            }
-                                            size={24}
-                                            color={
-                                                advice.type === 'kudos' ? '#10B981' :
-                                                    advice.type === 'warning' ? '#F59E0B' :
-                                                        advice.type === 'action' ? '#3B82F6' : '#6B7280'
-                                            }
-                                        />
-                                        <Text style={styles.coachingTitle}>{advice.title}</Text>
-                                    </View>
-                                    <Text style={styles.coachingMessage}>{advice.message}</Text>
-                                    {advice.actionLabel && (
-                                        <TouchableOpacity style={styles.coachingAction}>
-                                            <Text style={styles.coachingActionText}>{advice.actionLabel}</Text>
-                                            <Icon name="chevron-right" size={16} color="#007AFF" />
-                                        </TouchableOpacity>
-                                    )}
+                        {/* Income Forecast - Always Show */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>📊 Income Forecast</Text>
+                            <View style={styles.forecastCard}>
+                                <View style={styles.forecastHeader}>
+                                    <Icon name="trending-up" size={24} color="#10B981" />
+                                    <Text style={styles.forecastTitle}>Expected Income This Month</Text>
                                 </View>
-                            ))
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="message-circle" size={48} color="#9CA3AF" />
-                                <Text style={styles.emptyStateText}>No coaching tips yet</Text>
-                                <Text style={styles.emptyStateSubtext}>Keep tracking your spending</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
+                                <Text style={styles.forecastAmount}>
+                                    ₹{Math.round(context.totalIncome * 1.05).toLocaleString('en-IN')}
+                                </Text>
+                                <Text style={styles.forecastSubtext}>
+                                    Based on your {context.incomeFrequency} income pattern
+                                </Text>
 
-                {/* Patterns Tab */}
-                {selectedTab === 'patterns' && (
-                    <View>
-                        {insights.patterns.length > 0 ? (
-                            <>
-                                <Text style={styles.sectionTitle}>Spending Patterns</Text>
-                                {insights.patterns.map((pattern, index) => (
-                                    <SpendingPatternCard key={index} pattern={pattern} />
-                                ))}
-                            </>
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="activity" size={48} color="#9CA3AF" />
-                                <Text style={styles.emptyStateText}>No patterns detected yet</Text>
-                                <Text style={styles.emptyStateSubtext}>More data needed for pattern analysis</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Rebalancing Tab */}
-                {selectedTab === 'rebalancing' && (
-                    <View>
-                        {insights.rebalancing && insights.rebalancing.suggestions.length > 0 ? (
-                            <>
-                                <Text style={styles.sectionTitle}>Budget Rebalancing</Text>
-                                <View style={styles.rebalanceSummary}>
-                                    <Text style={styles.rebalanceMessage}>{insights.rebalancing.message}</Text>
-                                    <View style={styles.rebalanceStats}>
-                                        <View style={styles.rebalanceStat}>
-                                            <Icon name="trending-up" size={16} color="#10B981" />
-                                            <Text style={styles.rebalanceStatLabel}>Savings Increase</Text>
-                                            <Text style={styles.rebalanceStatValue}>
-                                                ₹{insights.rebalancing.totalSavingsIncrease.toLocaleString('en-IN')}
-                                            </Text>
-                                        </View>
-                                        <View style={styles.rebalanceStat}>
-                                            <Icon name="trending-down" size={16} color="#DC2626" />
-                                            <Text style={styles.rebalanceStatLabel}>Wants Decrease</Text>
-                                            <Text style={styles.rebalanceStatValue}>
-                                                ₹{insights.rebalancing.totalWantsDecrease.toLocaleString('en-IN')}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                </View>
-                                {insights.rebalancing.suggestions.map((suggestion, index) => (
-                                    <BudgetRebalanceCard
-                                        key={index}
-                                        suggestion={suggestion}
-                                        onApprove={(s) => console.log('Approved:', s)}
-                                        onReject={(s) => console.log('Rejected:', s)}
+                                {/* Income Trend Line Chart */}
+                                <View style={styles.forecastChart}>
+                                    <LineChart
+                                        data={{
+                                            labels: ["2 Mo Ago", "Last Mo", "This Mo", "Next Mo"],
+                                            datasets: [{
+                                                data: [
+                                                    context.totalIncome * 0.92,
+                                                    context.totalIncome,
+                                                    context.totalIncome * 1.05,
+                                                    context.totalIncome * 1.08
+                                                ]
+                                            }]
+                                        }}
+                                        width={Dimensions.get("window").width - 64}
+                                        height={200}
+                                        yAxisLabel="₹"
+                                        chartConfig={{
+                                            backgroundColor: '#10B981',
+                                            backgroundGradientFrom: '#10B981',
+                                            backgroundGradientTo: '#059669',
+                                            decimalPlaces: 0,
+                                            color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                                            style: { borderRadius: 16 },
+                                            propsForDots: {
+                                                r: "6",
+                                                strokeWidth: "2",
+                                                stroke: "#fff"
+                                            }
+                                        }}
+                                        bezier
+                                        style={{
+                                            marginVertical: 8,
+                                            borderRadius: 16
+                                        }}
                                     />
-                                ))}
-                            </>
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="check-circle" size={48} color="#10B981" />
-                                <Text style={styles.emptyStateText}>Budget looks balanced</Text>
-                                <Text style={styles.emptyStateSubtext}>No rebalancing needed right now</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Reduction Tab */}
-                {selectedTab === 'reduction' && (
-                    <View>
-                        {insights.reductionSuggestions.length > 0 ? (
-                            <>
-                                <Text style={styles.sectionTitle}>Spending Reduction Strategies</Text>
-                                {insights.reductionSuggestions.map((reduction, index) => (
-                                    <SpendingReductionCard
-                                        key={index}
-                                        reduction={reduction}
-                                        onTrack={(r) => console.log('Tracking:', r)}
-                                    />
-                                ))}
-                            </>
-                        ) : (
-                            <View style={styles.emptyState}>
-                                <Icon name="check-circle" size={48} color="#10B981" />
-                                <Text style={styles.emptyStateText}>Spending looks good</Text>
-                                <Text style={styles.emptyStateSubtext}>No reduction suggestions at this time</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* Rules Tab */}
-                {selectedTab === 'rules' && (
-                    <View>
-                        {insights.personalizedRules.length > 0 ? (
-                            <>
-                                <Text style={styles.sectionTitle}>Personalized Financial Rules</Text>
-                                <View style={styles.rulesInfo}>
-                                    <Icon name="info" size={16} color="#6B7280" />
-                                    <Text style={styles.rulesInfoText}>
-                                        AI has learned these rules from your spending patterns. Approve to activate.
+                                    <Text style={styles.forecastChartCaption}>
+                                        📈 Projected growth based on your {context.incomeFrequency} income pattern
                                     </Text>
                                 </View>
-                                {insights.personalizedRules.map((rule, index) => (
-                                    <PersonalizedRuleCard
-                                        key={index}
-                                        rule={rule}
-                                        onApprove={(r) => console.log('Approved rule:', r)}
-                                        onReject={(r) => console.log('Rejected rule:', r)}
-                                        onToggle={(r, active) => console.log('Toggled rule:', r, active)}
-                                    />
+                            </View>
+                        </View>
+
+                        {/* Spending Behavior Prediction */}
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>📈 Spending Trend</Text>
+                            <View style={styles.trendCard}>
+                                <Text style={styles.trendText}>
+                                    At your current rate, you'll spend approximately <Text style={styles.trendAmount}>₹{Math.round(context.totalSpent * 1.1).toLocaleString('en-IN')}</Text> this month.
+                                </Text>
+                                <View style={styles.trendBar}>
+                                    <View style={[styles.trendFill, { width: `${Math.min(100, (context.totalSpent / context.totalIncome) * 100)}%` }]} />
+                                </View>
+                                <Text style={styles.trendSubtext}>
+                                    {Math.round((context.totalSpent / context.totalIncome) * 100)}% of income spent so far
+                                </Text>
+                            </View>
+                        </View>
+
+                        {/* Risk Alerts */}
+                        {context.upcomingBills > 0 && (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>⚠ Financial Alerts</Text>
+                                <View style={[styles.alertCard, { borderLeftColor: '#EF4444' }]}>
+                                    <View style={styles.alertHeader}>
+                                        <Icon name="alert-triangle" size={20} color="#EF4444" />
+                                        <Text style={styles.alertTitle}>EMI & Bills Alert</Text>
+                                    </View>
+                                    <Text style={styles.alertMessage}>
+                                        You have ₹{context.upcomingBills.toLocaleString('en-IN')} in upcoming bills. If you continue spending at this rate, you may face a shortfall.
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* AI Predictions */}
+                        {insights.predictions.length > 0 ? (
+                            <View style={styles.section}>
+                                <Text style={styles.sectionTitle}>🔮 AI Insights</Text>
+                                {insights.predictions.map((prediction, index) => (
+                                    <PredictionCard key={index} prediction={prediction} />
                                 ))}
-                            </>
+                            </View>
                         ) : (
                             <View style={styles.emptyState}>
-                                <Icon name="shield" size={48} color="#9CA3AF" />
-                                <Text style={styles.emptyStateText}>No rules yet</Text>
-                                <Text style={styles.emptyStateSubtext}>AI needs more data to learn your patterns</Text>
+                                <Icon name="check-circle" size={48} color="#10B981" />
+                                <Text style={styles.emptyStateText}>All Clear!</Text>
+                                <Text style={styles.emptyStateSubtext}>No additional insights at this time</Text>
                             </View>
                         )}
                     </View>
@@ -871,5 +798,106 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#1E40AF',
         lineHeight: 18,
+    },
+    forecastCard: {
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.lg,
+        padding: AIStudioTheme.spacing.md,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
+    },
+    forecastHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 12,
+        gap: 8,
+    },
+    forecastTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: AIStudioTheme.colors.text,
+    },
+    forecastAmount: {
+        fontSize: 32,
+        fontWeight: '700',
+        color: AIStudioTheme.colors.text,
+        marginBottom: 4,
+    },
+    forecastSubtext: {
+        fontSize: 13,
+        color: AIStudioTheme.colors.textSecondary,
+        marginBottom: 16,
+    },
+    forecastChart: {
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    forecastChartCaption: {
+        fontSize: 12,
+        color: AIStudioTheme.colors.textSecondary,
+        marginTop: 8,
+        fontStyle: 'italic',
+    },
+    trendCard: {
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.lg,
+        padding: AIStudioTheme.spacing.md,
+        borderWidth: 1,
+        borderColor: AIStudioTheme.colors.border,
+        ...AIStudioTheme.shadows.sm,
+    },
+    trendText: {
+        fontSize: 15,
+        color: AIStudioTheme.colors.text,
+        marginBottom: 16,
+        lineHeight: 22,
+    },
+    trendAmount: {
+        fontWeight: '700',
+        color: AIStudioTheme.colors.error,
+    },
+    trendBar: {
+        height: 8,
+        backgroundColor: AIStudioTheme.colors.border,
+        borderRadius: 4,
+        overflow: 'hidden',
+        marginBottom: 8,
+    },
+    trendFill: {
+        height: '100%',
+        backgroundColor: AIStudioTheme.colors.primary,
+        borderRadius: 4,
+    },
+    trendSubtext: {
+        fontSize: 12,
+        color: AIStudioTheme.colors.textSecondary,
+        textAlign: 'right',
+    },
+    alertCard: {
+        backgroundColor: AIStudioTheme.colors.surface,
+        borderRadius: AIStudioTheme.borderRadius.md,
+        padding: AIStudioTheme.spacing.md,
+        borderLeftWidth: 4,
+        borderLeftColor: AIStudioTheme.colors.primary,
+        marginBottom: 12,
+        ...AIStudioTheme.shadows.sm,
+    },
+    alertHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+        gap: 8,
+    },
+    alertTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: AIStudioTheme.colors.text,
+    },
+    alertMessage: {
+        fontSize: 14,
+        color: AIStudioTheme.colors.textSecondary,
+        lineHeight: 20,
     },
 });
