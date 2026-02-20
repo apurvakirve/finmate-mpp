@@ -14,7 +14,7 @@ import {
 } from '../types/aiInsights';
 import { AICache } from '../utils/aiCache';
 
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+const GEMINI_API_KEY = 'AIzaSyCZi8_h_P8aa5r1Vl9PCJEMOsRIRZrdUTU';
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
 /**

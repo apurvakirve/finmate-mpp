@@ -17,7 +17,7 @@ import {
 import { AIStudioTheme } from '../constants/aiStudioTheme';
 
 // Get API key from environment variable
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+const GEMINI_API_KEY = 'AIzaSyCZi8_h_P8aa5r1Vl9PCJEMOsRIRZrdUTU';
 
 // Initialize Google Gen AI client
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
