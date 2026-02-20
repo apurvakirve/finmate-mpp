@@ -283,4 +283,5 @@ For support, email swayamgode@gmail.com or open an issue in the repository.
 
 **Note**: This application is for educational and personal finance management purposes. Investment recommendations should not be considered as financial advice. Always consult with a certified financial advisor before making investment decisions.
 
-Made with ❤️ by the FinMate Team
+Made with ❤️ by the FinMate Team#   F i n m a t e - m p  
+ 
