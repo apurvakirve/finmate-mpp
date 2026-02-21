@@ -1,5 +1,5 @@
 import { Feather as Icon } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as NavigationBar from 'expo-navigation-bar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -75,7 +75,7 @@ export default function MoneyTransferApp() {
   const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'investments'>('transfer');
   const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
   const [showTotalBalance, setShowTotalBalance] = useState(false);
-  const [cashBalance, setCashBalance] = useState<number>(0);
+  // Cash is now unified with wallet balance (currentUser.balance)
   const [showCashModal, setShowCashModal] = useState(false);
   const [cashAmount, setCashAmount] = useState('');
   const [cashCategory, setCashCategory] = useState('other');
@@ -149,7 +149,7 @@ export default function MoneyTransferApp() {
     if (currentUser) {
       fetchUsers();
       fetchTransactions();
-      loadCashBalance();
+      // cash is now part of wallet balance, no separate load needed
       const cleanup = setupRealtime();
       return cleanup;
     }
@@ -464,20 +464,19 @@ export default function MoneyTransferApp() {
     }
   };
 
-  // Cash wallet persistence
-  const cashKey = (userId: string | number) => `mt_cash_${userId}`;
-  const loadCashBalance = async () => {
+  // Cash is unified with wallet balance — helper to update balance in Supabase
+  const updateUserBalance = async (newBalance: number) => {
     try {
-      const raw = await AsyncStorage.getItem(cashKey(currentUserRef.current?.id));
-      if (raw) setCashBalance(parseFloat(raw) || 0);
-      else setCashBalance(0);
+      const userId = currentUserRef.current?.id;
+      if (!userId) return;
+      await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', userId);
+      setCurrentUser((prev: any) => ({ ...prev, balance: newBalance }));
     } catch (e) {
-      setCashBalance(0);
+      console.log('Error updating balance:', e);
     }
-  };
-  const saveCashBalance = async (next: number) => {
-    setCashBalance(next);
-    await AsyncStorage.setItem(cashKey(currentUserRef.current?.id), String(next));
   };
 
   const handleCashSubmit = async () => {
@@ -488,17 +487,17 @@ export default function MoneyTransferApp() {
     }
     try {
       setLoading(true);
+      const currentBalance = parseFloat(currentUserRef.current?.balance) || 0;
       if (cashAction === 'add') {
-        // Increase local cash only
-        await saveCashBalance(cashBalance + amt);
+        // Add cash to unified wallet balance
+        await updateUserBalance(currentBalance + amt);
       } else {
-        // Spend from cash: decrease cash and record a transaction (method: cash)
-        const nextCash = cashBalance - amt;
-        if (nextCash < 0) {
-          Alert.alert('Error', 'Insufficient cash');
+        // Spend from wallet balance and record a cash transaction
+        if (currentBalance < amt) {
+          Alert.alert('Error', 'Insufficient balance');
           return;
         }
-        await saveCashBalance(nextCash);
+        await updateUserBalance(currentBalance - amt);
         await insertOneSafe({
           from_user_id: currentUserRef.current.id,
           to_user_id: currentUserRef.current.id,
@@ -691,6 +690,9 @@ export default function MoneyTransferApp() {
       }
 
       setCurrentUser(data);
+      // Ensure user lands on Transfer tab (shows wallet balance)
+      setActiveTab('transfer');
+      // cash is unified with wallet balance, no separate seeding needed
       setEmail('');
       setPassword('');
 
@@ -1318,7 +1320,7 @@ export default function MoneyTransferApp() {
             {/* Financial Overview Card */}
             <FinancialOverviewCard
               walletBalance={parseFloat(currentUser.balance)}
-              cashBalance={cashBalance}
+              cashBalance={0}
               todayIncome={todayIncome}
               todaySpending={transactions
                 .filter((t: any) => {
