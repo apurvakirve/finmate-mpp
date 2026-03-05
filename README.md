@@ -62,7 +62,7 @@ A modern, AI-powered personal finance management application built with React Na
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/swayamgode/finmate-group.git
+   git clone https://github.com/apurvakirve/finmate-mpp.git
    cd money-transfer
    ```
 
@@ -266,7 +266,7 @@ npm run reset-project
 ## 👥 Team
 
 **FinMate Group**
-- Swayam Gode - Lead Developer
+- Apurva Kirve - Lead Developer
 
 ## 🙏 Acknowledgments
 
@@ -277,12 +277,10 @@ npm run reset-project
 
 ## 📞 Support
 
-For support, email swayamgode@gmail.com or open an issue in the repository.
+For support, email kirveapurva3806@gmail.com or open an issue in the repository.
 
 ---
 
 **Note**: This application is for educational and personal finance management purposes. Investment recommendations should not be considered as financial advice. Always consult with a certified financial advisor before making investment decisions.
 
-Made with ❤️ by the FinMate Team#   F i n m a t e - m p  
- #   F i n m a t e - m p  
- 
+Made with ❤️ by the FinMate Team#
