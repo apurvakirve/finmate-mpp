@@ -2,6 +2,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AIStudioTheme } from '../constants/aiStudioTheme';
+import { t } from '../lib/i18n';
 
 interface AppHeaderProps {
     userName: string;
@@ -26,7 +27,7 @@ export default function AppHeader({ userName, spiritAnimal, onRefresh, onLogout 
 
                 {/* User Info */}
                 <View style={styles.userInfo}>
-                    <Text style={styles.greeting}>Hey {userName}! 👋</Text>
+                    <Text style={styles.greeting}>{t('hey')} {userName}! {t('greetingEmoji')}</Text>
                     {spiritAnimal && (
                         <Text style={styles.spiritType}>{spiritAnimal.profile.name}</Text>
                     )}

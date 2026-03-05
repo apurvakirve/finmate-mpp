@@ -110,7 +110,7 @@ export default function TransactionAnalysis({ currentUser, transactions = [], in
   if (!context) {
     return (
       <SafeAreaView style={styles.center}>
-        <Text>Loading analysis...</Text>
+        <Text>{'loadingAnalysis'}</Text>
       </SafeAreaView>
     );
   }

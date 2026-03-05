@@ -2,27 +2,27 @@ import { Feather as Icon } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import {
-    InvestmentFund,
-    InvestmentPrediction,
-    InvestmentType,
-    calculateSipProjection,
-    compareInvestments,
-    getRecommendationsByRiskLevel,
-    predictInvestmentGrowth,
+  InvestmentFund,
+  InvestmentPrediction,
+  InvestmentType,
+  calculateSipProjection,
+  compareInvestments,
+  getRecommendationsByRiskLevel,
+  predictInvestmentGrowth,
 } from '../../lib/investmentPrediction';
 import RiskProfile, { RiskLevel, computeRiskScore, riskProfileStorageKey } from './RiskProfile';
 
@@ -88,22 +88,6 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
 
   const screenWidth = Math.min(360, Dimensions.get('window').width - 40);
 
-  useEffect(() => {
-    loadPreferences();
-    loadConfirmedPlan();
-  }, [loadConfirmedPlan, loadPreferences]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(readyKey(userId));
-        setReadyJars(raw ? JSON.parse(raw) : []);
-      } catch (error) {
-        console.log('Error loading ready jars', error);
-      }
-    })();
-  }, [userId]);
-
   const loadConfirmedPlan = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(planKey(userId));
@@ -116,15 +100,6 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       console.log('Error loading confirmed plan', e);
     }
   }, [userId]);
-
-  // Only re-load when riskLevel changes. Avoid tying this to preferences to prevent loops.
-  useEffect(() => {
-    if (!riskLevel) return;
-    if (prevRiskRef.current === riskLevel && predictions.length > 0) return;
-    prevRiskRef.current = riskLevel;
-    loadRecommendations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riskLevel]);
 
   const loadPreferences = useCallback(async () => {
     try {
@@ -160,19 +135,13 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     }
   }, [riskLevel, userId]);
 
-  const savePreferences = async (prefs: UserInvestmentPreferences) => {
-    setPreferences(prefs);
-    latestPreferencesRef.current = prefs;
-    await AsyncStorage.setItem(storageKey(userId), JSON.stringify(prefs));
-  };
-
-  const loadRecommendations = async () => {
+  const loadRecommendations = useCallback(async () => {
     if (isLoadingRecommendations) return; // Prevent concurrent loads
     setIsLoadingRecommendations(true);
     setLoading(true);
     try {
       let recommendations = getRecommendationsByRiskLevel(riskLevel);
-      
+
       // Apply user edits
       if (preferences?.editedRecommendations) {
         recommendations = recommendations.map(fund => ({
@@ -197,12 +166,12 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
               if (prev[fund.code]) return prev;
               return { ...prev, [fund.code]: data };
             });
-            
+
             const historicalData = data.data?.map(d => ({
               date: d.date,
               nav: parseFloat(d.nav),
             })) || [];
-            
+
             return predictInvestmentGrowth(fund, historicalData);
           }
         } catch (e) {
@@ -221,7 +190,39 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
       setLoading(false);
       setIsLoadingRecommendations(false);
     }
+  }, [isLoadingRecommendations, preferences, riskLevel]);
+
+  useEffect(() => {
+    loadPreferences();
+    loadConfirmedPlan();
+  }, [loadConfirmedPlan, loadPreferences]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(readyKey(userId));
+        setReadyJars(raw ? JSON.parse(raw) : []);
+      } catch (error) {
+        console.log('Error loading ready jars', error);
+      }
+    })();
+  }, [userId]);
+
+  // Only re-load when riskLevel changes. Avoid tying this to preferences to prevent loops.
+  useEffect(() => {
+    if (!riskLevel) return;
+    if (prevRiskRef.current === riskLevel && predictions.length > 0) return;
+    prevRiskRef.current = riskLevel;
+    loadRecommendations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [riskLevel]);
+
+  const savePreferences = async (prefs: UserInvestmentPreferences) => {
+    setPreferences(prefs);
+    latestPreferencesRef.current = prefs;
+    await AsyncStorage.setItem(storageKey(userId), JSON.stringify(prefs));
   };
+
   const handleRiskLevelChange = useCallback(async (level: RiskLevel) => {
     if (level === riskLevel) return;
     const currentPrefs = latestPreferencesRef.current || preferences || {
@@ -247,7 +248,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
         if (raw) {
           setSelectedPlan(JSON.parse(raw));
         }
-      } catch {}
+      } catch { }
     })();
   }, [userId]);
 
@@ -388,7 +389,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
   const fetchFundDetail = async (prediction: InvestmentPrediction) => {
     setDetailLoading(true);
     setSelectedPrediction(prediction);
-    
+
     if (!fundDetails[prediction.fund.code]) {
       try {
         const res = await fetch(`https://api.mfapi.in/mf/${prediction.fund.code}`);
@@ -412,7 +413,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     try {
       const res = await fetch(`https://api.mfapi.in/mf/${newFundCode.trim()}`);
       if (!res.ok) throw new Error('Fund not found');
-      
+
       const data = await res.json() as FundDetailResponse;
       const newFund: InvestmentFund = {
         id: `custom-${Date.now()}`,
@@ -474,7 +475,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
     if (!selectedPrediction) return null;
     const detail = fundDetails[selectedPrediction.fund.code];
     if (!detail?.data?.length) return null;
-    
+
     const lastPoints = detail.data.slice(-90);
     // Format dates properly: DD/MM format, show only every 15th point
     const formatDate = (dateStr: string) => {
@@ -488,7 +489,7 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
         return dateStr.slice(0, 5);
       }
     };
-    
+
     const labels = lastPoints.map((p, i) => {
       if (i % 15 === 0) {
         return formatDate(p.date);
@@ -557,9 +558,9 @@ export default function EnhancedInvestments({ userId }: EnhancedInvestmentsProps
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView 
-        style={styles.scroll} 
-        contentContainerStyle={{ padding: 20, paddingBottom: Object.keys(selectedPlan).length > 0 ? 100 : 40 }} 
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{ padding: 20, paddingBottom: Object.keys(selectedPlan).length > 0 ? 100 : 40 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerCard}>

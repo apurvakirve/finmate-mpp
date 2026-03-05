@@ -34,9 +34,9 @@ import UpcomingBillsCard from '../../components/UpcomingBillsCard';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
 import { getSpiritAnimalProfile } from '../../constants/spiritAnimals';
 import { AIFinancialAnalyzer } from '../../lib/aiFinancialAnalyzer';
-import { Bill } from '../../lib/BillTracker';
+import { Bill, detectBills, getUpcomingBills, processBillPayments } from '../../lib/BillTracker';
 import { CategoryMemoryService } from '../../lib/CategoryMemoryService';
-import { getLanguage, Language } from '../../lib/i18n';
+import { getLanguage, Language, setLanguage, t } from '../../lib/i18n';
 import { generateSohamData } from '../../lib/sohamDemo';
 import { supabase } from '../../lib/supabase';
 import { AIInsights, FinancialContext } from '../../types/aiInsights';
@@ -1195,13 +1195,13 @@ export default function MoneyTransferApp() {
               <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: AIStudioTheme.colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 16, shadowColor: AIStudioTheme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8 }}>
                 <Icon name="zap" size={36} color="white" />
               </View>
-              <Text style={{ fontSize: 28, fontWeight: 'bold', color: AIStudioTheme.colors.text, marginBottom: 8 }}>FinMate AI</Text>
-              <Text style={{ fontSize: 16, color: AIStudioTheme.colors.textSecondary }}>Smart Finance for Gen Z</Text>
+              <Text style={{ fontSize: 28, fontWeight: 'bold', color: AIStudioTheme.colors.text, marginBottom: 8 }}>{t('appName')} AI</Text>
+              <Text style={{ fontSize: 16, color: AIStudioTheme.colors.textSecondary }}>{t('smartFinanceGenZ')}</Text>
             </View>
 
             <View style={{ width: '100%', gap: 20 }}>
               <View>
-                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>Email Address</Text>
+                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>{t('emailAddress')}</Text>
                 <TextInput
                   placeholder="name@example.com"
                   placeholderTextColor={AIStudioTheme.colors.textMuted}
@@ -1222,7 +1222,7 @@ export default function MoneyTransferApp() {
               </View>
 
               <View>
-                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>Password</Text>
+                <Text style={{ color: AIStudioTheme.colors.textSecondary, marginBottom: 8, marginLeft: 4, fontWeight: '600', fontSize: 14 }}>{t('password')}</Text>
                 <TextInput
                   placeholder="••••••••"
                   placeholderTextColor={AIStudioTheme.colors.textMuted}
@@ -1251,19 +1251,19 @@ export default function MoneyTransferApp() {
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Log In</Text>
+                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>{t('logIn')}</Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setShowSignupForm(true)} style={{ marginTop: 24, alignItems: 'center' }}>
               <Text style={{ color: AIStudioTheme.colors.textSecondary, fontSize: 14 }}>
-                New here? <Text style={{ color: AIStudioTheme.colors.primary, fontWeight: 'bold' }}>Create Account</Text>
+                {t('newHere')} <Text style={{ color: AIStudioTheme.colors.primary, fontWeight: 'bold' }}>{t('createAccount')}</Text>
               </Text>
             </TouchableOpacity>
 
             {/* Language Selector */}
             <View style={{ marginTop: 40, alignItems: 'center', width: '100%' }}>
-              <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 11, marginBottom: 12, letterSpacing: 1 }}>SELECT LANGUAGE</Text>
+              <Text style={{ color: AIStudioTheme.colors.textMuted, fontSize: 11, marginBottom: 12, letterSpacing: 1 }}>{t('selectLanguage')}</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -2933,5 +2933,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
     marginTop: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: AIStudioTheme.colors.border,
+    borderRadius: AIStudioTheme.borderRadius.md,
+    paddingHorizontal: AIStudioTheme.spacing.md,
+    paddingVertical: AIStudioTheme.spacing.sm,
+    marginBottom: AIStudioTheme.spacing.md,
+    fontSize: 16,
+    color: AIStudioTheme.colors.text,
+    backgroundColor: AIStudioTheme.colors.surface,
+    ...AIStudioTheme.shadows.sm,
   },
 }); 

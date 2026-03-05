@@ -3,6 +3,7 @@ import { Feather as Icon } from '@expo/vector-icons';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AIStudioTheme } from '../constants/aiStudioTheme';
+import { t } from '../lib/i18n';
 import { SpiritAnimalType } from '../types/spiritAnimal';
 
 // Map spirit animal types to local images
@@ -64,7 +65,7 @@ export default function FinancialOverviewCard({
                     <View style={styles.headerLeft}>
                         <Icon name="credit-card" size={16} color={AIStudioTheme.colors.primary} />
                         <Text style={styles.headerTitle}>
-                            Wallet Balance
+                            {t('walletBalance')}
                         </Text>
                     </View>
                     <TouchableOpacity onPress={onToggle} style={styles.toggleButton}>
@@ -82,7 +83,7 @@ export default function FinancialOverviewCard({
 
                 {/* Today's Activity - Side by Side */}
                 <View style={styles.activitySection}>
-                    <Text style={styles.activityTitle}>Today's Activity</Text>
+                    <Text style={styles.activityTitle}>{t('todaysActivity')}</Text>
                     <View style={styles.activityRow}>
                         {/* Income */}
                         <View style={styles.activityItem}>
@@ -90,7 +91,7 @@ export default function FinancialOverviewCard({
                                 <Icon name="arrow-down-left" size={16} color="#10B981" />
                             </View>
                             <View>
-                                <Text style={styles.activityLabel}>Income</Text>
+                                <Text style={styles.activityLabel}>{t('income')}</Text>
                                 <Text style={[styles.activityValue, { color: '#10B981' }]}>
                                     +₹{todayIncome.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </Text>
@@ -103,7 +104,7 @@ export default function FinancialOverviewCard({
                                 <Icon name="arrow-up-right" size={16} color="#EF4444" />
                             </View>
                             <View>
-                                <Text style={styles.activityLabel}>Spending</Text>
+                                <Text style={styles.activityLabel}>{t('spending')}</Text>
                                 <Text style={[styles.activityValue, { color: '#EF4444' }]}>
                                     -₹{todaySpending.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                                 </Text>

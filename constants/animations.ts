@@ -74,7 +74,7 @@ export const Animations = {
             {
                 translateY: withSpring(0, {
                     ...SpringConfigs.gentle,
-                    initialVelocity: -distance,
+                    velocity: -distance,
                 }),
             },
         ],

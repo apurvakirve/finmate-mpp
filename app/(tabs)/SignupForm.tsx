@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { AIStudioTheme } from '../../constants/aiStudioTheme';
+import { t } from '../../lib/i18n';
 import SpiritAnimalOnboarding from '../../screens/SpiritAnimalOnboarding';
 import { SpiritAnimalType } from '../../types/spiritAnimal';
 
@@ -156,17 +157,17 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             <View style={styles.progressBar}>
               <View style={[styles.progressFill, { width: `${(step / 4) * 100}%` }]} />
             </View>
-            <Text style={styles.stepIndicator}>Step {step} of 4</Text>
+            <Text style={styles.stepIndicator}>{t('step')} {step} {t('of')} 4</Text>
           </>
         )}
 
         {step === 1 && (
           <View style={styles.stepContent}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Let's get started with your basic information</Text>
+            <Text style={styles.title}>{t('createAccount')}</Text>
+            <Text style={styles.subtitle}>{t('welcome')}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name *</Text>
+              <Text style={styles.label}>{t('fullName')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Enter your full name"
@@ -178,7 +179,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email *</Text>
+              <Text style={styles.label}>{t('email')} *</Text>
               <TextInput
                 style={[
                   styles.input,
@@ -197,7 +198,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Password *</Text>
+              <Text style={styles.label}>{t('password')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Minimum 6 characters"
@@ -231,11 +232,11 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
 
         {step === 2 && (
           <View style={styles.stepContent}>
-            <Text style={styles.title}>Personal Details</Text>
-            <Text style={styles.subtitle}>Help us understand you better</Text>
+            <Text style={styles.title}>{t('personalDetails')}</Text>
+            <Text style={styles.subtitle}>{t('helpUsUnderstand')}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Age *</Text>
+              <Text style={styles.label}>{t('age')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Enter your age"
@@ -247,7 +248,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number *</Text>
+              <Text style={styles.label}>{t('phoneNumber')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="+91 9876543210"
@@ -259,7 +260,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>City *</Text>
+              <Text style={styles.label}>{t('city')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Your city"
@@ -271,7 +272,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Occupation *</Text>
+              <Text style={styles.label}>{t('occupation')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="e.g., Delivery Partner, Student, etc."
@@ -285,11 +286,11 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
 
         {step === 3 && (
           <View style={styles.stepContent}>
-            <Text style={styles.title}>Financial Profile</Text>
-            <Text style={styles.subtitle}>This helps us personalize your experience</Text>
+            <Text style={styles.title}>{t('financialProfile')}</Text>
+            <Text style={styles.subtitle}>{t('helpPersonalize')}</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Monthly Income (₹) *</Text>
+              <Text style={styles.label}>{t('monthlyIncome')} *</Text>
               <TextInput
                 style={styles.input}
                 placeholder="Enter approximate monthly income"
@@ -301,7 +302,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Marital Status</Text>
+              <Text style={styles.label}>{t('maritalStatus')}</Text>
               <View style={styles.optionRow}>
                 {(['single', 'married'] as const).map((status) => (
                   <TouchableOpacity
@@ -318,7 +319,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
                         formData.maritalStatus === status && styles.optionTextActive,
                       ]}
                     >
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                      {t(status)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -326,7 +327,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Number of Dependents</Text>
+              <Text style={styles.label}>{t('dependents')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="0"
@@ -338,7 +339,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Primary Financial Goal</Text>
+              <Text style={styles.label}>{t('primaryGoal')}</Text>
               <View style={styles.goalGrid}>
                 {(['emergency', 'education', 'home', 'vacation', 'retirement', 'wealth'] as const).map((goal) => (
                   <TouchableOpacity
@@ -355,7 +356,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
                         formData.primaryGoal === goal && styles.goalTextActive,
                       ]}
                     >
-                      {goal.charAt(0).toUpperCase() + goal.slice(1)}
+                      {t(goal)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -363,7 +364,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Investment Experience</Text>
+              <Text style={styles.label}>{t('investmentExperience')}</Text>
               <View style={styles.optionRow}>
                 {(['none', 'basic', 'experienced'] as const).map((exp) => (
                   <TouchableOpacity
@@ -380,7 +381,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
                         formData.investmentExperience === exp && styles.optionTextActive,
                       ]}
                     >
-                      {exp.charAt(0).toUpperCase() + exp.slice(1)}
+                      {t(exp)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -398,7 +399,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
             {step > 1 && (
               <TouchableOpacity style={styles.backButton} onPress={() => setStep(step - 1)}>
                 <Icon name="arrow-left" size={18} color={AIStudioTheme.colors.primary} />
-                <Text style={styles.backButtonText}>Back</Text>
+                <Text style={styles.backButtonText}>{t('back')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -407,7 +408,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
               disabled={loading}
             >
               <Text style={styles.nextButtonText}>
-                {step === 3 ? 'Next' : 'Next'}
+                {t('next')}
               </Text>
               {step < 3 && <Icon name="arrow-right" size={18} color="white" style={{ marginLeft: 6 }} />}
             </TouchableOpacity>
@@ -415,7 +416,7 @@ export default function SignupForm({ onSubmit, onCancel, loading }: SignupFormPr
         )}
 
         <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
