@@ -46,6 +46,8 @@ import PiggyBanks from './PiggyBanks';
 import { RiskLevel } from './RiskProfile';
 import SignupForm from './SignupForm';
 import TransactionAnalysis from './TransactionAnalysis';
+import CalculatorsTab from './CalculatorsTab';
+
 
 // Add transaction types constant
 const TRANSACTION_TYPES = [
@@ -72,7 +74,8 @@ export default function MoneyTransferApp() {
   const [transactionType, setTransactionType] = useState('');
   const [categoryType, setCategoryType] = useState('other');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'investments'>('transfer');
+  const [activeTab, setActiveTab] = useState<'transfer' | 'piggy' | 'analysis' | 'investments' | 'calculators'>('transfer');
+
   const [piggyRiskLevel, setPiggyRiskLevel] = useState<RiskLevel>('moderate');
   const [showTotalBalance, setShowTotalBalance] = useState(false);
   // Cash is now unified with wallet balance (currentUser.balance)
@@ -1802,7 +1805,13 @@ export default function MoneyTransferApp() {
             monthlyIncome={75000} // Default estimated income
           />
         )}
+
+        {/* Calculators Tab */}
+        {activeTab === 'calculators' && (
+          <CalculatorsTab />
+        )}
       </Animated.View>
+
 
 
       {/* Bottom Tabs */}
@@ -1851,7 +1860,19 @@ export default function MoneyTransferApp() {
           />
           <Text style={[styles.bottomTabText, activeTab === 'investments' && styles.bottomTabTextActive]}>Invest</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bottomTab}
+          onPress={() => setActiveTab('calculators')}
+        >
+          <Icon
+            name="command"
+            size={22}
+            color={activeTab === 'calculators' ? AIStudioTheme.colors.primary : AIStudioTheme.colors.textMuted}
+          />
+          <Text style={[styles.bottomTabText, activeTab === 'calculators' && styles.bottomTabTextActive]}>Tools</Text>
+        </TouchableOpacity>
       </View>
+
 
       {/* QR Scanner Modal */}
       <Modal
