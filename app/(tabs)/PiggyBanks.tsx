@@ -3114,6 +3114,7 @@ const styles = StyleSheet.create({
   overspendingMessage: {
     fontSize: 13,
     color: AIStudioTheme.colors.textSecondary,
-    lineHeight: 18,
+  lineHeight: 18,
   },
 });
+
