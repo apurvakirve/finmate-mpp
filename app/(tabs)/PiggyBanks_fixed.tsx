@@ -2958,7 +2958,7 @@ const styles = StyleSheet.create({
   },
 
   // --- small utilities (kept for references)
-  jarsGrid: {
+  jarsGrids: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
